@@ -426,9 +426,9 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
         <input type="email" id="login-email" placeholder="prenom.nom@boa.com"
           onkeydown="if(event.key==='Enter') doLogin()">
       </div>
-      <button class="auth-btn" onclick="doLogin()">Recevoir mon lien de connexion</button>
+      <button class="auth-btn" onclick="doLogin()">Accéder</button>
       <div class="auth-toggle" style="margin-top:12px;font-size:11px;color:var(--gray);">
-        Un lien sécurisé sera envoyé à votre adresse email.
+        Entrez votre email et accédez directement à l'application.
       </div>
     </div>
   </div>
@@ -2020,21 +2020,35 @@ function showAuthSuccess(msg) {
   document.getElementById('auth-error').style.display = 'none';
 }
 
+// Mot de passe partagé interne — transparent pour l'utilisateur
+const _APP_PWD = 'BOA-IGOR-V4-2026!';
+
 async function doLogin() {
   if (!sb) { showAuthError('Supabase non configuré — mode local uniquement.'); return; }
   const email = document.getElementById('login-email').value.trim();
   if (!email) { showAuthError('Veuillez renseigner votre email.'); return; }
   const btn = document.querySelector('.auth-btn');
   btn.disabled = true;
-  btn.textContent = 'Envoi en cours…';
-  const { error } = await sb.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true }
-  });
+  btn.textContent = 'Connexion en cours…';
+
+  // Tentative de connexion
+  const { error: e1 } = await sb.auth.signInWithPassword({ email, password: _APP_PWD });
+  if (!e1) { btn.disabled = false; btn.textContent = 'Accéder'; return; }
+
+  // Compte inexistant → création automatique puis connexion
+  if (e1.message && e1.message.toLowerCase().includes('invalid login credentials')) {
+    const { error: e2 } = await sb.auth.signUp({ email, password: _APP_PWD });
+    if (e2) { btn.disabled = false; btn.textContent = 'Accéder'; showAuthError(e2.message); return; }
+    // Reconnexion immédiate après création
+    const { error: e3 } = await sb.auth.signInWithPassword({ email, password: _APP_PWD });
+    if (e3) {
+      showAuthSuccess('Compte créé. Si vous ne vous connectez pas automatiquement, cliquez à nouveau sur Accéder.');
+    }
+  } else {
+    showAuthError(e1.message);
+  }
   btn.disabled = false;
-  btn.textContent = 'Recevoir mon lien de connexion';
-  if (error) showAuthError(error.message);
-  else showAuthSuccess('✉️ Lien envoyé ! Vérifiez votre email et cliquez sur le lien pour vous connecter.');
+  btn.textContent = 'Accéder';
 }
 
 async function doLogout() {
