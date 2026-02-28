@@ -418,43 +418,17 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
     <div id="auth-error" class="auth-error"></div>
     <div id="auth-success" class="auth-msg"></div>
 
-    <!-- LOGIN FORM -->
+    <!-- MAGIC LINK FORM -->
     <div id="form-login">
       <div class="auth-title">Connexion</div>
       <div class="auth-field">
-        <label>Email</label>
-        <input type="email" id="login-email" placeholder="prenom.nom@boa.com">
-      </div>
-      <div class="auth-field">
-        <label>Mot de passe</label>
-        <input type="password" id="login-pwd" placeholder="••••••••"
+        <label>Votre email</label>
+        <input type="email" id="login-email" placeholder="prenom.nom@boa.com"
           onkeydown="if(event.key==='Enter') doLogin()">
       </div>
-      <button class="auth-btn" onclick="doLogin()">Se connecter</button>
-      <div class="auth-toggle">Pas encore de compte ?
-        <a onclick="toggleAuthForm('register')">Créer un compte</a>
-      </div>
-    </div>
-
-    <!-- REGISTER FORM -->
-    <div id="form-register" style="display:none;">
-      <div class="auth-title">Créer un compte</div>
-      <div class="auth-field">
-        <label>Prénom Nom</label>
-        <input type="text" id="reg-name" placeholder="Jean Dupont">
-      </div>
-      <div class="auth-field">
-        <label>Email</label>
-        <input type="email" id="reg-email" placeholder="prenom.nom@boa.com">
-      </div>
-      <div class="auth-field">
-        <label>Mot de passe (min. 8 caractères)</label>
-        <input type="password" id="reg-pwd" placeholder="••••••••"
-          onkeydown="if(event.key==='Enter') doRegister()">
-      </div>
-      <button class="auth-btn" onclick="doRegister()">Créer mon compte</button>
-      <div class="auth-toggle">Déjà un compte ?
-        <a onclick="toggleAuthForm('login')">Se connecter</a>
+      <button class="auth-btn" onclick="doLogin()">Recevoir mon lien de connexion</button>
+      <div class="auth-toggle" style="margin-top:12px;font-size:11px;color:var(--gray);">
+        Un lien sécurisé sera envoyé à votre adresse email.
       </div>
     </div>
   </div>
@@ -2030,8 +2004,7 @@ async function initApp() {
 // AUTH FUNCTIONS
 // ─────────────────────────────────────────────────────────────────────────
 function toggleAuthForm(mode) {
-  document.getElementById('form-login').style.display    = mode === 'login'    ? '' : 'none';
-  document.getElementById('form-register').style.display = mode === 'register' ? '' : 'none';
+  // Magic link mode — single form only
   document.getElementById('auth-error').style.display   = 'none';
   document.getElementById('auth-success').style.display = 'none';
 }
@@ -2050,26 +2023,18 @@ function showAuthSuccess(msg) {
 async function doLogin() {
   if (!sb) { showAuthError('Supabase non configuré — mode local uniquement.'); return; }
   const email = document.getElementById('login-email').value.trim();
-  const pwd   = document.getElementById('login-pwd').value;
-  if (!email || !pwd) { showAuthError('Veuillez renseigner votre email et mot de passe.'); return; }
-  const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
-  if (error) showAuthError(error.message === 'Invalid login credentials'
-    ? 'Email ou mot de passe incorrect.' : error.message);
-}
-
-async function doRegister() {
-  if (!sb) { showAuthError('Supabase non configuré.'); return; }
-  const name  = document.getElementById('reg-name').value.trim();
-  const email = document.getElementById('reg-email').value.trim();
-  const pwd   = document.getElementById('reg-pwd').value;
-  if (!name || !email || !pwd) { showAuthError('Tous les champs sont requis.'); return; }
-  if (pwd.length < 8) { showAuthError('Le mot de passe doit faire au moins 8 caractères.'); return; }
-  const { error } = await sb.auth.signUp({
-    email, password: pwd,
-    options: { data: { full_name: name } }
+  if (!email) { showAuthError('Veuillez renseigner votre email.'); return; }
+  const btn = document.querySelector('.auth-btn');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true }
   });
+  btn.disabled = false;
+  btn.textContent = 'Recevoir mon lien de connexion';
   if (error) showAuthError(error.message);
-  else showAuthSuccess('Compte créé ! Vérifiez votre email pour confirmer votre inscription.');
+  else showAuthSuccess('✉️ Lien envoyé ! Vérifiez votre email et cliquez sur le lien pour vous connecter.');
 }
 
 async function doLogout() {
