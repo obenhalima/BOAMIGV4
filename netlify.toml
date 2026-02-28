@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/*"
+  to   = "/BOA_Programme_Pilotage_Online.html"
+  status = 200

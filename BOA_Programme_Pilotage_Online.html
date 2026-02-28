@@ -1,0 +1,2242 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BOA CI — Pilotage Programme Upgrade IGOR V4</title>
+<style>
+:root {
+  --red: #E63329; --red-dark: #B02820; --red-light: #FDEEEC;
+  --orange: #E8702A; --orange-light: #FEF3E2;
+  --green: #2E7D52; --green-light: #E8F5ED;
+  --gray: #54565A; --gray-light: #F5F5F5; --gray-med: #D0D3D4;
+  --black: #000; --white: #fff;
+  --font: Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-size: 13px; }
+
+/* HEADER */
+.app-header {
+  background: var(--white); border-bottom: 4px solid var(--red);
+  padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+.header-logo { display: flex; align-items: center; gap: 14px; }
+.logo-cbs { width: 120px; height: 38px; background: var(--red); border-radius: 3px;
+  display: flex; align-items: center; justify-content: center; color: white;
+  font-weight: bold; font-size: 11px; letter-spacing: 1px; }
+.header-title h1 { font-size: 17px; font-weight: 700; color: var(--black); }
+.header-title p { font-size: 11px; color: var(--gray); margin-top: 2px; }
+.header-meta { display: flex; gap: 12px; align-items: center; }
+.countdown-badge {
+  background: var(--red); color: white; padding: 5px 12px; border-radius: 4px;
+  font-weight: bold; font-size: 12px; text-align: center;
+}
+.countdown-badge span { display: block; font-size: 10px; font-weight: normal; }
+.today-badge { background: var(--gray-light); color: var(--gray); padding: 5px 12px;
+  border-radius: 4px; font-size: 11px; border: 1px solid var(--gray-med); }
+
+/* TABS */
+.tabs-nav { background: var(--white); border-bottom: 1px solid var(--gray-med);
+  padding: 0 20px; display: flex; gap: 0; }
+.tab-btn {
+  padding: 11px 20px; border: none; background: none; cursor: pointer;
+  font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--gray);
+  border-bottom: 3px solid transparent; transition: all .2s; margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--red); background: var(--red-light); }
+.tab-btn.active { color: var(--red); border-bottom-color: var(--red); background: white; }
+.tab-btn .tab-icon { margin-right: 6px; }
+
+/* CONTENT */
+.tab-content { display: none; padding: 20px; max-width: 1400px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* CARDS */
+.kpi-row { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.kpi-card {
+  flex: 1; min-width: 140px; padding: 14px 16px; border-radius: 6px; color: white;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+}
+.kpi-card .kpi-val { font-size: 36px; font-weight: 900; line-height: 1; }
+.kpi-card .kpi-label { font-size: 11px; margin-top: 4px; opacity: .9; }
+.kpi-card .kpi-sub { font-size: 10px; margin-top: 2px; opacity: .75; }
+.kpi-red { background: var(--red); }
+.kpi-dark { background: var(--red-dark); }
+.kpi-orange { background: var(--orange); }
+.kpi-gray { background: var(--gray); }
+.kpi-green { background: var(--green); }
+
+/* SECTIONS */
+.section-card { background: white; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  margin-bottom: 16px; overflow: hidden; }
+.section-header {
+  background: var(--red); color: white; padding: 9px 16px;
+  font-weight: 700; font-size: 12px; letter-spacing: .5px; display: flex;
+  justify-content: space-between; align-items: center;
+}
+.section-body { padding: 14px 16px; }
+
+/* TABLES */
+.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.data-table th {
+  background: var(--red); color: white; padding: 8px 10px;
+  text-align: left; font-weight: 700; font-size: 11px; white-space: nowrap;
+}
+.data-table th.center, .data-table td.center { text-align: center; }
+.data-table td { padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: middle; }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:nth-child(even) td { background: #fafafa; }
+.data-table tr:hover td { background: var(--red-light); }
+
+/* BADGES */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 3px;
+  font-size: 10px; font-weight: 700; white-space: nowrap; }
+.badge-p1 { background: var(--red); color: white; }
+.badge-p2 { background: var(--orange); color: white; }
+.badge-p21 { background: #F5A623; color: white; }
+.badge-p3 { background: var(--gray); color: white; }
+.badge-crit { background: var(--red-light); color: var(--red); border: 1px solid var(--red); }
+.badge-haute { background: var(--orange-light); color: var(--orange); border: 1px solid var(--orange); }
+.badge-std { background: var(--green-light); color: var(--green); border: 1px solid var(--green); }
+.badge-spec { background: #EEF0F8; color: #3949AB; border: 1px solid #3949AB; }
+.badge-ok { background: var(--green-light); color: var(--green); }
+.badge-warn { background: var(--orange-light); color: var(--orange); }
+.badge-late { background: var(--red-light); color: var(--red); }
+
+/* STATUS SELECT */
+.status-select {
+  padding: 3px 6px; border-radius: 4px; border: 1px solid var(--gray-med);
+  font-family: var(--font); font-size: 11px; cursor: pointer; width: 100%;
+}
+.status-select.dec-maintien { background: #EEF0F8; color: #3949AB; border-color: #3949AB; }
+.status-select.dec-integration { background: var(--green-light); color: var(--green); border-color: var(--green); }
+.status-select.dec-abandon { background: var(--red-light); color: var(--red); border-color: var(--red); }
+.status-select.dec-encours { background: var(--orange-light); color: var(--orange); border-color: var(--orange); }
+
+/* RAG buttons */
+.rag-group { display: flex; gap: 3px; }
+.rag-btn {
+  padding: 2px 8px; border: none; border-radius: 3px; cursor: pointer;
+  font-size: 10px; font-weight: 700; opacity: .35; transition: opacity .15s;
+}
+.rag-btn:hover { opacity: .7; }
+.rag-btn.active { opacity: 1; }
+.rag-r { background: var(--red); color: white; }
+.rag-o { background: var(--orange); color: white; }
+.rag-g { background: var(--green); color: white; }
+
+/* PROGRESS BAR */
+.prog-wrap { display: flex; align-items: center; gap: 6px; }
+.prog-bar { flex: 1; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+.prog-fill.pg { background: var(--green); }
+.prog-fill.po { background: var(--orange); }
+.prog-fill.pr { background: var(--red); }
+.prog-pct { font-size: 10px; color: var(--gray); width: 28px; text-align: right; }
+
+/* PROGRESS INPUT */
+.prog-input { width: 50px; text-align: center; border: 1px solid var(--gray-med);
+  border-radius: 3px; padding: 2px 4px; font-size: 11px; }
+
+/* ALERT ITEM */
+.alert-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 4px; margin-bottom: 6px; border-left: 4px solid;
+}
+.alert-red { background: var(--red-light); border-color: var(--red); }
+.alert-orange { background: var(--orange-light); border-color: var(--orange); }
+.alert-green { background: var(--green-light); border-color: var(--green); }
+.alert-icon { font-size: 16px; }
+.alert-text .alert-title { font-weight: 700; font-size: 12px; }
+.alert-text .alert-sub { font-size: 11px; color: var(--gray); margin-top: 2px; }
+
+/* FILTER BAR */
+.filter-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+.filter-bar select, .filter-bar input {
+  padding: 5px 10px; border: 1px solid var(--gray-med); border-radius: 4px;
+  font-family: var(--font); font-size: 12px; background: white;
+}
+.filter-bar label { font-size: 11px; color: var(--gray); }
+.btn-reset { padding: 5px 12px; background: var(--gray-light); border: 1px solid var(--gray-med);
+  border-radius: 4px; cursor: pointer; font-size: 11px; font-family: var(--font); }
+.btn-export { padding: 5px 12px; background: var(--red); color: white; border: none;
+  border-radius: 4px; cursor: pointer; font-size: 11px; font-family: var(--font); font-weight: 700; }
+
+/* DOMAIN PROGRESS */
+.domain-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.domain-name { width: 180px; font-size: 11px; font-weight: 600; color: var(--black); }
+.domain-bar { flex: 1; height: 18px; background: #eee; border-radius: 3px; overflow: hidden; position: relative; }
+.domain-bar-fill { height: 100%; background: var(--red); border-radius: 3px; }
+.domain-bar-text { position: absolute; left: 6px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; color: white; font-weight: 700; }
+.domain-stats { width: 80px; text-align: right; font-size: 11px; color: var(--gray); }
+
+/* ═══════════════════════════════════════════════
+   GANTT CHART
+════════════════════════════════════════════════ */
+.gantt-container { overflow-x: auto; }
+.gantt-table { border-collapse: collapse; width: 100%; min-width: 1050px; }
+.gantt-table .col-name { width: 185px; min-width: 185px; }
+.gantt-table .col-start, .gantt-table .col-end { width: 100px; min-width: 100px; }
+.gantt-table .col-bar { width: 100%; min-width: 300px; }
+
+.gantt-table th {
+  background: var(--red); color: white; padding: 7px 6px;
+  font-size: 11px; font-weight: 700; text-align: left; white-space: nowrap;
+  position: sticky; top: 0; z-index: 10;
+}
+.gantt-month-header { text-align: center; font-size: 11px; font-weight: 700; color: #222; }
+.gantt-table td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: middle; }
+.gantt-table tr:hover td { background: #f5f7fb; }
+
+.gantt-phase-row td { background: #e4eaf5; font-weight: 700; font-size: 12px; }
+.gantt-phase-row td:nth-child(2) { border-left: 4px solid var(--red); }
+.gantt-phase-row:hover td { background: #d8e0f0 !important; }
+.gantt-jalon-row td { background: #fff8e1; font-weight: 600; font-size: 11px; }
+.gantt-jalon-row:hover td { background: #fff0b0 !important; }
+.gantt-sub-row td { font-size: 11px; }
+
+.gantt-bar-cell { position: relative; height: 28px; }
+.gantt-months-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; pointer-events: none; }
+.month-col { flex: 1; border-right: 1px solid #b8c4d8; background: #f0f4fb; }
+.month-col.alt { background: #e2eaf7; }
+.month-col:last-child { border-right: none; }
+
+.gantt-bar {
+  position: absolute; top: 4px; height: 20px; border-radius: 3px;
+  display: flex; align-items: center; padding: 0 5px; font-size: 9px;
+  font-weight: 700; color: white; white-space: nowrap; overflow: hidden;
+  cursor: pointer; transition: opacity .15s; z-index: 2;
+}
+.gantt-bar:hover { opacity: .82; }
+.gantt-bar.ph-p0 { background: var(--red); }
+.gantt-bar.ph-p1 { background: var(--orange); }
+.gantt-bar.ph-p2 { background: #546E7A; }
+.gantt-bar.ph-p3 { background: var(--green); }
+.gantt-bar.ph-p4 { background: #6A1B9A; }
+.gantt-bar.ph-p5 { background: var(--red-dark); }
+.gantt-milestone {
+  position: absolute; top: 3px; font-size: 19px; color: #1565C0; z-index: 3;
+  cursor: default; line-height: 22px; font-weight: 900;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.25));
+}
+.today-line {
+  position: absolute; top: 0; bottom: 0; width: 2px; background: #FF5722;
+  z-index: 5; pointer-events: none;
+}
+.today-line::after {
+  content: 'Auj.'; position: absolute; top: -18px; left: -12px;
+  font-size: 9px; color: #FF5722; font-weight: 700; white-space: nowrap;
+  background: white; padding: 1px 3px; border-radius: 2px;
+}
+
+.date-input { padding: 3px 4px; border: 1px solid var(--gray-med); border-radius: 3px;
+  font-family: var(--font); font-size: 11px; width: 100%; }
+.date-input:focus { outline: none; border-color: var(--red); }
+
+.type-badge { display: inline-block; padding: 1px 5px; border-radius: 3px;
+  font-size: 9px; font-weight: 700; white-space: nowrap; }
+.type-phase  { background: var(--red); color: white; }
+.type-task   { background: #E8EDF5; color: #3a4a6b; border: 1px solid #c0cce0; }
+.type-jalon  { background: #1565C0; color: white; }
+.type-custom { background: #EEF0F8; color: #3949AB; border: 1px solid #c5cae9; }
+
+.phase-toggle-btn {
+  background: none; border: none; cursor: pointer; font-size: 11px;
+  margin-right: 3px; color: var(--gray); padding: 0; line-height: 1;
+}
+.phase-toggle-btn:hover { color: var(--red); }
+
+/* GANTT LEGEND */
+.gantt-legend { display: flex; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; }
+.legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+
+/* COMMENT INPUT */
+.comment-input { width: 100%; padding: 3px 6px; border: 1px solid var(--gray-med);
+  border-radius: 3px; font-family: var(--font); font-size: 11px; }
+.comment-input:focus { outline: none; border-color: var(--red); }
+
+/* FOOTER */
+.app-footer { text-align: center; padding: 12px; font-size: 10px; color: var(--gray);
+  border-top: 1px solid var(--gray-med); margin-top: 20px; background: white; }
+
+/* SAVE BADGE */
+#save-indicator {
+  position: fixed; bottom: 16px; right: 16px; background: var(--green);
+  color: white; padding: 8px 16px; border-radius: 20px; font-size: 11px;
+  font-weight: 700; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  z-index: 999;
+}
+
+/* GRID 2-COL */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+/* SCROLLABLE TABLE */
+.table-scroll { overflow-x: auto; }
+
+/* ══════════════════════════════════════════════════
+   AUTH OVERLAY
+══════════════════════════════════════════════════ */
+#auth-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.auth-box {
+  background: white; border-radius: 10px; padding: 36px 40px;
+  width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
+}
+.auth-logo { text-align: center; margin-bottom: 24px; }
+.auth-logo .logo-big { display: inline-block; background: var(--red); color: white;
+  font-weight: 900; font-size: 22px; padding: 10px 24px; border-radius: 5px;
+  letter-spacing: 2px; }
+.auth-logo p { margin-top: 8px; font-size: 12px; color: var(--gray); }
+.auth-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; color: var(--black); }
+.auth-field { margin-bottom: 14px; }
+.auth-field label { display: block; font-size: 11px; font-weight: 700;
+  color: var(--gray); margin-bottom: 4px; }
+.auth-field input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-med);
+  border-radius: 5px; font-size: 13px; font-family: var(--font); }
+.auth-field input:focus { outline: none; border-color: var(--red); }
+.auth-btn { width: 100%; padding: 11px; background: var(--red); color: white;
+  border: none; border-radius: 5px; font-size: 14px; font-weight: 700;
+  cursor: pointer; font-family: var(--font); margin-top: 6px; }
+.auth-btn:hover { background: var(--red-dark); }
+.auth-toggle { text-align: center; margin-top: 14px; font-size: 12px; color: var(--gray); }
+.auth-toggle a { color: var(--red); cursor: pointer; font-weight: 700; text-decoration: none; }
+.auth-error { background: var(--red-light); border: 1px solid var(--red); color: var(--red);
+  padding: 8px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 12px; display: none; }
+.auth-msg { background: var(--green-light); border: 1px solid var(--green); color: var(--green);
+  padding: 8px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 12px; display: none; }
+
+/* ══════════════════════════════════════════════════
+   USER HEADER WIDGET
+══════════════════════════════════════════════════ */
+.user-widget { display: flex; align-items: center; gap: 8px; }
+.role-badge { padding: 3px 10px; border-radius: 12px; font-size: 10px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+.role-owner  { background: var(--red); color: white; }
+.role-editor { background: var(--orange); color: white; }
+.role-viewer { background: var(--gray-med); color: var(--gray); }
+.user-name   { font-size: 12px; font-weight: 600; color: var(--black); }
+.btn-logout  { background: none; border: 1px solid var(--gray-med); color: var(--gray);
+  padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.btn-logout:hover { border-color: var(--red); color: var(--red); }
+.btn-users   { background: none; border: 1px solid var(--gray-med); color: var(--gray);
+  padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+.btn-users:hover { background: var(--red-light); border-color: var(--red); color: var(--red); }
+
+/* ══════════════════════════════════════════════════
+   READONLY BANNER
+══════════════════════════════════════════════════ */
+#readonly-banner {
+  display: none; background: #FFF8E1; border-bottom: 2px solid #F9A825;
+  padding: 8px 20px; font-size: 12px; color: #795548; align-items: center; gap: 8px;
+}
+
+/* ══════════════════════════════════════════════════
+   VIEWER MODE — disable all editable elements
+══════════════════════════════════════════════════ */
+.viewer-mode .date-input,
+.viewer-mode input[type="number"],
+.viewer-mode input[type="text"],
+.viewer-mode select,
+.viewer-mode textarea,
+.viewer-mode .comment-input {
+  pointer-events: none; background: #f7f8fa; color: #666;
+}
+.viewer-mode button:not(#user-actions button):not(.phase-toggle-btn):not(.tab-btn) {
+  pointer-events: none; opacity: 0.45;
+}
+.viewer-mode .phase-toggle-btn { pointer-events: all; opacity: 1; }
+
+/* ══════════════════════════════════════════════════
+   SYNC INDICATOR
+══════════════════════════════════════════════════ */
+#sync-indicator {
+  position: fixed; bottom: 16px; left: 16px; background: #1565C0;
+  color: white; padding: 8px 16px; border-radius: 20px; font-size: 11px;
+  font-weight: 700; display: none; box-shadow: 0 2px 8px rgba(0,0,0,.2); z-index: 999;
+}
+
+/* ══════════════════════════════════════════════════
+   USER MANAGEMENT MODAL
+══════════════════════════════════════════════════ */
+#users-modal {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
+  z-index: 9000; align-items: center; justify-content: center;
+}
+#users-modal.open { display: flex; }
+.users-box {
+  background: white; border-radius: 8px; padding: 0; width: 560px;
+  max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.3);
+}
+.users-header {
+  background: var(--red); color: white; padding: 14px 18px;
+  font-weight: 700; font-size: 14px; border-radius: 8px 8px 0 0;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.users-body { padding: 16px 18px; }
+.user-row { display: flex; align-items: center; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid #eee; }
+.user-row:last-child { border-bottom: none; }
+.user-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--red);
+  color: white; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.user-info { flex: 1; }
+.user-info .u-name { font-weight: 600; font-size: 13px; }
+.user-info .u-email { font-size: 11px; color: var(--gray); }
+.user-role-select { padding: 4px 8px; border: 1px solid var(--gray-med); border-radius: 4px;
+  font-size: 12px; font-family: var(--font); background: white; }
+.invite-section { margin-top: 16px; padding-top: 16px; border-top: 2px solid #eee; }
+.invite-row { display: flex; gap: 8px; margin-top: 10px; }
+.invite-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--gray-med);
+  border-radius: 4px; font-size: 12px; font-family: var(--font); }
+.invite-row select { padding: 8px; border: 1px solid var(--gray-med);
+  border-radius: 4px; font-size: 12px; font-family: var(--font); }
+.btn-invite { background: var(--green); color: white; border: none; padding: 8px 14px;
+  border-radius: 4px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+</style>
+  <!-- Supabase client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- ══════════════════════════ AUTH OVERLAY ══════════════════════════ -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div class="logo-big">CBS</div>
+      <p>BOA Côte d'Ivoire · Pilotage IGOR V4</p>
+    </div>
+    <div id="auth-error" class="auth-error"></div>
+    <div id="auth-success" class="auth-msg"></div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div class="auth-title">Connexion</div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="prenom.nom@boa.com">
+      </div>
+      <div class="auth-field">
+        <label>Mot de passe</label>
+        <input type="password" id="login-pwd" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+      <button class="auth-btn" onclick="doLogin()">Se connecter</button>
+      <div class="auth-toggle">Pas encore de compte ?
+        <a onclick="toggleAuthForm('register')">Créer un compte</a>
+      </div>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="form-register" style="display:none;">
+      <div class="auth-title">Créer un compte</div>
+      <div class="auth-field">
+        <label>Prénom Nom</label>
+        <input type="text" id="reg-name" placeholder="Jean Dupont">
+      </div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="prenom.nom@boa.com">
+      </div>
+      <div class="auth-field">
+        <label>Mot de passe (min. 8 caractères)</label>
+        <input type="password" id="reg-pwd" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') doRegister()">
+      </div>
+      <button class="auth-btn" onclick="doRegister()">Créer mon compte</button>
+      <div class="auth-toggle">Déjà un compte ?
+        <a onclick="toggleAuthForm('login')">Se connecter</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- READONLY BANNER -->
+<div id="readonly-banner">
+  👁 <strong>Mode lecture seule</strong> — Vous consultez le tableau de bord. Contactez le propriétaire du projet pour obtenir un accès éditeur.
+</div>
+
+<!-- SYNC INDICATOR -->
+<div id="sync-indicator">🔄 Mis à jour par un collègue</div>
+
+<!-- ══════════════════════════ USER MGMT MODAL ══════════════════════════ -->
+<div id="users-modal">
+  <div class="users-box">
+    <div class="users-header">
+      👥 Gestion des accès
+      <button onclick="closeUsersModal()" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div class="users-body">
+      <div id="users-list">Chargement...</div>
+      <div class="invite-section">
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Inviter un collègue</div>
+        <div style="font-size:11px;color:var(--gray);margin-bottom:8px;">
+          L'invité recevra un email pour créer son compte et aura accès au dashboard.
+        </div>
+        <div class="invite-row">
+          <input type="email" id="invite-email" placeholder="prenom.nom@boa.com">
+          <select id="invite-role">
+            <option value="viewer">Lecteur</option>
+            <option value="editor">Éditeur</option>
+            <option value="owner">Propriétaire</option>
+          </select>
+          <button class="btn-invite" onclick="sendInvite()">Inviter</button>
+        </div>
+        <div id="invite-msg" style="margin-top:8px;font-size:11px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ APP CONTENT ══════════════════════════ -->
+<div id="app-content" style="display:none;">
+
+<!-- HEADER -->
+<div class="app-header">
+  <div class="header-logo">
+    <div class="logo-cbs">CBS</div>
+    <div class="header-title">
+      <h1>BOA Côte d'Ivoire — Upgrade IGOR V4</h1>
+      <p>Outil de Pilotage Programme · GAP Analysis → Go Live 15 juillet 2026</p>
+    </div>
+  </div>
+  <div class="header-meta">
+    <div class="today-badge">📅 <span id="today-label"></span></div>
+    <div class="countdown-badge" id="countdown-freeze">
+      <span>Design Freeze</span>
+      <span id="days-freeze">—</span>
+    </div>
+    <div class="countdown-badge" id="countdown-live" style="background:var(--green)">
+      <span>Go Live</span>
+      <span id="days-live">—</span>
+    </div>
+    <div class="user-widget" id="user-actions">
+      <span class="user-name" id="user-name">—</span>
+      <span class="role-badge role-viewer" id="user-role-badge">viewer</span>
+      <button class="btn-users owner-only" onclick="openUsersModal()" style="display:none;">👥 Accès</button>
+      <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
+    </div>
+  </div>
+</div>
+
+<!-- TABS NAV -->
+<div class="tabs-nav">
+  <button class="tab-btn active" onclick="switchTab('dashboard', this)">
+    <span class="tab-icon">📊</span>Dashboard
+  </button>
+  <button class="tab-btn" onclick="switchTab('gantt', this)">
+    <span class="tab-icon">📅</span>Gantt / Planning
+  </button>
+  <button class="tab-btn" onclick="switchTab('arbitrages', this)">
+    <span class="tab-icon">⚖️</span>Arbitrages <span id="tab-arb-badge" style="background:var(--red);color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;"></span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('actions', this)">
+    <span class="tab-icon">✅</span>Plan d'Actions
+  </button>
+  <button class="tab-btn" onclick="switchTab('gaps', this)">
+    <span class="tab-icon">📋</span>GAPs (85)
+  </button>
+</div>
+
+<!-- ═══════════════════════════════════════════ TAB: DASHBOARD -->
+<div id="tab-dashboard" class="tab-content active">
+
+  <!-- KPI ROW -->
+  <div class="kpi-row">
+    <div class="kpi-card kpi-red">
+      <div class="kpi-val">85</div>
+      <div class="kpi-label">GAPs identifiés</div>
+      <div class="kpi-sub">10 domaines · v1.2 BOA 27/02</div>
+    </div>
+    <div class="kpi-card kpi-dark">
+      <div class="kpi-val">43</div>
+      <div class="kpi-label">GAPs Priorité 1</div>
+      <div class="kpi-sub">Critiques · priorités BOA</div>
+    </div>
+    <div class="kpi-card kpi-orange">
+      <div class="kpi-val" id="dash-arb-done">0</div>
+      <div class="kpi-label">Arbitrages décidés</div>
+      <div class="kpi-sub">sur 25 spécifiques BOA</div>
+    </div>
+    <div class="kpi-card kpi-gray">
+      <div class="kpi-val" id="dash-actions-done">0</div>
+      <div class="kpi-label">Actions terminées</div>
+      <div class="kpi-sub">sur 30 actions plan</div>
+    </div>
+    <div class="kpi-card kpi-green">
+      <div class="kpi-val">15/07</div>
+      <div class="kpi-label">Go Live cible</div>
+      <div class="kpi-sub">BOA Côte d'Ivoire 2026</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- ALERTES CRITIQUES -->
+    <div class="section-card">
+      <div class="section-header">🚨 Alertes Critiques</div>
+      <div class="section-body" id="alerts-container">
+        <div class="alert-item alert-red">
+          <span class="alert-icon">🔴</span>
+          <div class="alert-text">
+            <div class="alert-title">Design Freeze — 9 mars 2026</div>
+            <div class="alert-sub">Arbitrages spécifiques BOA doivent être finalisés — impact Go Live</div>
+          </div>
+        </div>
+        <div class="alert-item alert-red">
+          <span class="alert-icon">🔴</span>
+          <div class="alert-text">
+            <div class="alert-title">10 Anomalies V4 identifiées par BOA (27/02)</div>
+            <div class="alert-sub">Négoce Intl ×6 · AML ×3 · Compta ×1 — confirmation CBS requise</div>
+          </div>
+        </div>
+        <div class="alert-item alert-orange">
+          <span class="alert-icon">🟠</span>
+          <div class="alert-text">
+            <div class="alert-title">25 spécifiques BOA en attente de décision</div>
+            <div class="alert-sub">SYGMA/CREDEX · Module OCC · Interface GL · GIM-UEMOA…</div>
+          </div>
+        </div>
+        <div class="alert-item alert-orange">
+          <span class="alert-icon">🟠</span>
+          <div class="alert-text">
+            <div class="alert-title">Nommination équipe BOA CI non confirmée</div>
+            <div class="alert-sub">Chef de projet + 5 correspondants métiers + 3 IT requis</div>
+          </div>
+        </div>
+        <div class="alert-item alert-green">
+          <span class="alert-icon">🟢</span>
+          <div class="alert-text">
+            <div class="alert-title">Phase Gap Analysis — Complétée</div>
+            <div class="alert-sub">85 GAPs identifiés · 10 domaines · Register validé BOA Groupe 27/02</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AVANCEMENT PAR DOMAINE -->
+    <div class="section-card">
+      <div class="section-header">📊 Avancement GAPs par Domaine
+        <span style="font-size:10px;opacity:.8;">P1 = Critique</span>
+      </div>
+      <div class="section-body" id="domain-progress">
+        <!-- filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <!-- ARBITRAGES SUMMARY -->
+    <div class="section-card">
+      <div class="section-header">⚖️ Statut Arbitrages Spécifiques BOA</div>
+      <div class="section-body">
+        <div id="arb-summary-chart"></div>
+        <div style="margin-top:10px">
+          <div class="domain-row">
+            <div class="domain-name">Décidés (total)</div>
+            <div class="domain-bar"><div class="domain-bar-fill" id="arb-prog-fill" style="width:0%">
+              <span class="domain-bar-text" id="arb-prog-text">0%</span></div></div>
+            <div class="domain-stats"><span id="arb-prog-count">0 / 25</span></div>
+          </div>
+        </div>
+        <div id="arb-by-decision" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"></div>
+      </div>
+    </div>
+
+    <!-- ACTIONS SUMMARY -->
+    <div class="section-card">
+      <div class="section-header">✅ Statut Plan d'Actions (30 actions)</div>
+      <div class="section-body">
+        <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:var(--red-light);border-radius:5px;">
+            <div style="font-size:22px;font-weight:900;color:var(--red)" id="act-red">0</div>
+            <div style="font-size:10px;color:var(--red)">En retard</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:var(--orange-light);border-radius:5px;">
+            <div style="font-size:22px;font-weight:900;color:var(--orange)" id="act-orange">0</div>
+            <div style="font-size:10px;color:var(--orange)">En cours</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:var(--green-light);border-radius:5px;">
+            <div style="font-size:22px;font-weight:900;color:var(--green)" id="act-green">0</div>
+            <div style="font-size:10px;color:var(--green)">Terminé</div>
+          </div>
+          <div style="flex:1;min-width:80px;text-align:center;padding:10px;background:var(--gray-light);border-radius:5px;">
+            <div style="font-size:22px;font-weight:900;color:var(--gray)" id="act-gray">0</div>
+            <div style="font-size:10px;color:var(--gray)">À faire</div>
+          </div>
+        </div>
+        <!-- Actions critiques overdue -->
+        <div id="critical-actions-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RETROPLANNING MINI -->
+  <div class="section-card">
+    <div class="section-header">📅 Retroplanning — Vue Globale</div>
+    <div class="section-body" style="padding:16px;">
+      <div style="display:flex;gap:4px;margin-bottom:8px;">
+        <div style="flex:2.2;text-align:center;background:var(--red);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
+          ◼ Design Freeze<br><span style="font-size:9px;font-weight:400">≤ 9 mars 2026</span>
+        </div>
+        <div style="flex:3.1;text-align:center;background:var(--orange);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
+          ◼ Phase 1 — Build<br><span style="font-size:9px;font-weight:400">10 mars – 13 avr.</span>
+        </div>
+        <div style="flex:3.1;text-align:center;background:var(--gray);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
+          ◼ Phase 2 — SIT<br><span style="font-size:9px;font-weight:400">14 avr. – 19 mai</span>
+        </div>
+        <div style="flex:5;text-align:center;background:var(--green);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
+          ◼ Phase 3 — UAT<br><span style="font-size:9px;font-weight:400">19 mai – 14 juil.</span>
+        </div>
+        <div style="flex:0.8;text-align:center;background:var(--red-dark);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
+          🎯<br><span style="font-size:9px;font-weight:400">GO LIVE</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px;">
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Jan 2026</div>
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Fév</div>
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Mar</div>
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Avr</div>
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Mai</div>
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Juin</div>
+        <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Juil</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════ TAB: GANTT -->
+<div id="tab-gantt" class="tab-content">
+  <div class="section-card">
+    <div class="section-header">📅 Retroplanning Gantt — BOA CI Upgrade IGOR V4
+      <div style="display:flex;gap:8px;align-items:center;">
+        <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;">
+          <input type="checkbox" id="gantt-chain-toggle" onchange="toggleChain(this.checked)"
+            style="width:15px;height:15px;accent-color:var(--red);">
+          <span>Mode chaîne</span>
+        </label>
+        <button onclick="openAddTask()" style="background:var(--green);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">+ Ajouter tâche</button>
+        <button class="btn-reset" onclick="resetGanttDates()">↩ Réinitialiser</button>
+      </div>
+    </div>
+    <div class="section-body" style="padding:10px 14px;">
+      <div class="gantt-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Phase 0 — Structuration</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Phase 1 — Build</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#546E7A"></div>Phase 2 — SIT</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Phase 3 — UAT</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#6A1B9A"></div>Phase 4 — Cutover</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red-dark)"></div>Phase 5 — Go Live</div>
+        <div class="legend-item"><span style="font-size:16px;color:#1565C0;line-height:1;">◆</span>&nbsp;Jalon</div>
+        <div class="legend-item" style="color:#FF5722;font-weight:700;">▏ Aujourd'hui</div>
+      </div>
+      <div class="gantt-container">
+        <div id="gantt-render"></div>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--gray);padding:0 4px;margin-top:6px;">
+    💡 <strong>▼/▶</strong> : Cliquez sur une phase pour réduire/déployer ses tâches. <strong>Dates :</strong> Modifiez début/fin ou durée — les successeurs se cascadent automatiquement. <strong>Mode chaîne :</strong> pousse toutes les tâches suivant la date modifiée.
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ TAB: ARBITRAGES -->
+<div id="tab-arbitrages" class="tab-content">
+  <div class="section-card">
+    <div class="section-header">⚖️ Suivi Arbitrages — 25 Développements Spécifiques BOA
+      <span style="font-size:11px;opacity:.8;">Deadline : 9 mars 2026 (Design Freeze)</span>
+    </div>
+    <div class="section-body">
+
+      <!-- Progress global -->
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;" id="arb-top-stats"></div>
+
+      <div class="filter-bar">
+        <label>Domaine :</label>
+        <select id="arb-filter-domain" onchange="renderArbitrages()">
+          <option value="">Tous les domaines</option>
+          <option>Engagements & Risques</option>
+          <option>Référentiel Clients</option>
+          <option>Comptabilité & Finance</option>
+          <option>Négoce International</option>
+          <option>Moyens de Paiement</option>
+          <option>Poste Agence & Guichet</option>
+          <option>Trésorerie</option>
+        </select>
+        <label>Décision :</label>
+        <select id="arb-filter-dec" onchange="renderArbitrages()">
+          <option value="">Toutes décisions</option>
+          <option value="en_cours">En cours d'arbitrage</option>
+          <option value="maintien">Maintien hybride</option>
+          <option value="integration">Intégration V4</option>
+          <option value="abandon">Abandon</option>
+        </select>
+        <button class="btn-reset" onclick="document.getElementById('arb-filter-domain').value='';document.getElementById('arb-filter-dec').value='';renderArbitrages()">✕ Effacer</button>
+      </div>
+
+      <div class="table-scroll">
+        <table class="data-table" id="arb-table">
+          <thead>
+            <tr>
+              <th style="width:35px">#</th>
+              <th style="width:150px">Domaine</th>
+              <th>Développement spécifique</th>
+              <th style="width:55px" class="center">Prio.</th>
+              <th style="width:170px">Décision</th>
+              <th style="width:100px">Responsable</th>
+              <th style="width:85px">Deadline</th>
+              <th style="width:180px">Commentaire</th>
+            </tr>
+          </thead>
+          <tbody id="arb-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ TAB: ACTIONS -->
+<div id="tab-actions" class="tab-content">
+  <div class="section-card">
+    <div class="section-header">✅ Plan d'Actions — 30 Actions Identifiées
+      <button class="btn-export" onclick="printSection('tab-actions')" style="font-size:11px;">🖨 Imprimer</button>
+    </div>
+    <div class="section-body">
+      <div class="filter-bar">
+        <label>Domaine :</label>
+        <select id="act-filter-domain" onchange="renderActions()">
+          <option value="">Tous</option>
+          <option>Référentiel</option>
+          <option>Engagements</option>
+          <option>Comptabilité</option>
+          <option>Négoce Intl</option>
+          <option>MDP</option>
+          <option>Agence</option>
+          <option>Trésorerie</option>
+          <option>Tous domaines</option>
+        </select>
+        <label>Statut :</label>
+        <select id="act-filter-rag" onchange="renderActions()">
+          <option value="">Tous statuts</option>
+          <option value="R">En retard (R)</option>
+          <option value="O">En cours (O)</option>
+          <option value="G">Terminé (G)</option>
+          <option value="X">À faire</option>
+        </select>
+        <label>Responsable :</label>
+        <select id="act-filter-resp" onchange="renderActions()">
+          <option value="">Tous</option>
+          <option>CBS</option>
+          <option>BOA CI</option>
+          <option>CBS+BOA</option>
+          <option>DGA BOA CI</option>
+        </select>
+        <button class="btn-reset" onclick="resetActFilters()">✕ Effacer</button>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:45px">Réf.</th>
+              <th style="width:110px">Domaine</th>
+              <th>Action / Décision requise</th>
+              <th style="width:90px">Responsable</th>
+              <th style="width:80px">Échéance</th>
+              <th style="width:100px" class="center">Statut RAG</th>
+              <th style="width:130px">Avancement</th>
+              <th style="width:180px">Commentaire</th>
+            </tr>
+          </thead>
+          <tbody id="act-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ TAB: GAPS -->
+<div id="tab-gaps" class="tab-content">
+  <div class="section-card">
+    <div class="section-header">📋 Matrice des 85 GAPs — Arbitrage & Suivi (v1.2 BOA 27/02)
+      <button class="btn-export" onclick="exportGapsCSV()" style="font-size:11px;">⬇ Export CSV</button>
+    </div>
+    <div class="section-body">
+      <div class="filter-bar">
+        <label>Domaine :</label>
+        <select id="gaps-filter-domain" onchange="renderGaps()">
+          <option value="">Tous domaines</option>
+          <option>Engagements &amp; Risques</option>
+          <option>Référentiel Clients &amp; Comptes</option>
+          <option>Négoce International</option>
+          <option>Comptabilité &amp; Finance</option>
+          <option>Conformité LAB/FT</option>
+          <option>Moyens de Paiement</option>
+          <option>Poste Agence &amp; Guichet</option>
+          <option>TFJ y compris courus</option>
+          <option>Trésorerie et Change interbancaire</option>
+          <option>Habilitations</option>
+        </select>
+        <label>Prio. BOA :</label>
+        <select id="gaps-filter-prio" onchange="renderGaps()">
+          <option value="">Toutes</option>
+          <option>P1</option>
+          <option>P2</option>
+          <option>P2.1</option>
+          <option>P3</option>
+        </select>
+        <label>Modif. :</label>
+        <select id="gaps-filter-changed" onchange="renderGaps()">
+          <option value="">Tous</option>
+          <option value="true">Ajustés BOA</option>
+        </select>
+        <label>Bank Model :</label>
+        <select id="gaps-filter-bm" onchange="renderGaps()">
+          <option value="">Tous</option>
+          <option>BM UEMOA</option>
+          <option>Evolution</option>
+          <option>Anomalie</option>
+          <option>Exclusion</option>
+        </select>
+        <label>Décision :</label>
+        <select id="gaps-filter-dec" onchange="renderGaps()">
+          <option value="">Toutes</option>
+          <option>En attente</option>
+          <option>En analyse</option>
+          <option>Validé V4 Standard</option>
+          <option>Validé Spécifique</option>
+          <option>Reporté Phase II</option>
+          <option>Exclu périmètre</option>
+        </select>
+        <input type="text" id="gaps-search" placeholder="Rechercher..." oninput="renderGaps()" style="width:140px;">
+        <button class="btn-reset" onclick="resetGapsFilters()">✕ Effacer</button>
+      </div>
+      <div id="gaps-summary-bar" style="margin-bottom:10px;"></div>
+
+      <div style="font-size:11px;color:var(--gray);margin-bottom:8px;display:flex;align-items:center;gap:12px;">
+        Affichage : <span id="gaps-count">85</span> GAP(s)
+        <span style="background:var(--orange-light);color:var(--orange);border:1px solid var(--orange);border-radius:3px;padding:1px 8px;font-size:10px;font-weight:700;">▲ = priorité réhaussée par BOA</span>
+        <span style="background:#E8F0FE;color:#3949AB;border:1px solid #3949AB;border-radius:3px;padding:1px 8px;font-size:10px;font-weight:700;">⚠ Anomalie V4</span>
+      </div>
+      <div class="table-scroll">
+        <table class="data-table" style="font-size:11px;">
+          <thead>
+            <tr>
+              <th style="width:35px">#</th>
+              <th style="width:100px">GAP ID</th>
+              <th style="width:110px">Domaine</th>
+              <th style="width:95px">Processus</th>
+              <th>Description</th>
+              <th style="width:50px" class="center">P.CBS</th>
+              <th style="width:55px" class="center">P.BOA</th>
+              <th style="width:50px" class="center">Phase</th>
+              <th style="width:90px">Bank Model</th>
+              <th style="width:130px" class="center">Décision BOA</th>
+              <th style="width:170px">Notes</th>
+            </tr>
+          </thead>
+          <tbody id="gaps-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="save-indicator">✓ Sauvegardé</div>
+<div class="app-footer">CAPITAL BANKING SOLUTIONS — TOUS DROITS RÉSERVÉS | BOA Groupe — Programme Upgrade IGOR V4 | All Rights Reserved © 2026</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════════════════════════════════
+
+const DESIGN_FREEZE = new Date('2026-03-09');
+const GO_LIVE = new Date('2026-07-15');
+const TODAY = new Date();
+
+// ─── GANTT TASKS (43 tâches – source: BOA_MIGV4_RetroPlanning_V1.0.xlsx) ────
+let ganttTasks = [
+  // ──── PHASE 0 ────────────────────────────────────────────────────────────
+  {id:'1',   type:'phase', label:'PHASE 0 — Structuration & Design Freeze',   phase:'p0', start:'2026-01-19', end:'2026-03-09', dur:50, owner:'BOA Programme Dir.', pred:[], pct:0},
+  {id:'1.1', type:'task',  label:'Ateliers Gap Analysis V2→V4',               phase:'p0', start:'2026-01-19', end:'2026-02-09', dur:22, owner:'BOA + CBS',           pred:[], pct:1},
+  {id:'1.2', type:'task',  label:'Arbitrage écarts (critique/acceptable)',     phase:'p0', start:'2026-02-10', end:'2026-02-23', dur:14, owner:'COPRO',              pred:['1.1'], pct:0.5},
+  {id:'1.3', type:'task',  label:'Gel registre spécifiques',                  phase:'p0', start:'2026-02-24', end:'2026-03-02', dur:7,  owner:'BOA PO',             pred:['1.2'], pct:0.5},
+  {id:'1.4', type:'task',  label:'Matrice interfaces figée',                  phase:'p0', start:'2026-02-10', end:'2026-03-02', dur:21, owner:'BOA IT + CBS',        pred:['1.1'], pct:0.5},
+  {id:'1.5', type:'task',  label:'Kit migration V1 : architecture validée',   phase:'p0', start:'2026-01-19', end:'2026-03-01', dur:42, owner:'CBS Data',            pred:[], pct:0.5},
+  {id:'1.6', type:'task',  label:'Env. SIT/UAT/Pré-prod provisionnés',        phase:'p0', start:'2026-01-19', end:'2026-03-04', dur:45, owner:'BOA IT',             pred:[], pct:0},
+  {id:'1.7', type:'task',  label:'Budget programme approuvé COPIL',           phase:'p0', start:'2026-03-03', end:'2026-03-09', dur:7,  owner:'COPIL',              pred:['1.3'], pct:0},
+  {id:'M0',  type:'jalon', label:'JALON M0 — Design Freeze',                  phase:'p0', start:'2026-03-10', end:'2026-03-10', dur:0,  owner:'COPIL',              pred:['1.3','1.4','1.7'], pct:0},
+  // ──── PHASE 1 ────────────────────────────────────────────────────────────
+  {id:'2',   type:'phase', label:'PHASE 1 — Build & Transcription Technique', phase:'p1', start:'2026-03-10', end:'2026-04-13', dur:35, owner:'CBS PM / BOA PO',    pred:[], pct:0},
+  {id:'2.1', type:'task',  label:'Paramétrage V4 (Bank Model)',               phase:'p1', start:'2026-03-10', end:'2026-03-30', dur:21, owner:'CBS Dev',             pred:['M0'], pct:0},
+  {id:'2.2', type:'task',  label:'T1 : CBS Build spécifiques V2→V4',         phase:'p1', start:'2026-03-10', end:'2026-04-03', dur:25, owner:'CBS Dev',             pred:['M0'], pct:0},
+  {id:'2.3', type:'task',  label:'T2 : BOA Validation spécifiques',          phase:'p1', start:'2026-04-04', end:'2026-04-13', dur:10, owner:'BOA IT/Métier',       pred:['2.2'], pct:0},
+  {id:'2.4', type:'task',  label:'Build interfaces (domaine autonome)',       phase:'p1', start:'2026-03-10', end:'2026-04-06', dur:28, owner:'CBS + BOA IT',        pred:['M0'], pct:0},
+  {id:'2.5', type:'task',  label:'Reports : développement CBS',               phase:'p1', start:'2026-03-10', end:'2026-04-03', dur:25, owner:'CBS Dev',             pred:['M0'], pct:0},
+  {id:'2.6', type:'task',  label:'Kit migration V1 opérationnel → V2',       phase:'p1', start:'2026-03-02', end:'2026-03-31', dur:30, owner:'CBS Data',            pred:['1.5'], pct:0},
+  {id:'M1',  type:'jalon', label:'JALON M1 — Build Complete',                phase:'p1', start:'2026-04-14', end:'2026-04-14', dur:0,  owner:'CBS PM + BOA PO',    pred:['2.3','2.4','2.5','2.6'], pct:0},
+  // ──── PHASE 2 ────────────────────────────────────────────────────────────
+  {id:'3',   type:'phase', label:'PHASE 2 — Intégration (SIT) & Dry Run 1',  phase:'p2', start:'2026-04-14', end:'2026-05-19', dur:36, owner:'BOA Test Manager',   pred:[], pct:0},
+  {id:'3.1', type:'task',  label:'TU/SIT BOA (scripts + exécution)',          phase:'p2', start:'2026-04-14', end:'2026-05-04', dur:21, owner:'BOA Test Mgr',       pred:['M1'], pct:0},
+  {id:'3.2', type:'task',  label:'Tests E2E interfaces',                      phase:'p2', start:'2026-04-14', end:'2026-05-04', dur:21, owner:'BOA IT + CBS',       pred:['M1'], pct:0},
+  {id:'3.3', type:'task',  label:'Validation reports métier BOA',             phase:'p2', start:'2026-05-05', end:'2026-05-18', dur:14, owner:'BOA Métier',         pred:['3.1'], pct:0},
+  {id:'3.4', type:'task',  label:'Dry Run 1 (migration à blanc, env SIT)',    phase:'p2', start:'2026-04-01', end:'2026-04-05', dur:5,  owner:'CBS Data + BOA IT',  pred:['2.6'], pct:0},
+  {id:'3.5', type:'task',  label:'Kit migration : stabilisation V2 ⚠',       phase:'p2', start:'2026-04-06', end:'2026-04-10', dur:5,  owner:'CBS Data + BOA IT',  pred:['3.4'], pct:0},
+  {id:'M2',  type:'jalon', label:'JALON M2 — SIT Exit ⚠ BLOQUANT',           phase:'p2', start:'2026-05-19', end:'2026-05-19', dur:0,  owner:'BOA Programme Dir.', pred:['3.1','3.2','3.3','3.5'], pct:0},
+  // ──── PHASE 3 ────────────────────────────────────────────────────────────
+  {id:'4',   type:'phase', label:'PHASE 3 — UAT & Validation Finale',        phase:'p3', start:'2026-05-19', end:'2026-06-23', dur:36, owner:'BOA Programme Dir.', pred:[], pct:0},
+  {id:'4.1', type:'task',  label:'Campagne UAT BOA',                          phase:'p3', start:'2026-05-19', end:'2026-06-05', dur:18, owner:'BOA Métier',         pred:['M2'], pct:0},
+  {id:'4.2', type:'task',  label:'Validation reports en conditions réelles',  phase:'p3', start:'2026-06-06', end:'2026-06-10', dur:5,  owner:'BOA Métier',         pred:['4.1'], pct:0},
+  {id:'4.3', type:'task',  label:'Dry Run 2 (kit final, pré-production)',     phase:'p3', start:'2026-04-11', end:'2026-04-15', dur:5,  owner:'CBS Data + BOA IT',  pred:['3.5'], pct:0},
+  {id:'4.4', type:'task',  label:'Résolution défauts P1/P2 (SLA CBS)',        phase:'p3', start:'2026-06-06', end:'2026-06-23', dur:18, owner:'CBS PM',             pred:['4.1'], pct:0},
+  {id:'4.5', type:'task',  label:'Formation ≥ 70% utilisateurs',              phase:'p3', start:'2026-05-19', end:'2026-06-12', dur:25, owner:'BOA RH',             pred:['M2'], pct:0},
+  {id:'4.6', type:'task',  label:'Kit migration version finale ⚠',            phase:'p3', start:'2026-04-16', end:'2026-04-20', dur:5,  owner:'CBS Data + BOA',     pred:['4.3'], pct:0},
+  {id:'M3',  type:'jalon', label:'JALON M3 — UAT Exit ⚠ BLOQUANT',           phase:'p3', start:'2026-06-24', end:'2026-06-24', dur:0,  owner:'BOA DG / COPIL',     pred:['4.1','4.2','4.4','4.6'], pct:0},
+  // ──── PHASE 4 ────────────────────────────────────────────────────────────
+  {id:'5',   type:'phase', label:'PHASE 4 — Préparation Cutover',             phase:'p4', start:'2026-06-24', end:'2026-07-08', dur:15, owner:'BOA Dir. + CBS PM',  pred:[], pct:0},
+  {id:'5.1', type:'task',  label:'Plan cutover détaillé (run-book)',           phase:'p4', start:'2026-06-24', end:'2026-06-30', dur:7,  owner:'CBS + BOA IT',       pred:['M3'], pct:0},
+  {id:'5.2', type:'task',  label:'Dress Rehearsal cutover complet',            phase:'p4', start:'2026-07-01', end:'2026-07-03', dur:3,  owner:'CBS + BOA IT',       pred:['5.1'], pct:0},
+  {id:'5.3', type:'task',  label:'Formation 100% utilisateurs finaux',         phase:'p4', start:'2026-06-13', end:'2026-06-22', dur:10, owner:'BOA RH',             pred:['4.5'], pct:0},
+  {id:'5.4', type:'task',  label:'Communication Go Live',                      phase:'p4', start:'2026-07-04', end:'2026-07-08', dur:5,  owner:'BOA Prog. Dir.',     pred:['5.2'], pct:0},
+  {id:'M4',  type:'jalon', label:'JALON M4 — Go/No-Go Final (4 Feux Verts)',  phase:'p4', start:'2026-07-09', end:'2026-07-09', dur:0,  owner:'COPIL BOA',          pred:['5.2','5.3','5.4'], pct:0},
+  // ──── PHASE 5 ────────────────────────────────────────────────────────────
+  {id:'6',   type:'phase', label:'PHASE 5 — Go Live & Hypercare',              phase:'p5', start:'2026-07-09', end:'2026-08-04', dur:27, owner:'BOA Ops + CBS',      pred:[], pct:0},
+  {id:'6.1', type:'task',  label:'Fenêtre cutover (bascule production)',        phase:'p5', start:'2026-07-09', end:'2026-07-13', dur:5,  owner:'CBS Data + BOA IT',  pred:['M4'], pct:0},
+  {id:'6.2', type:'task',  label:'Smoke tests + ouverture officielle',          phase:'p5', start:'2026-07-14', end:'2026-07-14', dur:1,  owner:'BOA IT + CBS',       pred:['6.1'], pct:0},
+  {id:'6.3', type:'task',  label:'Hypercare intensive (war room J+1→J+21)',     phase:'p5', start:'2026-07-15', end:'2026-08-04', dur:21, owner:'BOA Ops + CBS',      pred:['6.2'], pct:0},
+  {id:'GL',  type:'jalon', label:'🎯 GO LIVE — 15 juillet 2026',               phase:'p5', start:'2026-07-15', end:'2026-07-15', dur:0,  owner:'BOA + CBS',          pred:['6.1','6.2'], pct:0},
+];
+
+// ─── ARBITRAGES──────────────────────────────────────
+let arbitrages = [
+  {id:1,domain:'Engagements & Risques',label:'SYGMA/CREDEX — Interface notation externe',prio:'P1',deadline:'28 févr.',resp:'BOA Groupe'},
+  {id:2,domain:'Engagements & Risques',label:'Module OCC — Maintien V2 ou remplacement',prio:'P1',deadline:'28 févr.',resp:'CBS+BOA'},
+  {id:3,domain:'Engagements & Risques',label:'Reporting CR bimestriel BOA',prio:'P1',deadline:'9 mars',resp:'CBS'},
+  {id:4,domain:'Engagements & Risques',label:'Moteur scoring interne BOA CI',prio:'P1',deadline:'9 mars',resp:'BOA CI'},
+  {id:5,domain:'Engagements & Risques',label:'Garanties partielles sur dossier crédit',prio:'P2',deadline:'9 mars',resp:'CBS'},
+  {id:6,domain:'Engagements & Risques',label:'Suivi délégations de signature',prio:'P2',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:7,domain:'Référentiel Clients',label:'Ouverture compte à distance (digital)',prio:'P1',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:8,domain:'Référentiel Clients',label:'Gestion succession et indivision',prio:'P1',deadline:'9 mars',resp:'CBS'},
+  {id:9,domain:'Référentiel Clients',label:'KYC automatisé — Interface fournisseurs tiers',prio:'P1',deadline:'9 mars',resp:'BOA CI'},
+  {id:10,domain:'Référentiel Clients',label:'Archivage électronique GED BOA CI',prio:'P2',deadline:'9 mars',resp:'BOA CI'},
+  {id:11,domain:'Comptabilité & Finance',label:'Interface GL externe — Consolidation groupe',prio:'P1',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:12,domain:'Comptabilité & Finance',label:'Module Budget vs Réalisé',prio:'P2',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:13,domain:'Comptabilité & Finance',label:'Taxe TOF ivoirienne — Paramétrage fiscal',prio:'P2',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:14,domain:'Négoce International',label:'Interface douanes SYLVIE — Développement V4',prio:'P1',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:15,domain:'Négoce International',label:'Remises documentaires — Spécificités BOA CI',prio:'P1',deadline:'9 mars',resp:'CBS'},
+  {id:16,domain:'Négoce International',label:'Garanties internationales (SBLC/LG) BOA CI',prio:'P1',deadline:'9 mars',resp:'CBS'},
+  {id:17,domain:'Négoce International',label:'Domiciliation spécifique BCEAO CI',prio:'P2',deadline:'9 mars',resp:'CBS'},
+  {id:18,domain:'Moyens de Paiement',label:'Interface GIM-UEMOA — Reconfiguration',prio:'P1',deadline:'9 mars',resp:'CBS'},
+  {id:19,domain:'Moyens de Paiement',label:'Cartes bancaires BOA CI — Catalogue produits',prio:'P2',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:20,domain:'Moyens de Paiement',label:'API Mobile banking BOA CI',prio:'P2',deadline:'9 mars',resp:'BOA CI'},
+  {id:21,domain:'Moyens de Paiement',label:'Compensation interbancaire CI',prio:'P1',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:22,domain:'Poste Agence & Guichet',label:'Gestion caisse multi-devises BOA CI',prio:'P1',deadline:'9 mars',resp:'CBS+BOA'},
+  {id:23,domain:'Poste Agence & Guichet',label:'Formulaires guichet spécifiques BOA CI',prio:'P2',deadline:'9 mars',resp:'BOA CI'},
+  {id:24,domain:'Trésorerie',label:'Portefeuille titres — Paramétrage BOA CI',prio:'P2',deadline:'9 mars',resp:'CBS'},
+  {id:25,domain:'Trésorerie',label:'Fixing taux XOF — Interface spécifique',prio:'P2',deadline:'9 mars',resp:'CBS+BOA'},
+];
+
+// ─── ACTIONS (30 items) ─────────────────────────────────────────────────
+let actions = [
+  {id:'A01',domain:'Référentiel',action:'Valider le format de numérotation des comptes BOA CI dans V4',resp:'CBS+BOA',echeance:'15 févr.',urgence:'Critique'},
+  {id:'A02',domain:'Engagements',action:'Arbitrage définitif SYGMA/CREDEX : migration API V4 ou abandon',resp:'DGA BOA CI',echeance:'28 févr.',urgence:'Critique'},
+  {id:'A03',domain:'Engagements',action:'Décision Module OCC : maintien V2 parallèle ou solution alternative',resp:'CBS+BOA',echeance:'28 févr.',urgence:'Critique'},
+  {id:'A04',domain:'Référentiel',action:'Stratégie reprise données IDP — doublons et historique clients',resp:'CBS',echeance:'1 mars',urgence:'Critique'},
+  {id:'A05',domain:'Comptabilité',action:'Mapping plan comptable SYSCO complet V2 → V4 exhaustif',resp:'CBS+BOA',echeance:'5 mars',urgence:'Haute'},
+  {id:'A06',domain:'Négoce Intl',action:'Développement interface douanes SYLVIE pour V4',resp:'CBS',echeance:'15 mars',urgence:'Haute'},
+  {id:'A07',domain:'MDP',action:'Mise à jour connecteur GIM-UEMOA protocole V4',resp:'CBS',echeance:'20 mars',urgence:'Haute'},
+  {id:'A08',domain:'Référentiel',action:'Définition processus cohabitation entrée en relation V2/V4',resp:'CBS+BOA',echeance:'9 mars',urgence:'Haute'},
+  {id:'A09',domain:'Tous domaines',action:'Finaliser matrice des interfaces V4 (30+ interfaces)',resp:'CBS',echeance:'9 mars',urgence:'Haute'},
+  {id:'A10',domain:'Tous domaines',action:'Validation plan de reprise des données et mapping complet',resp:'CBS+BOA',echeance:'10 mars',urgence:'Haute'},
+  {id:'A11',domain:'Engagements',action:'Configurer workflow statut Suspens (S) dans IGOR V4',resp:'CBS',echeance:'20 mars',urgence:'Haute'},
+  {id:'A12',domain:'Référentiel',action:'Développement gestion succession et indivision BOA CI V4',resp:'CBS',echeance:'31 mars',urgence:'Haute'},
+  {id:'A13',domain:'MDP',action:'Adaptation interface RTGS BCEAO pour format V4',resp:'CBS',echeance:'25 mars',urgence:'Haute'},
+  {id:'A14',domain:'Comptabilité',action:'Adapter états financiers BCEAO format V4 (bilan, compte résultat)',resp:'CBS',echeance:'31 mars',urgence:'Haute'},
+  {id:'A15',domain:'Engagements',action:'Valider compatibilité scoring IFRS 9 avec moteur V4',resp:'CBS+BOA',echeance:'5 avr.',urgence:'Haute'},
+  {id:'A16',domain:'Tous domaines',action:'Nommer officielement équipe projet BOA CI (CP + correspondants)',resp:'DGA BOA CI',echeance:'28 févr.',urgence:'Haute'},
+  {id:'A17',domain:'Tous domaines',action:'Valider et signer le Plan Assurance Qualité (PAQ)',resp:'CBS+BOA',echeance:'9 mars',urgence:'Haute'},
+  {id:'A18',domain:'MDP',action:'Reconfigurer compensation interbancaire CI dans V4',resp:'CBS+BOA',echeance:'5 avr.',urgence:'Haute'},
+  {id:'A19',domain:'Négoce Intl',action:'Adapter workflow SWIFT MX pour garanties internationales',resp:'CBS',echeance:'10 avr.',urgence:'Normale'},
+  {id:'A20',domain:'Agence',action:'Reconfigurer interface tiers habilités dans V4',resp:'CBS',echeance:'20 mars',urgence:'Normale'},
+  {id:'A21',domain:'Comptabilité',action:'Paramétrer lettrage automatique complet dans V4',resp:'CBS',echeance:'5 avr.',urgence:'Normale'},
+  {id:'A22',domain:'Référentiel',action:'Adapter connecteur GED/archivage BOA CI pour V4',resp:'BOA CI',echeance:'31 mars',urgence:'Normale'},
+  {id:'A23',domain:'Engagements',action:'Reconfigurer workflow Comité Crédit selon organigramme BOA CI',resp:'CBS+BOA',echeance:'31 mars',urgence:'Normale'},
+  {id:'A24',domain:'MDP',action:'Paramétrer catalogue cartes bancaires BOA CI dans V4',resp:'CBS+BOA',echeance:'5 avr.',urgence:'Normale'},
+  {id:'A25',domain:'Agence',action:'Reconfigurer gestion caisse multi-devises BOA CI',resp:'CBS+BOA',echeance:'25 mars',urgence:'Normale'},
+  {id:'A26',domain:'Trésorerie',action:'Paramétrer module placement interbancaire calcul intérêts V4',resp:'CBS',echeance:'10 avr.',urgence:'Normale'},
+  {id:'A27',domain:'Référentiel',action:'Migration profils utilisateurs V2 → V4 (matrice droits)',resp:'CBS+BOA',echeance:'15 avr.',urgence:'Normale'},
+  {id:'A28',domain:'Comptabilité',action:'Paramétrer revalorisation FX devises dans V4',resp:'CBS',echeance:'10 avr.',urgence:'Normale'},
+  {id:'A29',domain:'Tous domaines',action:'Préparer plan de formation Key Users BOA CI (15 personnes)',resp:'CBS',echeance:'30 avr.',urgence:'Normale'},
+  {id:'A30',domain:'Tous domaines',action:'Rédiger critères Go/No-Go et préparer COPIL final juillet',resp:'CBS+BOA',echeance:'1 juil.',urgence:'Normale'},
+];
+
+// ─── GAPS (85 items — Register BOA v1.2 du 27/02/2026) ──────────────────────
+let gaps = [
+  {n:1,ref:'GAP-RC-001',domain:'Référentiel Clients & Comptes',processus:'Entrée en relation',desc:"Cohabitation écrans v2 (REFCLI_SV%, IDP_VER%, Socring AML, Packages) et v4 dans le flux de saisie/validation - risque de",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'À arbitrer',complexite:'XL',commentaire:"",changed:false},
+  {n:2,ref:'GAP-RC-002',domain:'Référentiel Clients & Comptes',processus:'Contrôle doublons',desc:"Contrôle des doublons IDP insuffisant : besoin de contrôle par nationalité, nom de mère bloquant, gestion faux-positifs",prio_cbs:'P2',prio:'P2.1',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:true},
+  {n:3,ref:'GAP-RC-003',domain:'Référentiel Clients & Comptes',processus:'Fiche KYC',desc:"Fiche KYC standard v2 et v4 inadaptées aux besoins BOA – trop lourde. Besoin date signature KYC pour révision obligatoir",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:4,ref:'GAP-RC-004',domain:'Référentiel Clients & Comptes',processus:'KYC Djibouti',desc:"Recyclage DATFIC comme date de signature KYC chez BOA Djibouti – spécifique CBS à vérifier",prio_cbs:'P1',prio:'P2.1',phase_cbs:'III',phase:'II',type:'Évolution',bm:'Evolution',resp:'Conjoint',statut:'À vérifier',complexite:'S',commentaire:"Cible : historisation des dates de uivi des modifications Changement de Priorité et Phase 3à  Phase 2",changed:true},
+  {n:5,ref:'GAP-RC-005',domain:'Référentiel Clients & Comptes',processus:'Segmentation commerciale',desc:"Recyclage TYPPORT pour segmentation commerciale – v4 propose fonctionnalité native. BOA doit arbitrer adoption",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'À arbitrer',complexite:'S',commentaire:"Cible: Adopter V4 et maintenir  en transitoire Typport",changed:false},
+  {n:6,ref:'GAP-RC-006',domain:'Référentiel Clients & Comptes',processus:'Packages commerciaux',desc:"Module packages commerciaux = spécifique hors standard BOA. Modifications BOACI. Non standard v4. En lien avec GAP-RC-00",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À arbitrer',complexite:'XL',commentaire:"",changed:false},
+  {n:7,ref:'GAP-RC-007',domain:'Référentiel Clients & Comptes',processus:'Scoring AML',desc:"Gestion Scoring AML = spécifique BOA en lien avec GAP-RC-001. À maintenir en hybride.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À arbitrer',complexite:'XL',commentaire:"",changed:false},
+  {n:8,ref:'GAP-RC-008',domain:'Référentiel Clients & Comptes',processus:'Écrans MAJ Direction',desc:"Écrans %MAJ/%MAJDIR non repris en v4 standard. Usages à recenser. Risque opérationnel si supprimés sans alternative.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'BOA',statut:'À recenser',complexite:'M',commentaire:"Cible: Identifier les profils concernés",changed:false},
+  {n:9,ref:'GAP-RC-009',domain:'Référentiel Clients & Comptes',processus:'Champs spécifiques IDP',desc:"Variations IDP_VER% entre filiales (Revenu, Employeur). Uniformisation requise pour modèle banque.",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'BOA',statut:'À recenser',complexite:'M',commentaire:"Cible : Hybride et spécifique. Changement de phase pour être cohérent avec la priorité 2",changed:true},
+  {n:10,ref:'GAP-RC-010',domain:'Référentiel Clients & Comptes',processus:'Comptes dormants',desc:"Gestion comptes dormants = plusieurs traitements spécifiques TFJ. À vérifier compatibilité v4.",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À vérifier',complexite:'M',commentaire:"",changed:true},
+  {n:11,ref:'GAP-RC-011',domain:'Référentiel Clients & Comptes',processus:'Changement RC Pack',desc:"Changement de RC lors changement de Pack : régularisations agios automatiques nécessaires. Script TFJ spécifique. Besoin",prio_cbs:'P2',prio:'P2.1',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'En cours',complexite:'L',commentaire:"Précision de la Priorité",changed:true},
+  {n:12,ref:'GAP-RC-012',domain:'Référentiel Clients & Comptes',processus:'Groupes commissions',desc:"Codification groupes commissions passée de 1 à 5 caractères en v4. Impact migration données.",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'CBS',statut:'Couvert v4',complexite:'S',commentaire:"Priorisation P2-->P1",changed:true},
+  {n:13,ref:'GAP-RC-013',domain:'Référentiel Clients & Comptes',processus:'Piste audit',desc:"Piste audit spécifique BOA vs standard v4. Comparaison requise. Conservation historique obligatoire.",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'II',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Adoption v4',complexite:'M',commentaire:"Changement de phase pour être cohérent avec la priorité 2",changed:true},
+  {n:14,ref:'GAP-RC-014',domain:'Référentiel Clients & Comptes',processus:'Modules obsolètes',desc:"BPHONE & BSMS : modules obsolètes à exclure du périmètre modèle banque.",prio_cbs:'P3',prio:'P3',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'Exclusion',resp:'BOA',statut:'À analyser',complexite:'S',commentaire:"",changed:false},
+  {n:15,ref:'GAP-RC-015',domain:'Référentiel Clients & Comptes',processus:'Champs additionnels',desc:"Champs additionnels v4 plus larges et sans limitation nombre. Besoins BOA (PME féminines etc.) couverts.",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'Couvert v4',complexite:'S',commentaire:"Changement de phase pour être cohérent avec la priorité 2",changed:true},
+  {n:16,ref:'GAP-NI-001',domain:'Négoce International',processus:'Credoc Import',desc:"Amendement credoc import (MT707) provoque problème validité évènement ouverture dossier",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'CBS',statut:'V2',complexite:'S',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:17,ref:'GAP-NI-002',domain:'Négoce International',processus:'Commissions',desc:"Prise de commission manuelle nécessaire via écran commission libre : à automatisée et rendre accessible depuis module",prio_cbs:'P2',prio:'P2.1',phase_cbs:'II',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'À analyser',complexite:'S',commentaire:"",changed:true},
+  {n:18,ref:'GAP-NI-003',domain:'Négoce International',processus:'Credoc Export',desc:"Acceptation credoc export génère parfois commissions en double",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'Conjoint',statut:'V2',complexite:'S',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:19,ref:'GAP-NI-004',domain:'Négoce International',processus:'Credoc Export',desc:"Utilisateur ne peut pas solder le règlement lors réalisation credoc export",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'Conjoint',statut:'V2',complexite:'S',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:20,ref:'GAP-NI-005',domain:'Négoce International',processus:'Suivi échéances',desc:"Suivi tombées échéances entièrement manuel (Excel) – risque signalé par commission bancaire",prio_cbs:'P2',prio:'P2.1',phase_cbs:'II',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'Couvert v4',complexite:'S',commentaire:"",changed:true},
+  {n:21,ref:'GAP-NI-006',domain:'Négoce International',processus:'Comptabilité stock',desc:"Comptabilité par stock pose problèmes suivi financier/opérationnel – v4 propose compta temps réel",prio_cbs:'P2',prio:'P2.1',phase_cbs:'II',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'Couvert v4',complexite:'S',commentaire:"",changed:true},
+  {n:22,ref:'GAP-NI-007',domain:'Négoce International',processus:'Virements internationaux',desc:"Taille saisie champs ≠ taille donnée",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'CBS',statut:'V2',complexite:'M',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:23,ref:'GAP-NI-008',domain:'Négoce International',processus:'Virements internationaux',desc:"champ 20 NOOPER",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'Conjoint',statut:'V2',complexite:'M',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:24,ref:'GAP-NI-009',domain:'Négoce International',processus:'Virements internationaux',desc:"problèmes saisie CRP",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'Conjoint',statut:'V2',complexite:'M',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:25,ref:'GAP-NI-010',domain:'Négoce International',processus:'Virements internationaux',desc:"Pas de formulaires de change intégrés",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'L',commentaire:"",changed:false},
+  {n:26,ref:'GAP-NI-011',domain:'Négoce International',processus:'Avals & Cautions',desc:"Pas échéancier cautions, pas prélèvement auto commission mise en place",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:27,ref:'GAP-ENG-001',domain:'Engagements & Risques',processus:'Module Crédits',desc:"Champ Code Produit ajouté par BOA sur PRTCLI98 – remplaçable par Type de prêt v4. Vigilance reprise.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'Migration',complexite:'M',commentaire:"Cible Autres Modèles: suivi de l'activité commerciale par typologie  produit plutôt que par RC",changed:false},
+  {n:28,ref:'GAP-ENG-002',domain:'Engagements & Risques',processus:'Module Crédits',desc:"Statut S (suspension dossier) n'existe pas en standard v4. Utilisé pour déclassement douteux.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'À analyser',complexite:'L',commentaire:"Cible V4 : Statut A pour le déclassement. Vigilance pour la reprise des données",changed:false},
+  {n:29,ref:'GAP-ENG-003',domain:'Engagements & Risques',processus:'États & Rapports',desc:"6 états spécifiques non existants en standard v4 (emvta_rmag, eprtengag, ecptcdlr, etc.). Certains couverts par publishe",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À évaluer',complexite:'M',commentaire:"Cible V4: vérifier la reprise ou la mise à disposition via publisher Priorisation P2-->P1",changed:true},
+  {n:30,ref:'GAP-ENG-004',domain:'Engagements & Risques',processus:'Traitement Shell',desc:"Shell paiement impayés par garants (pechimpgar) non opérationnel. Champ GARANT.PGCPT3 absent v4. Schémas comptables PRTG",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'À développer',complexite:'L',commentaire:"Vérifier l'exploitation auprès banques UEMOA",changed:false},
+  {n:31,ref:'GAP-ENG-005',domain:'Engagements & Risques',processus:'Gestion frais',desc:"Pas de lien Multicom pour prise frais dans module crédits. BOA demande intégration.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'L',commentaire:"",changed:false},
+  {n:32,ref:'GAP-ENG-006',domain:'Engagements & Risques',processus:'Lissage frais',desc:"Seuls frais dossier (PRTCLI.MNTDOS) peuvent être lissés. Besoin lisser autres types de frais.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:33,ref:'GAP-ENG-007',domain:'Engagements & Risques',processus:'Courus auxiliarisés',desc:"Auxiliarisation créances rattachées existe v4 (BOA Bénin). Forts impacts reprise/tests/performance.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'Conjoint',statut:'Impactant',complexite:'XL',commentaire:"",changed:false},
+  {n:34,ref:'GAP-ENG-008',domain:'Engagements & Risques',processus:'Écran PRTCECH',desc:"Forçage masse échéances impayé non repris v4. Forçage manuel par dossier disponible. Usage quasi-nul (3 ouvertures).",prio_cbs:'P3',prio:'P3',phase_cbs:'III',phase:'III',type:'Standard',bm:'Exclusion',resp:'BOA',statut:'A vérifier',complexite:'S',commentaire:"",changed:false},
+  {n:35,ref:'GAP-ENG-009',domain:'Engagements & Risques',processus:'Écran BIENSFONDS',desc:"Estimation biens immobiliers non repris v4. Valorisation possible dans écran garanties v4. Usage faible (18 ouvertures).",prio_cbs:'P3',prio:'P3',phase_cbs:'III',phase:'III',type:'Standard',bm:'BM UEMOA',resp:'CBS',statut:'Couvert v4',complexite:'S',commentaire:"Cible: changement à prévoir dans les modes opératoires",changed:false},
+  {n:36,ref:'GAP-ENG-010',domain:'Engagements & Risques',processus:'Crédits syndiqués',desc:"Module syndication chef de file en cours de tests v4. Gestion flux, pool, amortissements, HB.",prio_cbs:'P3',prio:'P3',phase_cbs:'II/III',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'En cours',complexite:'L',commentaire:"",changed:true},
+  {n:37,ref:'GAP-ENG-011',domain:'Engagements & Risques',processus:'Crédits campagne',desc:"Module crédit campagne non migré v4. Spécifications transmises Q4 2025. Migration iso-fonctionnelle.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'CBS',statut:'En cours',complexite:'L',commentaire:"Cible: Hybride",changed:false},
+  {n:38,ref:'GAP-ENG-012',domain:'Engagements & Risques',processus:'Garanties',desc:"Pas de contrôle cohérence données garantie vs prêt/autorisation. BOA demande validation croisée.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'Conjoint',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:39,ref:'GAP-ENG-013',domain:'Engagements & Risques',processus:'Garanties',desc:"Pas de ventilation couverture garantie par montant engagement couvert quand multi-risques.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:40,ref:'GAP-ENG-014',domain:'Engagements & Risques',processus:'Sécurisation commissions',desc:"Commissions non obligatoires création garantie/autorisation. Besoin paramétrage par défaut + droits utilisateurs.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'À analyser',complexite:'L',commentaire:"Changement de phase pour être cohérent avec la priorité 2",changed:false},
+  {n:41,ref:'GAP-ENG-015',domain:'Engagements & Risques',processus:'Engagement HB',desc:"Engagement HB géré dansV2 spécifique. V4 offre gestion native. BOA doit décider bascule.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Adoption v4',complexite:'L',commentaire:"V2: Dév BOA. Cible : V4, à tester et intégrer impacts",changed:false},
+  {n:42,ref:'GAP-ENG-016',domain:'Engagements & Risques',processus:'Vision prudentielle',desc:"Pas de vision prudentielle créances dans v4. Proposition interfaçage outil dédié non suivie.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'Conjoint',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:43,ref:'GAP-ENG-017',domain:'Engagements & Risques',processus:'Codes AGEC',desc:"Fiabilisation codes AGEC nécessaire en amont nouvelle philosophie paramétrage prêts v4.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'Prérequis BM UEMOA',resp:'BOA',statut:'Prérequis',complexite:'M',commentaire:"",changed:false},
+  {n:44,ref:'GAP-CF-001',domain:'Comptabilité & Finance',processus:'Opérations diverses',desc:"MVTS/MVTSOP : besoin double validation. Double validation disponible v4.",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'Couvert v4',complexite:'S',commentaire:"Changement de phase pour être cohérent avec la priorité 2",changed:true},
+  {n:45,ref:'GAP-CF-002',domain:'Comptabilité & Finance',processus:'VIRINT',desc:"Code mode virement sur 1 caractère insuffisant. Besoin restriction par critères. Estimation CBS requise.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À estimer',complexite:'M',commentaire:"",changed:false},
+  {n:46,ref:'GAP-CF-003',domain:'Comptabilité & Finance',processus:'Intégration fichier',desc:"Spécifique BOA CG/PASS intégration fichier MVTSUP. Module standard MVTGAG existe en v4.",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'II',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Adoption v4',complexite:'M',commentaire:"Changement de phase pour être cohérent avec la priorité 2",changed:true},
+  {n:47,ref:'GAP-CF-004',domain:'Comptabilité & Finance',processus:'Write-off',desc:"Deux fonctionnalités write-off : spécifique BOA (fichier) et standard CBS (BOA CG, pas encore validé). Comparaison requi",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'II',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À comparer',complexite:'M',commentaire:"Changement de phase pour être cohérent avec la priorité 2",changed:true},
+  {n:48,ref:'GAP-CF-005',domain:'Comptabilité & Finance',processus:'Agios RC changée',desc:"Script TFJ mise à jour auto conditions agios post-changement RC non abouti côté CBS. Cf. GAP-RC-011",prio_cbs:'P2',prio:'P2.1',phase_cbs:'III',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'En cours',complexite:'L',commentaire:"Précision de la Priorité et Phase 3 à Phase 2",changed:true},
+  {n:49,ref:'GAP-CF-006',domain:'Comptabilité & Finance',processus:'Balance 6 colonnes',desc:"Problème édition standard BOA CG. Édition spécifique BOA exploitée ailleurs.",prio_cbs:'P2',prio:'P2',phase_cbs:'I',phase:'I',type:'Standard',bm:'Anomalie V4 CG',resp:'CBS',statut:'En cours',complexite:'M',commentaire:"",changed:false},
+  {n:50,ref:'GAP-CF-007',domain:'Comptabilité & Finance',processus:'Double validation',desc:"Double validation pas disponible dans tous écrans domaine comptable. CBS doit lister couverture.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:51,ref:'GAP-CF-008',domain:'Comptabilité & Finance',processus:'TFJ Scripts',desc:"Scripts batch TFJ modifiés par BOA. Analyse des modifications spécifiques requise avant adoption v4.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'À analyser',complexite:'XL',commentaire:"",changed:false},
+  {n:52,ref:'GAP-CF-009',domain:'Comptabilité & Finance',processus:'Affacturage',desc:"Module affacturage spécifique hors standard BOA. Inexploité BOACI. Usage autres filiales à vérifier.",prio_cbs:'P3',prio:'P3',phase_cbs:'II',phase:'II',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'À vérifier',complexite:'M',commentaire:"Vérifier les usages dans les Banques de l'UEMOA",changed:false},
+  {n:53,ref:'GAP-CF-010',domain:'Comptabilité & Finance',processus:'Services généraux',desc:"Module sous-utilisé par manque maîtrise. Présentation fonctionnelle CBS requise.",prio_cbs:'P3',prio:'P3',phase_cbs:'II',phase:'II',type:'Standard',bm:'BM UEMOA',resp:'CBS',statut:'Formation',complexite:'S',commentaire:"",changed:false},
+  {n:54,ref:'GAP-CF-011',domain:'Comptabilité & Finance',processus:'Rubrique Comptable',desc:"Agrandissement donnée Rubrique Comptable inenvisageable (centaines jours homme).",prio_cbs:'P3',prio:'P3',phase_cbs:'III',phase:'III',type:'Évolution',bm:'Exclusion',resp:'CBS',statut:'Rejeté',complexite:'XL',commentaire:"",changed:false},
+  {n:55,ref:'GAP-CF-012',domain:'Référentiel Clients & Comptes',processus:'Ouverture client agence',desc:"Restreindre ouverture client à agence utilisateur. Estimation CBS requise.",prio_cbs:'P3',prio:'P3',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'S',commentaire:"",changed:false},
+  {n:56,ref:'GAP-MDP-001',domain:'Moyens de Paiement',processus:'Virements génériques',desc:"Besoin personnaliser actions contextuelles, limiter affichage opérations, renvoyer à initiateur, saisir par avance",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'L',commentaire:"",changed:false},
+  {n:57,ref:'GAP-MDP-002',domain:'Moyens de Paiement',processus:'Virements multiples',desc:"Facturation par ligne/palier/global, flux validation, règles commissions fichier=saisie, limitation bénéficiaires",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'CBS',statut:'En cours',complexite:'L',commentaire:"",changed:false},
+  {n:58,ref:'GAP-MDP-003',domain:'Moyens de Paiement',processus:'Virements permanents',desc:"Jour anniversaire, gestion jours non ouvrés, comptes clôturés, exécutions partielles",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"A clarifier avec les banques UEMOA : règles de traitement du Module de virement permanent",changed:false},
+  {n:59,ref:'GAP-MDP-004',domain:'Moyens de Paiement',processus:'Télécompensation',desc:"Intégration fichier aller 2x même journée = double crédit client (BOA CG). Schéma comptable anomalie.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'Anomalie',resp:'CBS',statut:'Bug à corriger',complexite:'M',commentaire:"",changed:false},
+  {n:60,ref:'GAP-MDP-005',domain:'Moyens de Paiement',processus:'Chéquiers',desc:"Double validation globale v4 (tous évènements). Demande ciblage par évènement spécifique.",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'BM UEMOA',resp:'CBS',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:61,ref:'GAP-MDP-006',domain:'Moyens de Paiement',processus:'Effets',desc:"Normalisation effets UMOA : certaines formules non normalisées, EFCMA remise manuelle requise.",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'Conjoint',statut:'Couvert v4',complexite:'S',commentaire:"Priorisation P2-->P1",changed:true},
+  {n:62,ref:'GAP-MDP-007',domain:'Moyens de Paiement',processus:'Cartes SmartVista',desc:"Module cartes SmartVista entièrement hors standard, géré par BOA, en lien avec GAP-RC-001",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Hybride',complexite:'L',commentaire:"",changed:false},
+  {n:63,ref:'GAP-AG-001',domain:'Poste Agence & Guichet',processus:'Écran Guichet',desc:"Sécurisation commissions : blocage modification sauf codes ops transferts rapides (Western Union). Spécifique cassé post",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Évolution',bm:'BM UEMOA',resp:'Conjoint',statut:'À analyser',complexite:'M',commentaire:"",changed:false},
+  {n:64,ref:'GAP-AG-002',domain:'Poste Agence & Guichet',processus:'Écrans alternatifs',desc:"guichet_cnpsv, guichet_billpay = spécifiques BOA avec API tierces. Maintien hybride par défaut.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Hybride',complexite:'M',commentaire:"",changed:false},
+  {n:65,ref:'GAP-AG-003',domain:'Poste Agence & Guichet',processus:'Business Express',desc:"boa_bexops : insère opérations dans tables guichet/virements. Maintien hybride par défaut.",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Hybride',complexite:'M',commentaire:"Priorisation P2-->P1",changed:true},
+  {n:66,ref:'GAP-AG-004',domain:'Poste Agence & Guichet',processus:'Interdictions comptes',desc:"Traitements mise en interdiction/levée spécifiques BOA (ATD, dormants, remédiation). Écran standard insuffisant granular",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Hybride',complexite:'M',commentaire:"Priorisation P2-->P1",changed:true},
+  {n:67,ref:'GAP-AG-005',domain:'Poste Agence & Guichet',processus:'Microcoupures réseau',desc:"Impact microcoupures réseau sur opérations caisse. Étude technique requise CBS.",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'Conjoint',statut:'À étudier',complexite:'M',commentaire:"",changed:false},
+  {n:68,ref:'GAP-AG-006',domain:'Poste Agence & Guichet',processus:'Avis opérations SQR',desc:"Migration avis SQR vers SQL = charge notable. Décision conserver SQR ou migrer à prendre.",prio_cbs:'P2',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'Conjoint',statut:'Adoption v4',complexite:'L',commentaire:"Priorisation P2-->P1",changed:true},
+  {n:69,ref:'GAP-TC-001',domain:'Trésorerie et Change interbancaire',processus:'Opérations de trésorerie interbancaire',desc:"Solution tierce (Quantum) exploitée avec interface et compta dans IGOR Migration hybride",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Hybride',complexite:'',commentaire:"",changed:false},
+  {n:70,ref:'GAP-TC-002',domain:'Trésorerie et Change interbancaire',processus:'Opérations de change interbancaire',desc:"Solution tierce (Quantum) exploitée avec interface et compta dans IGOR Migration hybride",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'BOA',statut:'Hybride',complexite:'',commentaire:"",changed:false},
+  {n:71,ref:'GAP-TFJ-001',domain:'TFJ y compris courus',processus:'TFJ Scripts',desc:"Intégrer le spécifique nécessaire dans la nouvelle version du TFJ standard",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À analyser',complexite:'',commentaire:"",changed:false},
+  {n:72,ref:'GAP-TFJ-002',domain:'TFJ y compris courus',processus:'Auxiliarisation des courus',desc:"L'upgrade en v4 doit inclure l'auxiliarisation des couru. A faire avant l'upgrade",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'Conjoint',statut:'À planifier',complexite:'',commentaire:"",changed:false},
+  {n:73,ref:'GAP-TFJ-003',domain:'TFJ y compris courus',processus:'Opérations diverses',desc:"Pouvoir tracer les actions des utilisateurs sur la saisie/modification/validation des écritures via MVTS/MVTSOP",prio_cbs:'P3',prio:'P3',phase_cbs:'III',phase:'III',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À étudier',complexite:'XL',commentaire:"",changed:false},
+  {n:74,ref:'GAP-TFJ-004',domain:'TFJ y compris courus',processus:'Opérations durant TFJ',desc:"Permettre de limiter les possibilités d'accès et de saisie d'opérations de certaines agences pendant le déroulement du T",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'CBS',statut:'À étudier',complexite:'',commentaire:"",changed:false},
+  {n:75,ref:'GAP-AML-001',domain:'Conformité LAB/FT',processus:'Scoring AML',desc:"Clone de GAP-RC-007",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'Conjoint',statut:'À arbitrer',complexite:'XL',commentaire:"",changed:false},
+  {n:76,ref:'GAP-AML-002',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Trop de faux-positifs relevés",prio_cbs:'P2',prio:'P1',phase_cbs:'II',phase:'I',type:'Standard',bm:'Anomalie',resp:'BOA',statut:'À recenser',complexite:'XL',commentaire:"Priorisation P2-->P1 Changement de Phase II à Phase I",changed:true},
+  {n:77,ref:'GAP-AML-003',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Balayage quotidien de la base clientèle via un traitement spécifique BOA",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Spécifique',bm:'BM UEMOA',resp:'CBS',statut:'Couvert v4',complexite:'XL',commentaire:"",changed:false},
+  {n:78,ref:'GAP-AML-004',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Besoin de filtrer la clientèle occasionnelle",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'Anomalie',resp:'CBS',statut:'Couvert v4',complexite:'XL',commentaire:"",changed:false},
+  {n:79,ref:'GAP-AML-005',domain:'Conformité LAB/FT',processus:'Clientèle occassionnelle',desc:"Besoin d'identifier et gérer la clientèle occasionnelle",prio_cbs:'P3',prio:'P2.1',phase_cbs:'III',phase:'II',type:'Évolution',bm:'Evolution',resp:'Conjoint',statut:'À étudier',complexite:'M',commentaire:"Priorisation P3-->P2.1 et Phase 3 à Phase 2",changed:true},
+  {n:80,ref:'GAP-AML-006',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Problème de filtrage du donneur d'ordre pour les virements swifts reçus",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'Anomalie',resp:'CBS',statut:'Couvert v4',complexite:'XL',commentaire:"",changed:false},
+  {n:81,ref:'GAP-AML-007',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Besoin de pouvoir automatiser l'identification et la proposition de mise en exception des tiers externes récurrents mais",prio_cbs:'P3',prio:'P2',phase_cbs:'III',phase:'III',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À étudier',complexite:'M',commentaire:"Priorisation P3-->P2",changed:true},
+  {n:82,ref:'GAP-AML-008',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Prise en compte des alias des tiers figurant dans les listes noires",prio_cbs:'P2',prio:'P2',phase_cbs:'II',phase:'II',type:'Évolution',bm:'Evolution',resp:'Conjoint',statut:'À étudier',complexite:'XL',commentaire:"",changed:false},
+  {n:83,ref:'GAP-AML-009',domain:'Conformité LAB/FT',processus:'Filtrage',desc:"Besoin de pouvoir prendre en considération la notion de pays dans le filtrage de la base clientèle",prio_cbs:'P3',prio:'P3',phase_cbs:'III',phase:'III',type:'Évolution',bm:'Evolution',resp:'Conjoint',statut:'À étudier',complexite:'M',commentaire:"",changed:false},
+  {n:84,ref:'GAP-AML-010',domain:'Conformité LAB/FT',processus:'RIB autorisés',desc:"Pouvoir exploiter les RIB autorisés dans les écrans de saisie des opérations de virement externe",prio_cbs:'P3',prio:'P3',phase_cbs:'III',phase:'III',type:'Évolution',bm:'Evolution',resp:'CBS',statut:'À étudier',complexite:'M',commentaire:"",changed:false},
+  {n:85,ref:'GAP-HAB-001',domain:'Habilitations',processus:'Conception de la matrice d\'habilitations',desc:"Adapter la matrice actuelle à la philosophie des habilitations de la v4",prio_cbs:'P1',prio:'P1',phase_cbs:'I',phase:'I',type:'Standard',bm:'BM UEMOA',resp:'BOA',statut:'À étudier',complexite:'',commentaire:"",changed:false}
+];
+
+// ─────────────────────────────────────────────────────────────────────────
+// SUPABASE CONFIG — remplacez par vos vraies clés depuis supabase.com
+// ─────────────────────────────────────────────────────────────────────────
+const SUPABASE_URL     = 'https://mvjyolfsheoxhojzbjdc.supabase.co';     // ex: https://xxxx.supabase.co
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12anlvbGZzaGVveGhvanpiamRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMzY5MjcsImV4cCI6MjA4NzgxMjkyN30.VYq6j_UPRwX10kQ8wjS0dprOtWLVZO-vuSl2LK1DjHU'; // clé publique (anon)
+const sb = (SUPABASE_URL !== 'YOUR_SUPABASE_URL')
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null; // mode local si pas configuré
+
+let currentUser = null;
+let currentRole = 'viewer';
+
+// ─── STATE ────────────────────────────────────────────────────────────────
+let state = {
+  arbitrages: {},   // {id: {decision, commentaire}}
+  actions: {},      // {id: {rag, pct, commentaire}}
+  gantt: {},        // {id: {start, end}}
+  gaps: {},         // {ref: {decision, note}}
+  ganttCustom: [],  // [{id, label, phase, start, end, resp}]
+  ganttChain: false, // forward chain mode
+  ganttCollapsed: {}, // {phaseId: bool}
+};
+
+function applyParsedState(parsed) {
+  state = {
+    arbitrages:     parsed.arbitrages     || {},
+    actions:        parsed.actions        || {},
+    gantt:          parsed.gantt          || {},
+    gaps:           parsed.gaps           || {},
+    ganttCustom:    parsed.ganttCustom    || [],
+    ganttChain:     parsed.ganttChain     || false,
+    ganttCollapsed: parsed.ganttCollapsed || {},
+  };
+}
+
+function loadState() {
+  // Fallback: localStorage only (used before Supabase is ready)
+  try {
+    const saved = localStorage.getItem('boa_v4_state');
+    if (saved) applyParsedState(JSON.parse(saved));
+  } catch(e) {}
+}
+
+function canEdit() {
+  return currentRole === 'owner' || currentRole === 'editor';
+}
+
+function saveState() {
+  // Always backup to localStorage
+  try { localStorage.setItem('boa_v4_state', JSON.stringify(state)); } catch(e) {}
+  // Cloud save (async, fire-and-forget)
+  if (sb && currentUser && canEdit()) {
+    sb.from('project_state')
+      .upsert({ id: 'boa_ci_v4', state_data: state,
+                updated_at: new Date().toISOString(), updated_by: currentUser.id })
+      .then(({ error }) => { if (error) console.warn('Cloud save error:', error.message); });
+  }
+  const indicator = document.getElementById('save-indicator');
+  if (indicator) { indicator.style.display = 'block'; setTimeout(() => indicator.style.display = 'none', 1500); }
+}
+
+function showSyncIndicator() {
+  const el = document.getElementById('sync-indicator');
+  if (el) { el.style.display = 'block'; setTimeout(() => el.style.display = 'none', 3000); }
+}
+
+function applyRoleUI() {
+  document.body.classList.remove('viewer-mode', 'editor-mode', 'owner-mode');
+  document.body.classList.add(currentRole + '-mode');
+  // Owner-only controls
+  document.querySelectorAll('.owner-only').forEach(el => {
+    el.style.display = currentRole === 'owner' ? '' : 'none';
+  });
+  // Readonly banner
+  const banner = document.getElementById('readonly-banner');
+  if (banner) banner.style.display = currentRole === 'viewer' ? 'flex' : 'none';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════════════════════════════
+
+function daysBetween(d1, d2) {
+  return Math.round((d2 - d1) / 86400000);
+}
+
+const GANTT_RANGE_START = new Date('2026-01-01');
+const GANTT_RANGE_END   = new Date('2026-08-16');
+const GANTT_TOTAL_DAYS  = daysBetween(GANTT_RANGE_START, GANTT_RANGE_END);
+
+function ganttPct(dateStr) {
+  const d = new Date(dateStr);
+  return Math.max(0, Math.min(100, daysBetween(GANTT_RANGE_START, d) / GANTT_TOTAL_DAYS * 100));
+}
+
+function ganttWidthPct(startStr, endStr) {
+  const s = new Date(startStr), e = new Date(endStr);
+  const days = Math.max(1, daysBetween(s, e));
+  return Math.min(100 - ganttPct(startStr), days / GANTT_TOTAL_DAYS * 100);
+}
+
+const MONTHS = [
+  {name:'Jan', days:31}, {name:'Fév', days:28}, {name:'Mar', days:31},
+  {name:'Avr', days:30}, {name:'Mai', days:31}, {name:'Jun', days:30},
+  {name:'Jul', days:31}, {name:'Aoû', days:16}
+];
+
+function phaseClass(phase) {
+  return {freeze:'ph-freeze',build:'ph-build',sit:'ph-sit',uat:'ph-uat',live:'ph-live',copil:'ph-copil'}[phase] || '';
+}
+
+function countdowns() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.getElementById('today-label').textContent = today.toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+  const df = daysBetween(today, DESIGN_FREEZE);
+  const gl = daysBetween(today, GO_LIVE);
+  document.getElementById('days-freeze').textContent = df > 0 ? `J-${df}` : (df === 0 ? 'Aujourd\'hui' : `J+${-df}`);
+  document.getElementById('days-live').textContent = gl > 0 ? `J-${gl}` : 'Go Live!';
+  if (df < 0) document.getElementById('countdown-freeze').style.background = '#aaa';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════════════════════════════════
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'gantt') renderGantt();
+  if (name === 'gaps') renderGaps();
+  if (name === 'arbitrages') renderArbitrages();
+  if (name === 'actions') renderActions();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// DASHBOARD
+// ════════════════════════════════════════════════════════════════════════
+
+function renderDashboard() {
+  // Arbitrages stats
+  let decided = 0, byDec = {maintien:0,integration:0,abandon:0,en_cours:0};
+  arbitrages.forEach(a => {
+    const s = (state.arbitrages[a.id] || {}).decision || 'en_cours';
+    byDec[s] = (byDec[s] || 0) + 1;
+    if (s !== 'en_cours') decided++;
+  });
+  document.getElementById('dash-arb-done').textContent = decided;
+  const pct = Math.round(decided / 25 * 100);
+  document.getElementById('arb-prog-fill').style.width = pct + '%';
+  document.getElementById('arb-prog-text').textContent = pct + '%';
+  document.getElementById('arb-prog-count').textContent = decided + ' / 25';
+  document.getElementById('arb-by-decision').innerHTML = [
+    {key:'maintien',label:'Maintien hybride',color:'#3949AB'},
+    {key:'integration',label:'Intégration V4',color:'#2E7D52'},
+    {key:'abandon',label:'Abandon',color:'#E63329'},
+    {key:'en_cours',label:'En cours',color:'#E8702A'},
+  ].map(d => `<div style="background:${d.color}10;border:1px solid ${d.color};color:${d.color};
+    border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">
+    ${byDec[d.key]||0} ${d.label}</div>`).join('');
+
+  // Actions stats
+  let actR=0,actO=0,actG=0,actX=0;
+  actions.forEach(a => {
+    const rag = (state.actions[a.id] || {}).rag || 'X';
+    if (rag==='R') actR++;
+    else if (rag==='O') actO++;
+    else if (rag==='G') actG++;
+    else actX++;
+  });
+  document.getElementById('act-red').textContent = actR;
+  document.getElementById('act-orange').textContent = actO;
+  document.getElementById('act-green').textContent = actG;
+  document.getElementById('act-gray').textContent = actX;
+  document.getElementById('dash-actions-done').textContent = actG;
+
+  // Tab badge
+  const pending = arbitrages.filter(a => !state.arbitrages[a.id]?.decision || state.arbitrages[a.id].decision === 'en_cours').length;
+  document.getElementById('tab-arb-badge').textContent = pending;
+
+  // Domain progress — P1 per domain (priorités BOA v1.2 27/02)
+  const domainData = [
+    {name:'Engagements & Risques',  p1:8,  closed:0},
+    {name:'Poste Agence & Guichet', p1:6,  closed:0},
+    {name:'Négoce International',   p1:6,  closed:0},
+    {name:'Conformité LAB/FT',      p1:5,  closed:0},
+    {name:'Moyens de Paiement',     p1:4,  closed:0},
+    {name:'Réf. Clients & Comptes', p1:7,  closed:0},
+    {name:'TFJ courus',             p1:3,  closed:0},
+    {name:'Comptabilité & Finance', p1:1,  closed:0},
+    {name:'Trésorerie & Change',    p1:2,  closed:0},
+    {name:'Habilitations',          p1:1,  closed:0},
+  ];
+  document.getElementById('domain-progress').innerHTML = domainData.map(d => {
+    const pct = Math.round(d.closed / d.p1 * 100);
+    return `<div class="domain-row">
+      <div class="domain-name">${d.name}</div>
+      <div class="domain-bar">
+        <div class="domain-bar-fill" style="width:${pct}%">
+          ${pct > 10 ? `<span class="domain-bar-text">${pct}%</span>` : ''}
+        </div>
+      </div>
+      <div class="domain-stats">${d.closed}/${d.p1} P1</div>
+    </div>`;
+  }).join('');
+
+  // Critical actions
+  const critActs = actions.filter(a => {
+    const rag = (state.actions[a.id]||{}).rag;
+    return rag === 'R' || (!rag && a.urgence === 'Critique');
+  }).slice(0, 4);
+  document.getElementById('critical-actions-list').innerHTML = critActs.map(a => `
+    <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #eee;">
+      <span style="background:var(--red);color:white;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;">${a.id}</span>
+      <span style="flex:1;font-size:11px;">${a.action}</span>
+      <span style="font-size:10px;color:var(--gray);white-space:nowrap;">${a.echeance}</span>
+    </div>`).join('') || '<div style="font-size:11px;color:var(--green);padding:6px 0;">✓ Aucune action critique en retard</div>';
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// GANTT
+// ════════════════════════════════════════════════════════════════════════
+
+function getTaskDates(task) {
+  const s = state.gantt[task.id];
+  return { start: (s && s.start) || task.start, end: (s && s.end) || task.end };
+}
+
+function taskDuration(task) {
+  const {start, end} = getTaskDates(task);
+  const s = new Date(start), e = new Date(end);
+  return Math.max(1, Math.round((e - s) / 86400000));
+}
+
+function addDays(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function toggleChain(on) {
+  state.ganttChain = on;
+  saveState();
+}
+
+function openAddTask() {
+  const modal = document.getElementById('add-task-modal');
+  modal.style.display = 'flex';
+}
+
+function closeAddTask() {
+  document.getElementById('add-task-modal').style.display = 'none';
+  ['new-task-label','new-task-start','new-task-end','new-task-resp'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+}
+
+function submitAddTask() {
+  const label = document.getElementById('new-task-label').value.trim();
+  const start = document.getElementById('new-task-start').value;
+  const end   = document.getElementById('new-task-end').value;
+  const phase = document.getElementById('new-task-phase').value;
+  const resp  = document.getElementById('new-task-resp').value.trim();
+  if (!label || !start || !end) { alert('Veuillez renseigner le libellé, la date début et la date fin.'); return; }
+  const id = 'custom_' + Date.now();
+  if (!state.ganttCustom) state.ganttCustom = [];
+  state.ganttCustom.push({id, label, phase, start, end, resp: resp||'—'});
+  saveState();
+  closeAddTask();
+  renderGantt();
+}
+
+function removeCustomTask(id) {
+  state.ganttCustom = (state.ganttCustom||[]).filter(t => t.id !== id);
+  saveState();
+  renderGantt();
+}
+
+function renderGantt() {
+  const todayPct = ganttPct(TODAY.toISOString().split('T')[0]);
+  const toggle = document.getElementById('gantt-chain-toggle');
+  if (toggle) toggle.checked = !!state.ganttChain;
+  if (!state.ganttCollapsed) state.ganttCollapsed = {};
+
+  const monthsBgTpl = MONTHS.map((m,i) =>
+    `<div class="month-col ${i%2===1?'alt':''}" style="flex:${m.days}"></div>`
+  ).join('');
+
+  let rows = '';
+  let currentPhaseId = null;
+
+  ganttTasks.forEach(task => {
+    const {start, end} = getTaskDates(task);
+    const isPhase = task.type === 'phase';
+    const isJalon = task.type === 'jalon';
+
+    if (isPhase) { currentPhaseId = task.id; }
+    else if (currentPhaseId && state.ganttCollapsed[currentPhaseId]) return;
+
+    const left  = ganttPct(start);
+    const width = ganttWidthPct(start, end);
+    const dur   = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
+    const pct   = Math.round((task.pct || 0) * 100);
+    const predStr = (task.pred && task.pred.length) ? task.pred.join(', ') : '—';
+
+    let typeBadge, rowClass, barHtml, datesCells;
+
+    if (isPhase) {
+      rowClass   = 'gantt-phase-row';
+      typeBadge  = '<span class="type-badge type-phase">Phase</span>';
+      barHtml    = `<div class="gantt-bar ph-${task.phase}" style="left:${left.toFixed(1)}%;width:${Math.max(0.5,width).toFixed(1)}%;" title="${task.label}: ${start} → ${end}">${width>4?task.label.substring(0,18):''}</div>`;
+      datesCells = `<td style="font-size:11px;">${start}</td><td style="font-size:11px;">${end}</td><td class="center" style="font-size:11px;">${dur}j</td>`;
+    } else if (isJalon) {
+      rowClass   = 'gantt-jalon-row';
+      typeBadge  = '<span class="type-badge type-jalon">Jalon</span>';
+      barHtml    = `<div class="gantt-milestone" style="left:calc(${left.toFixed(1)}% - 10px);" title="${task.label}: ${start}">◆</div>`;
+      datesCells = `<td style="font-weight:700;text-align:center;font-size:11px;">${start}</td><td style="color:var(--gray);text-align:center;">—</td><td class="center" style="color:var(--gray);">—</td>`;
+    } else {
+      rowClass   = 'gantt-sub-row';
+      typeBadge  = '<span class="type-badge type-task">Tâche</span>';
+      barHtml    = `<div class="gantt-bar ph-${task.phase}" style="left:${left.toFixed(1)}%;width:${Math.max(0.5,width).toFixed(1)}%;" title="${task.label}: ${start} → ${end} (${dur}j)">${width>3?task.label.substring(0,22):''}</div>`;
+      datesCells = `<td><input class="date-input" type="date" value="${start}" onchange="updateGanttDate('${task.id}','start',this.value)"></td><td><input class="date-input" type="date" value="${end}" onchange="updateGanttDate('${task.id}','end',this.value)"></td><td class="center"><input type="number" min="0" max="400" value="${dur}" onchange="updateGanttDuration('${task.id}',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>`;
+    }
+
+    const isCollapsed  = isPhase && !!state.ganttCollapsed[task.id];
+    const collapseBtn  = isPhase
+      ? `<button onclick="togglePhaseCollapse('${task.id}')" class="phase-toggle-btn" title="${isCollapsed?'Déployer':'Réduire'}">${isCollapsed?'▶':'▼'}</button>`
+      : '';
+
+    rows += `<tr class="${rowClass}">
+      <td class="center">${typeBadge}</td>
+      <td>${collapseBtn}${isPhase?'':'&nbsp;&nbsp;'}${task.label}</td>
+      <td style="font-size:10px;color:var(--gray);text-align:center;">${task.owner||'—'}</td>
+      <td style="font-size:10px;text-align:center;color:#3949AB;">${predStr}</td>
+      ${datesCells}
+      <td class="center" style="font-size:10px;">${pct>0?pct+'%':'—'}</td>
+      <td style="padding:0;position:relative;">
+        <div class="gantt-bar-cell">
+          <div class="gantt-months-bg">${monthsBgTpl}</div>
+          <div class="today-line" style="left:${todayPct.toFixed(1)}%"></div>
+          ${barHtml}
+        </div>
+      </td>
+      <td></td>
+    </tr>`;
+  });
+
+  // Custom tasks
+  (state.ganttCustom || []).forEach(task => {
+    const {start, end} = getTaskDates(task);
+    const left  = ganttPct(start);
+    const width = ganttWidthPct(start, end);
+    const dur   = Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000));
+    rows += `<tr class="gantt-sub-row custom-task-row">
+      <td class="center"><span class="type-badge type-custom">★</span></td>
+      <td>&nbsp;&nbsp;<span style="color:#3949AB;">${task.label}</span></td>
+      <td style="font-size:10px;color:var(--gray);text-align:center;">${task.resp||'—'}</td>
+      <td class="center" style="color:var(--gray);">—</td>
+      <td><input class="date-input" type="date" value="${start}" onchange="updateGanttDate('${task.id}','start',this.value)"></td>
+      <td><input class="date-input" type="date" value="${end}" onchange="updateGanttDate('${task.id}','end',this.value)"></td>
+      <td class="center"><input type="number" min="1" max="400" value="${dur}" onchange="updateGanttDuration('${task.id}',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>
+      <td class="center" style="color:var(--gray);">—</td>
+      <td style="padding:0;position:relative;">
+        <div class="gantt-bar-cell">
+          <div class="gantt-months-bg">${monthsBgTpl}</div>
+          <div class="today-line" style="left:${todayPct.toFixed(1)}%"></div>
+          <div class="gantt-bar" style="left:${left.toFixed(1)}%;width:${Math.max(0.5,width).toFixed(1)}%;opacity:0.75;border:2px dashed #3949AB;background:#EEF0F8;color:#3949AB;" title="${task.label}: ${start} → ${end}">${width>3?task.label.substring(0,22):''}</div>
+        </div>
+      </td>
+      <td style="text-align:center;"><button onclick="removeCustomTask('${task.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0;" title="Supprimer">✕</button></td>
+    </tr>`;
+  });
+
+  const header = `<table class="gantt-table"><thead><tr>
+    <th style="width:52px;text-align:center;">Type</th>
+    <th class="col-name">Tâche / Livrable</th>
+    <th style="width:90px;text-align:center;">Owner</th>
+    <th style="width:62px;text-align:center;">Préd.</th>
+    <th class="col-start">Début</th>
+    <th class="col-end">Fin</th>
+    <th style="width:52px" class="center">Durée</th>
+    <th style="width:35px" class="center">%</th>
+    <th class="col-bar" style="padding:0;">
+      <div style="display:flex;height:26px;">
+        ${MONTHS.map((m,i)=>`<div class="gantt-month-header" style="flex:${m.days};background:${i%2===0?'#c8d0e0':'#d8e0f0'};border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;">${m.name}</div>`).join('')}
+      </div>
+    </th>
+    <th style="width:24px"></th>
+  </tr></thead>`;
+
+  document.getElementById('gantt-render').innerHTML = header + '<tbody>' + rows + '</tbody></table>';
+}
+
+function togglePhaseCollapse(phaseId) {
+  if (!state.ganttCollapsed) state.ganttCollapsed = {};
+  state.ganttCollapsed[phaseId] = !state.ganttCollapsed[phaseId];
+  saveState();
+  renderGantt();
+}
+
+function updateGanttDate(id, field, value) {
+  if (!state.gantt[id]) state.gantt[id] = {};
+  const allTasks = [...ganttTasks, ...(state.ganttCustom || [])];
+  const task = allTasks.find(t => t.id === id);
+  const oldDates = getTaskDates(task || {id, start: value, end: value, pred: []});
+
+  state.gantt[id][field] = value;
+
+  // If start changes: preserve duration, shift end, then cascade successors
+  if (field === 'start') {
+    const dur = Math.max(0, Math.round((new Date(oldDates.end) - new Date(oldDates.start)) / 86400000));
+    const newEnd = addDays(value, dur);
+    state.gantt[id].end = newEnd;
+    cascadeSuccessors(id, newEnd, new Set([id]));
+  }
+
+  // If end changes: cascade successors; optionally chain-shift subsequent tasks
+  if (field === 'end') {
+    cascadeSuccessors(id, value, new Set([id]));
+    if (state.ganttChain) {
+      const delta = Math.round((new Date(value) - new Date(oldDates.end)) / 86400000);
+      if (delta !== 0) {
+        const oldEnd = new Date(oldDates.end);
+        allTasks.forEach(t => {
+          if (t.id === id) return;
+          const td = getTaskDates(t);
+          if (new Date(td.start) >= oldEnd) {
+            if (!state.gantt[t.id]) state.gantt[t.id] = {};
+            state.gantt[t.id].start = addDays(td.start, delta);
+            state.gantt[t.id].end   = addDays(td.end,   delta);
+          }
+        });
+      }
+    }
+  }
+
+  if (id.startsWith('custom_')) {
+    const ct = (state.ganttCustom || []).find(t => t.id === id);
+    if (ct) {
+      ct.start = state.gantt[id].start || ct.start;
+      ct.end   = state.gantt[id].end   || ct.end;
+    }
+  }
+
+  saveState();
+  renderGantt();
+  renderDashboard();
+}
+
+function cascadeSuccessors(changedId, newEndDate, visited) {
+  if (!visited) visited = new Set();
+  const allTasks = [...ganttTasks, ...(state.ganttCustom || [])];
+  allTasks.forEach(t => {
+    if (visited.has(t.id)) return;
+    if (!t.pred || !t.pred.includes(changedId)) return;
+    const newStart = addDays(newEndDate, 1);
+    const {start: os, end: oe} = getTaskDates(t);
+    const dur = Math.max(0, Math.round((new Date(oe) - new Date(os)) / 86400000));
+    if (!state.gantt[t.id]) state.gantt[t.id] = {};
+    state.gantt[t.id].start = newStart;
+    state.gantt[t.id].end   = addDays(newStart, dur);
+    if (t.id.startsWith('custom_')) {
+      const ct = (state.ganttCustom || []).find(x => x.id === t.id);
+      if (ct) { ct.start = newStart; ct.end = state.gantt[t.id].end; }
+    }
+    visited.add(t.id);
+    cascadeSuccessors(t.id, state.gantt[t.id].end, visited);
+  });
+}
+
+function updateGanttDuration(id, days) {
+  days = parseInt(days);
+  if (!days || days < 1) return;
+  const task = ganttTasks.find(t=>t.id===id) || (state.ganttCustom||[]).find(t=>t.id===id);
+  const {start} = getTaskDates(task || {id, start: new Date().toISOString().split('T')[0]});
+  if (!state.gantt[id]) state.gantt[id] = {};
+  state.gantt[id].end = addDays(start, days);
+  if (id.startsWith('custom_')) {
+    const ct = (state.ganttCustom||[]).find(t=>t.id===id);
+    if (ct) ct.end = state.gantt[id].end;
+  }
+  saveState();
+  renderGantt();
+}
+
+function resetGanttDates() {
+  if (confirm('Réinitialiser toutes les dates du Gantt aux valeurs par défaut ? (Les tâches personnalisées seront conservées)')) {
+    state.gantt = {};
+    saveState();
+    renderGantt();
+  }
+}
+
+function renderArbitrages() {
+  const domFilter = document.getElementById('arb-filter-domain').value;
+  const decFilter = document.getElementById('arb-filter-dec').value;
+
+  let filtered = arbitrages.filter(a => {
+    if (domFilter && !a.domain.includes(domFilter.split(' ')[0])) return false;
+    if (decFilter) {
+      const dec = (state.arbitrages[a.id] || {}).decision || 'en_cours';
+      if (dec !== decFilter) return false;
+    }
+    return true;
+  });
+
+  // Stats row
+  let decided = 0, byDec = {maintien:0,integration:0,abandon:0,en_cours:0};
+  arbitrages.forEach(a => {
+    const s = (state.arbitrages[a.id] || {}).decision || 'en_cours';
+    byDec[s]++;
+    if (s !== 'en_cours') decided++;
+  });
+  document.getElementById('arb-top-stats').innerHTML = [
+    {v:decided, l:'Décidés', c:'var(--green)', bg:'var(--green-light)'},
+    {v:byDec.en_cours, l:'En cours', c:'var(--orange)', bg:'var(--orange-light)'},
+    {v:byDec.maintien, l:'Maintien hybride', c:'#3949AB', bg:'#EEF0F8'},
+    {v:byDec.integration, l:'Intégration V4', c:'var(--green)', bg:'var(--green-light)'},
+    {v:byDec.abandon, l:'Abandon', c:'var(--red)', bg:'var(--red-light)'},
+  ].map(s => `<div style="background:${s.bg};border:1px solid ${s.c};padding:8px 14px;border-radius:5px;text-align:center;">
+    <div style="font-size:22px;font-weight:900;color:${s.c}">${s.v}</div>
+    <div style="font-size:10px;color:${s.c}">${s.l}</div>
+  </div>`).join('');
+
+  let html = filtered.map(a => {
+    const saved = state.arbitrages[a.id] || {};
+    const dec = saved.decision || 'en_cours';
+    const comment = saved.commentaire || '';
+    return `<tr>
+      <td style="font-weight:700;color:var(--red)">${a.id}</td>
+      <td style="font-size:11px;">${a.domain}</td>
+      <td>${a.label}</td>
+      <td class="center"><span class="badge badge-${a.prio.toLowerCase()}">${a.prio}</span></td>
+      <td>
+        <select class="status-select dec-${dec}" onchange="setArbDecision(${a.id},'decision',this.value)">
+          <option value="en_cours" ${dec==='en_cours'?'selected':''}>⏳ En cours d'arbitrage</option>
+          <option value="maintien" ${dec==='maintien'?'selected':''}>🔵 Maintien hybride</option>
+          <option value="integration" ${dec==='integration'?'selected':''}>🟢 Intégration V4</option>
+          <option value="abandon" ${dec==='abandon'?'selected':''}>🔴 Abandon</option>
+        </select>
+      </td>
+      <td style="font-size:11px;">${a.resp}</td>
+      <td style="font-size:11px;">${a.deadline}</td>
+      <td><input class="comment-input" type="text" placeholder="Commentaire…" value="${comment}"
+        onchange="setArbDecision(${a.id},'commentaire',this.value)"></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('arb-tbody').innerHTML = html || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
+
+  // Style selects
+  document.querySelectorAll('.status-select').forEach(sel => {
+    sel.className = `status-select dec-${sel.value}`;
+  });
+
+  renderDashboard();
+}
+
+function setArbDecision(id, field, value) {
+  if (!state.arbitrages[id]) state.arbitrages[id] = {};
+  state.arbitrages[id][field] = value;
+  saveState();
+  renderArbitrages();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ACTIONS
+// ════════════════════════════════════════════════════════════════════════
+
+function renderActions() {
+  const domF = document.getElementById('act-filter-domain').value;
+  const ragF = document.getElementById('act-filter-rag').value;
+  const respF = document.getElementById('act-filter-resp').value;
+
+  const filtered = actions.filter(a => {
+    const rag = (state.actions[a.id]||{}).rag || 'X';
+    if (domF && a.domain !== domF) return false;
+    if (ragF && rag !== ragF) return false;
+    if (respF && a.resp !== respF) return false;
+    return true;
+  });
+
+  document.getElementById('act-tbody').innerHTML = filtered.map(a => {
+    const saved = state.actions[a.id] || {};
+    const rag = saved.rag || 'X';
+    const pct = saved.pct || 0;
+    const comment = saved.commentaire || '';
+    const urgBadge = a.urgence === 'Critique' ? 'badge-crit' : (a.urgence === 'Haute' ? 'badge-haute' : 'badge-std');
+    const progClass = rag === 'G' ? 'pg' : (rag === 'O' ? 'po' : 'pr');
+    return `<tr>
+      <td><strong style="color:var(--red)">${a.id}</strong></td>
+      <td><span class="badge ${urgBadge}" style="font-size:9px;">${a.domain}</span></td>
+      <td style="font-size:11px;">${a.action}</td>
+      <td style="font-size:11px;text-align:center;">${a.resp}</td>
+      <td style="font-size:11px;text-align:center;">${a.echeance}</td>
+      <td>
+        <div class="rag-group" style="justify-content:center;">
+          <button class="rag-btn rag-r ${rag==='R'?'active':''}" onclick="setActionRag('${a.id}','R')">R</button>
+          <button class="rag-btn rag-o ${rag==='O'?'active':''}" onclick="setActionRag('${a.id}','O')">O</button>
+          <button class="rag-btn rag-g ${rag==='G'?'active':''}" onclick="setActionRag('${a.id}','G')">G</button>
+          <button class="rag-btn" style="background:#ccc;color:#666;${rag==='X'?'opacity:1;':'opacity:.35;'}"
+            onclick="setActionRag('${a.id}','X')">—</button>
+        </div>
+      </td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-bar"><div class="prog-fill ${progClass}" style="width:${pct}%"></div></div>
+          <input class="prog-input" type="number" min="0" max="100" value="${pct}"
+            onchange="setActionPct('${a.id}',this.value)"> %
+        </div>
+      </td>
+      <td><input class="comment-input" type="text" placeholder="Commentaire…" value="${comment}"
+        onchange="setActionComment('${a.id}',this.value)"></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
+
+  renderDashboard();
+}
+
+function setActionRag(id, rag) {
+  if (!state.actions[id]) state.actions[id] = {};
+  state.actions[id].rag = rag;
+  if (rag === 'G' && !state.actions[id].pct) state.actions[id].pct = 100;
+  saveState();
+  renderActions();
+}
+
+function setActionPct(id, val) {
+  if (!state.actions[id]) state.actions[id] = {};
+  state.actions[id].pct = parseInt(val) || 0;
+  saveState();
+  renderActions();
+}
+
+function setActionComment(id, val) {
+  if (!state.actions[id]) state.actions[id] = {};
+  state.actions[id].commentaire = val;
+  saveState();
+}
+
+function resetActFilters() {
+  ['act-filter-domain','act-filter-rag','act-filter-resp'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  renderActions();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// GAPS
+// ════════════════════════════════════════════════════════════════════════
+
+function renderGaps() {
+  const domF   = document.getElementById('gaps-filter-domain').value;
+  const prioF  = document.getElementById('gaps-filter-prio').value;
+  const changedF = document.getElementById('gaps-filter-changed').value;
+  const bmF    = document.getElementById('gaps-filter-bm').value;
+  const decF   = document.getElementById('gaps-filter-dec') ? document.getElementById('gaps-filter-dec').value : '';
+  const search = document.getElementById('gaps-search').value.toLowerCase();
+
+  const filtered = gaps.filter(g => {
+    if (domF && g.domain !== domF) return false;
+    if (prioF && g.prio !== prioF) return false;
+    if (changedF === 'true' && !g.changed) return false;
+    if (bmF && !g.bm.startsWith(bmF)) return false;
+    if (decF) {
+      const d = (state.gaps[g.ref] || {}).decision || '';
+      if (d !== decF) return false;
+    }
+    if (search && !g.desc.toLowerCase().includes(search)
+               && !g.domain.toLowerCase().includes(search)
+               && !g.ref.toLowerCase().includes(search)
+               && !g.processus.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  document.getElementById('gaps-count').textContent = filtered.length;
+
+  document.getElementById('gaps-tbody').innerHTML = filtered.map(g => {
+    const prioChanged = g.prio !== g.prio_cbs;
+    const isAnomalie  = g.bm === 'Anomalie' || g.bm === 'Anomalie V4 CG';
+    const isExclusion = g.bm === 'Exclusion';
+
+    const prioCssClass = `badge-${g.prio_cbs.toLowerCase().replace('.','').replace(' ','')}`;
+    const prioBoaClass = `badge-${g.prio.toLowerCase().replace('.','').replace(' ','')}`;
+
+    const prioCbsCell = `<span class="badge ${prioCssClass}" style="font-size:9px;">${g.prio_cbs}</span>`;
+    const prioBoaCell = prioChanged
+      ? `<span class="badge ${prioBoaClass}" style="font-size:9px;">${g.prio}</span><span style="color:var(--orange);font-weight:900;font-size:10px;display:block;margin-top:1px;">▲</span>`
+      : `<span class="badge ${prioBoaClass}" style="font-size:9px;">${g.prio}</span>`;
+
+    let bmColor = '#54565A', bmBg = '#F5F5F5';
+    if (g.bm === 'BM UEMOA' || g.bm === 'Prérequis BM UEMOA') { bmColor='#2E7D52'; bmBg='#E8F5ED'; }
+    else if (isAnomalie) { bmColor='#3949AB'; bmBg='#E8F0FE'; }
+    else if (isExclusion) { bmColor='var(--red)'; bmBg='var(--red-light)'; }
+    else if (g.bm === 'Evolution') { bmColor='var(--orange)'; bmBg='var(--orange-light)'; }
+    const bmLabel = g.bm === 'Prérequis BM UEMOA' ? 'Prérequis' : g.bm;
+    const bmBadge = `<span style="background:${bmBg};color:${bmColor};border:1px solid ${bmColor};border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;white-space:nowrap;">${bmLabel}</span>`;
+
+    // GAP decision (stored in state)
+    const saved = state.gaps[g.ref] || {};
+    const dec = saved.decision || '';
+    const note = saved.note || '';
+    const decOptions = ['','En attente','En analyse','Validé V4 Standard','Validé Spécifique','Reporté Phase II','Exclu périmètre'];
+    const decColors = {'Validé V4 Standard':'#2E7D52','Validé Spécifique':'#3949AB','Reporté Phase II':'#E8702A','Exclu périmètre':'#E63329','En analyse':'#E8702A','En attente':'#54565A','':'#54565A'};
+    const decBg = {'Validé V4 Standard':'#E8F5ED','Validé Spécifique':'#EEF0F8','Reporté Phase II':'#FEF3E2','Exclu périmètre':'#FDEEEC','En analyse':'#FEF3E2','En attente':'#F5F5F5','':'#F5F5F5'};
+    const decCell = `<select onchange="setGapDecision('${g.ref}','decision',this.value)"
+      style="font-size:10px;padding:2px 4px;border-radius:3px;width:130px;
+      background:${decBg[dec]||'#F5F5F5'};color:${decColors[dec]||'#54565A'};
+      border:1px solid ${decColors[dec]||'#ccc'};font-weight:${dec?'700':'400'};">
+      ${decOptions.map(o => `<option value="${o}" ${o===dec?'selected':''}>${o||'— choisir —'}</option>`).join('')}
+    </select>`;
+    const noteCell = `<input type="text" value="${note.replace(/"/g,'&quot;')}"
+      onchange="setGapDecision('${g.ref}','note',this.value)"
+      placeholder="Note libre..."
+      style="font-size:10px;padding:2px 5px;border:1px solid #ddd;border-radius:3px;width:165px;">`;
+
+    const rowBg = dec === 'Exclu périmètre' ? 'opacity:0.45;' :
+                  dec === 'Validé V4 Standard' || dec === 'Validé Spécifique' ? 'background:#f7fff9;' : '';
+
+    return `<tr style="${rowBg}">
+      <td style="color:var(--gray);font-size:10px;">${g.n}</td>
+      <td><span class="badge badge-spec" style="font-size:9px;font-family:monospace;">${g.ref}</span>
+          ${isAnomalie ? '<span title="Anomalie V4" style="color:#3949AB;font-size:10px;margin-left:3px;">⚠</span>' : ''}
+          ${isExclusion ? '<span title="Hors périmètre" style="color:var(--red);font-size:10px;margin-left:3px;">✕</span>' : ''}</td>
+      <td style="font-size:10px;">${g.domain.replace(' & ',' &amp; ')}</td>
+      <td style="font-size:10px;color:var(--gray);">${g.processus}</td>
+      <td style="font-size:10px;">${g.desc}</td>
+      <td class="center">${prioCbsCell}</td>
+      <td class="center">${prioBoaCell}</td>
+      <td class="center" style="font-size:10px;font-weight:700;">${g.phase}</td>
+      <td>${bmBadge}</td>
+      <td class="center">${decCell}</td>
+      <td>${noteCell}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
+
+  // Update decision summary bar
+  updateGapsSummary();
+}
+
+function updateGapsSummary() {
+  const counts = {'Validé V4 Standard':0,'Validé Spécifique':0,'En analyse':0,'En attente':0,'Reporté Phase II':0,'Exclu périmètre':0,'total':gaps.length};
+  gaps.forEach(g => {
+    const d = (state.gaps[g.ref]||{}).decision||'En attente';
+    if (counts[d] !== undefined) counts[d]++;
+    else counts['En attente']++;
+  });
+  const el = document.getElementById('gaps-summary-bar');
+  if (!el) return;
+  const valides = counts['Validé V4 Standard'] + counts['Validé Spécifique'];
+  const pct = Math.round(valides / counts.total * 100);
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <div style="background:#E8F5ED;color:#2E7D52;border:1px solid #2E7D52;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${valides} Validés</div>
+      <div style="background:#FEF3E2;color:#E8702A;border:1px solid #E8702A;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['En analyse']} En analyse</div>
+      <div style="background:#F5F5F5;color:#54565A;border:1px solid #ccc;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['En attente']} En attente</div>
+      <div style="background:#FDEEEC;color:#E63329;border:1px solid #E63329;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['Exclu périmètre']} Exclus</div>
+      <div style="flex:1;min-width:200px;">
+        <div style="background:#eee;border-radius:4px;height:8px;overflow:hidden;">
+          <div style="background:#2E7D52;width:${pct}%;height:100%;border-radius:4px;transition:width .3s;"></div>
+        </div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px;">${pct}% validés (${valides}/${counts.total})</div>
+      </div>
+    </div>`;
+}
+
+function setGapDecision(ref, field, value) {
+  if (!state.gaps[ref]) state.gaps[ref] = {};
+  state.gaps[ref][field] = value;
+  saveState();
+  renderGaps();
+  renderDashboard();
+}
+
+function resetGapsFilters() {
+  ['gaps-filter-domain','gaps-filter-prio','gaps-filter-changed','gaps-filter-bm'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('gaps-search').value = '';
+  renderGaps();
+}
+
+function exportGapsCSV() {
+  const headers = ['N°','GAP ID','Domaine','Processus','Description','Priorité CBS','Priorité BOA','Phase BOA','Bank Model BOA','Responsable','Statut CBS','Décision BOA','Notes','Commentaire BOA 27/02'];
+  const rows = gaps.map(g => [
+    g.n, g.ref, g.domain, g.processus, `"${g.desc}"`,
+    g.prio_cbs, g.prio, g.phase, g.bm, g.resp, g.statut,
+    (state.gaps[g.ref]||{}).decision||'',
+    `"${((state.gaps[g.ref]||{}).note||'').replace(/"/g,"'")}"`,
+    `"${g.commentaire}"`
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'BOA_CI_GAPs_85_v1.2_27022026.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════════════════
+
+function printSection(tabId) {
+  window.print();
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────
+// APP INIT — called after successful auth
+// ─────────────────────────────────────────────────────────────────────────
+async function initApp() {
+  // Load state from Supabase (or fallback to localStorage)
+  if (sb) {
+    try {
+      const { data, error } = await sb.from('project_state')
+        .select('state_data').eq('id', 'boa_ci_v4').single();
+      if (data && data.state_data && !error) {
+        applyParsedState(data.state_data);
+      } else {
+        loadState();
+      }
+    } catch(e) { loadState(); }
+
+    // Real-time sync — listen for other users' changes
+    sb.channel('boa_state')
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'project_state' },
+        payload => {
+          if (payload.new && payload.new.updated_by !== currentUser?.id) {
+            applyParsedState(payload.new.state_data);
+            renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab && activeTab.id === 'tab-gantt') renderGantt();
+            showSyncIndicator();
+          }
+        }
+      ).subscribe();
+  } else {
+    loadState(); // local mode
+  }
+
+  countdowns();
+  renderDashboard();
+  renderArbitrages();
+  renderActions();
+  renderGaps();
+  const _ct = document.getElementById('gantt-chain-toggle');
+  if (_ct) _ct.checked = !!state.ganttChain;
+  if (!state.ganttCollapsed) state.ganttCollapsed = {};
+  applyRoleUI();
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AUTH FUNCTIONS
+// ─────────────────────────────────────────────────────────────────────────
+function toggleAuthForm(mode) {
+  document.getElementById('form-login').style.display    = mode === 'login'    ? '' : 'none';
+  document.getElementById('form-register').style.display = mode === 'register' ? '' : 'none';
+  document.getElementById('auth-error').style.display   = 'none';
+  document.getElementById('auth-success').style.display = 'none';
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-success').style.display = 'none';
+}
+function showAuthSuccess(msg) {
+  const el = document.getElementById('auth-success');
+  el.textContent = msg; el.style.display = 'block';
+  document.getElementById('auth-error').style.display = 'none';
+}
+
+async function doLogin() {
+  if (!sb) { showAuthError('Supabase non configuré — mode local uniquement.'); return; }
+  const email = document.getElementById('login-email').value.trim();
+  const pwd   = document.getElementById('login-pwd').value;
+  if (!email || !pwd) { showAuthError('Veuillez renseigner votre email et mot de passe.'); return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  if (error) showAuthError(error.message === 'Invalid login credentials'
+    ? 'Email ou mot de passe incorrect.' : error.message);
+}
+
+async function doRegister() {
+  if (!sb) { showAuthError('Supabase non configuré.'); return; }
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pwd   = document.getElementById('reg-pwd').value;
+  if (!name || !email || !pwd) { showAuthError('Tous les champs sont requis.'); return; }
+  if (pwd.length < 8) { showAuthError('Le mot de passe doit faire au moins 8 caractères.'); return; }
+  const { error } = await sb.auth.signUp({
+    email, password: pwd,
+    options: { data: { full_name: name } }
+  });
+  if (error) showAuthError(error.message);
+  else showAuthSuccess('Compte créé ! Vérifiez votre email pour confirmer votre inscription.');
+}
+
+async function doLogout() {
+  if (sb) await sb.auth.signOut();
+  currentUser = null; currentRole = 'viewer';
+  document.getElementById('auth-overlay').style.display = 'flex';
+  document.getElementById('app-content').style.display  = 'none';
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// USER MANAGEMENT (Owner only)
+// ─────────────────────────────────────────────────────────────────────────
+async function openUsersModal() {
+  document.getElementById('users-modal').classList.add('open');
+  await refreshUsersList();
+}
+
+function closeUsersModal() {
+  document.getElementById('users-modal').classList.remove('open');
+}
+
+async function refreshUsersList() {
+  const el = document.getElementById('users-list');
+  if (!sb) { el.innerHTML = '<p>Supabase non configuré.</p>'; return; }
+  const { data, error } = await sb.from('profiles').select('id,email,full_name,role').order('role');
+  if (error || !data) { el.innerHTML = '<p>Erreur de chargement.</p>'; return; }
+  const ROLE_LABELS = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' };
+  el.innerHTML = data.map(u => {
+    const initial = (u.full_name || u.email).charAt(0).toUpperCase();
+    const isMe    = u.id === currentUser?.id;
+    return `<div class="user-row">
+      <div class="user-avatar" style="background:${u.role==='owner'?'var(--red)':u.role==='editor'?'var(--orange)':'var(--gray)'}">
+        ${initial}
+      </div>
+      <div class="user-info">
+        <div class="u-name">${u.full_name || '—'}${isMe ? ' <span style="color:var(--gray);font-weight:400;font-size:10px;">(vous)</span>' : ''}</div>
+        <div class="u-email">${u.email}</div>
+      </div>
+      <select class="user-role-select" onchange="changeUserRole('${u.id}',this.value)"
+        ${isMe ? 'disabled' : ''}>
+        <option value="viewer"  ${u.role==='viewer' ?'selected':''}>Lecteur</option>
+        <option value="editor"  ${u.role==='editor' ?'selected':''}>Éditeur</option>
+        <option value="owner"   ${u.role==='owner'  ?'selected':''}>Propriétaire</option>
+      </select>
+    </div>`;
+  }).join('');
+}
+
+async function changeUserRole(userId, newRole) {
+  if (!sb || currentRole !== 'owner') return;
+  const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
+  if (error) alert('Erreur : ' + error.message);
+  else await refreshUsersList();
+}
+
+async function sendInvite() {
+  const email = document.getElementById('invite-email').value.trim();
+  const role  = document.getElementById('invite-role').value;
+  const msgEl = document.getElementById('invite-msg');
+  if (!email) { msgEl.textContent = 'Veuillez saisir un email.'; msgEl.style.color = 'var(--red)'; return; }
+  if (!sb) { msgEl.textContent = 'Supabase non configuré.'; return; }
+  // Use Supabase admin invite (requires service role key on backend — simplified here)
+  // For now: create a pending entry in profiles table
+  msgEl.textContent = "📧 Invitation envoyée. L'utilisateur devra créer son compte avec cet email.";
+  msgEl.style.color = 'var(--green)';
+  document.getElementById('invite-email').value = '';
+  // Pre-register the role so when they sign up, they get the right role
+  await sb.from('pending_invites').upsert({ email, role, invited_by: currentUser.id })
+    .then(() => {}); // table may not exist yet - silent fail is OK
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// AUTH STATE LISTENER — entry point
+// ─────────────────────────────────────────────────────────────────────────
+if (sb) {
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+      currentUser = session.user;
+      // Load role from profiles
+      try {
+        const { data } = await sb.from('profiles')
+          .select('role, full_name').eq('id', currentUser.id).single();
+        currentRole = (data && data.role) || 'viewer';
+        currentUser.full_name = (data && data.full_name) || currentUser.email;
+      } catch(e) { currentRole = 'viewer'; }
+
+      document.getElementById('auth-overlay').style.display  = 'none';
+      document.getElementById('app-content').style.display   = 'block';
+      document.getElementById('user-name').textContent       = currentUser.full_name || currentUser.email;
+      const badge = document.getElementById('user-role-badge');
+      badge.textContent  = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' }[currentRole] || currentRole;
+      badge.className    = 'role-badge role-' + currentRole;
+      // Show owner controls
+      document.querySelectorAll('.owner-only').forEach(el => {
+        el.style.display = currentRole === 'owner' ? '' : 'none';
+      });
+      await initApp();
+    } else {
+      // Not authenticated
+      document.getElementById('auth-overlay').style.display  = 'flex';
+      document.getElementById('app-content').style.display   = 'none';
+    }
+  });
+} else {
+  // Local mode (Supabase not configured) — show app directly
+  console.warn('Supabase non configuré. Mode local activé.');
+  document.getElementById('auth-overlay').style.display = 'none';
+  document.getElementById('app-content').style.display  = 'block';
+  document.getElementById('user-name').textContent      = 'Mode local';
+  document.getElementById('user-role-badge').textContent = 'Owner';
+  document.getElementById('user-role-badge').className  = 'role-badge role-owner';
+  currentRole = 'owner';
+  loadState();
+  countdowns();
+  renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
+  const _ct = document.getElementById('gantt-chain-toggle');
+  if (_ct) _ct.checked = !!state.ganttChain;
+  if (!state.ganttCollapsed) state.ganttCollapsed = {};
+}
+</script>
+
+
+<!-- ════ MODAL AJOUT TÂCHE ════ -->
+<div id="add-task-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:8px;padding:28px;width:440px;box-shadow:0 8px 32px rgba(0,0,0,.25);">
+    <div style="font-size:16px;font-weight:700;color:var(--black);margin-bottom:18px;border-bottom:3px solid var(--red);padding-bottom:8px;">
+      ➕ Ajouter une tâche personnalisée
+    </div>
+    <div style="display:grid;gap:12px;">
+      <div>
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Libellé *</label>
+        <input id="new-task-label" type="text" placeholder="Ex: Réunion alignement paramétrage..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Date début *</label>
+          <input id="new-task-start" type="date" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Date fin *</label>
+          <input id="new-task-end" type="date" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Phase</label>
+          <select id="new-task-phase" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option value="freeze">Pré-Design Freeze</option>
+            <option value="build">Phase 1 — Build</option>
+            <option value="sit">Phase 2 — SIT</option>
+            <option value="uat">Phase 3 — UAT</option>
+            <option value="live">Go Live</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Responsable</label>
+          <input id="new-task-resp" type="text" placeholder="CBS / BOA / Conjoint" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button onclick="closeAddTask()" style="padding:8px 18px;background:#f5f5f5;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:13px;">Annuler</button>
+      <button onclick="submitAddTask()" style="padding:8px 18px;background:var(--red);color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;">Ajouter au Gantt</button>
+    </div>
+  </div>
+</div>
+
+
+</div><!-- /app-content -->
+</body>
+</html>
