@@ -463,6 +463,7 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 <!-- READONLY BANNER -->
 <div id="readonly-banner">
   👁 <strong>Mode lecture seule</strong> — Vous consultez le tableau de bord. Contactez le propriétaire du projet pour obtenir un accès éditeur.
+  &nbsp;·&nbsp; <a onclick="refreshRole()" style="color:#795548;font-weight:700;cursor:pointer;text-decoration:underline;">↻ Rafraîchir mon rôle</a>
 </div>
 
 <!-- SYNC INDICATOR -->
@@ -2124,6 +2125,27 @@ async function changeUserRole(userId, newRole) {
   else await refreshUsersList();
 }
 
+async function refreshRole() {
+  if (!sb || !currentUser) return;
+  try {
+    const { data, error } = await sb.from('profiles')
+      .select('role, full_name').eq('id', currentUser.id).single();
+    if (error) throw error;
+    currentRole = (data && data.role) || 'viewer';
+    currentUser.full_name = (data && data.full_name) || currentUser.email;
+    const badge = document.getElementById('user-role-badge');
+    badge.textContent = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' }[currentRole] || currentRole;
+    badge.className   = 'role-badge role-' + currentRole;
+    document.querySelectorAll('.owner-only').forEach(el => {
+      el.style.display = currentRole === 'owner' ? '' : 'none';
+    });
+    applyRoleUI();
+    alert('Rôle mis à jour : ' + badge.textContent);
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+  }
+}
+
 async function sendInvite() {
   const email = document.getElementById('invite-email').value.trim();
   const role  = document.getElementById('invite-role').value;
@@ -2147,13 +2169,26 @@ if (sb) {
   sb.auth.onAuthStateChange(async (event, session) => {
     if (session && session.user) {
       currentUser = session.user;
-      // Load role from profiles
-      try {
-        const { data } = await sb.from('profiles')
-          .select('role, full_name').eq('id', currentUser.id).single();
-        currentRole = (data && data.role) || 'viewer';
-        currentUser.full_name = (data && data.full_name) || currentUser.email;
-      } catch(e) { currentRole = 'viewer'; }
+
+      // Load role from profiles — retry up to 3x to handle lock/timing issues
+      async function fetchRole(retries) {
+        try {
+          const { data, error } = await sb.from('profiles')
+            .select('role, full_name').eq('id', currentUser.id).single();
+          if (error) throw error;
+          return data;
+        } catch(e) {
+          if (retries > 0) {
+            await new Promise(r => setTimeout(r, 800));
+            return fetchRole(retries - 1);
+          }
+          return null;
+        }
+      }
+
+      const profileData = await fetchRole(3);
+      currentRole = (profileData && profileData.role) || 'viewer';
+      currentUser.full_name = (profileData && profileData.full_name) || currentUser.email;
 
       document.getElementById('auth-overlay').style.display  = 'none';
       document.getElementById('app-content').style.display   = 'block';
@@ -2161,7 +2196,6 @@ if (sb) {
       const badge = document.getElementById('user-role-badge');
       badge.textContent  = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' }[currentRole] || currentRole;
       badge.className    = 'role-badge role-' + currentRole;
-      // Show owner controls
       document.querySelectorAll('.owner-only').forEach(el => {
         el.style.display = currentRole === 'owner' ? '' : 'none';
       });
