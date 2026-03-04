@@ -396,8 +396,338 @@ textarea.auto-grow { field-sizing: content; min-height: 36px; }
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- PptxGenJS — rapport CBS -->
   <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+<style>
+/* ══════════════════════════════════════════════════
+   LOGIN OVERLAY
+══════════════════════════════════════════════════ */
+#login-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-overlay.hidden { display: none; }
+
+.login-box {
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.45);
+  padding: 40px 40px 36px;
+  width: 340px; max-width: 94vw;
+  display: flex; flex-direction: column; gap: 0;
+}
+.login-logo {
+  background: var(--red); border-radius: 4px;
+  color: #fff; font-weight: 700; font-size: 13px;
+  letter-spacing: 1.5px; text-align: center;
+  padding: 10px 0; margin-bottom: 6px;
+}
+.login-app-title {
+  font-size: 12px; color: var(--gray); text-align: center;
+  margin-bottom: 28px; line-height: 1.5;
+}
+.login-label {
+  font-size: 11px; font-weight: 700; color: var(--gray);
+  text-transform: uppercase; letter-spacing: .4px;
+  margin-bottom: 5px; margin-top: 14px;
+  display: block;
+}
+.login-label:first-of-type { margin-top: 0; }
+.login-input {
+  width: 100%; padding: 9px 12px;
+  border: 1px solid var(--gray-med); border-radius: 4px;
+  font-size: 13px; font-family: var(--font);
+  outline: none; transition: border-color .15s;
+  box-sizing: border-box;
+}
+.login-input:focus { border-color: var(--red); }
+.login-error {
+  font-size: 11px; color: var(--red); text-align: center;
+  min-height: 16px; margin-top: 10px;
+}
+.login-btn {
+  margin-top: 20px; width: 100%; padding: 11px;
+  background: var(--red); color: #fff; border: none;
+  border-radius: 4px; font-size: 13px; font-weight: 700;
+  cursor: pointer; letter-spacing: .3px;
+  transition: background .15s;
+}
+.login-btn:hover { background: var(--red-dark); }
+.login-btn:disabled { background: var(--gray-med); cursor: default; }
+.login-footer {
+  font-size: 10px; color: var(--gray-med); text-align: center;
+  margin-top: 20px;
+}
+
+/* ── CHANGE PASSWORD OVERLAY ── */
+#change-password-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,.65);
+  display: flex; align-items: center; justify-content: center;
+}
+#change-password-overlay.hidden { display: none; }
+.chpwd-box {
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.35);
+  padding: 36px 40px 32px;
+  width: 340px; max-width: 94vw;
+}
+.chpwd-title {
+  font-size: 15px; font-weight: 700; color: var(--black);
+  margin-bottom: 6px;
+}
+.chpwd-subtitle {
+  font-size: 11px; color: var(--gray); margin-bottom: 22px;
+}
+.chpwd-input {
+  width: 100%; padding: 9px 12px;
+  border: 1px solid var(--gray-med); border-radius: 4px;
+  font-size: 13px; font-family: var(--font);
+  outline: none; transition: border-color .15s;
+  box-sizing: border-box; margin-bottom: 2px;
+}
+.chpwd-input:focus { border-color: var(--red); }
+.chpwd-error {
+  font-size: 11px; color: var(--red); min-height: 16px;
+  text-align: center; margin-top: 10px;
+}
+.chpwd-btn {
+  margin-top: 18px; width: 100%; padding: 11px;
+  background: var(--red); color: #fff; border: none;
+  border-radius: 4px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: background .15s;
+}
+.chpwd-btn:hover { background: var(--red-dark); }
+.chpwd-btn:disabled { background: var(--gray-med); cursor: default; }
+.chpwd-cancel {
+  background: none; border: none; color: var(--gray);
+  font-size: 12px; cursor: pointer; width: 100%;
+  text-align: center; margin-top: 10px; text-decoration: underline;
+}
+
+/* ── USER MANAGEMENT MODAL ── */
+#user-mgmt-modal {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,.55);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+}
+#user-mgmt-modal.hidden { display: none; }
+.umgmt-box {
+  background: #fff; border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.3);
+  width: 780px; max-width: 100%;
+  padding: 0; overflow: hidden;
+}
+.umgmt-header {
+  background: var(--red); color: #fff;
+  padding: 16px 24px; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.umgmt-header h2 { font-size: 15px; font-weight: 700; }
+.umgmt-close {
+  background: none; border: none; color: #fff;
+  font-size: 20px; cursor: pointer; line-height: 1; opacity: .8;
+}
+.umgmt-close:hover { opacity: 1; }
+.umgmt-body { padding: 24px; }
+.umgmt-section-title {
+  font-size: 12px; font-weight: 700; color: var(--gray);
+  text-transform: uppercase; letter-spacing: .4px;
+  margin-bottom: 12px; margin-top: 20px;
+}
+.umgmt-section-title:first-child { margin-top: 0; }
+.umgmt-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px;
+}
+.umgmt-table th {
+  text-align: left; padding: 8px 10px;
+  background: var(--gray-light); color: var(--gray);
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .3px; border-bottom: 1px solid var(--gray-med);
+}
+.umgmt-table td { vertical-align: middle; }
+.umgmt-add-form {
+  display: grid; grid-template-columns: 1fr 1fr 110px 90px; gap: 8px;
+  align-items: end; margin-top: 12px;
+}
+.umgmt-add-form input, .umgmt-add-form select {
+  padding: 8px 10px; border: 1px solid var(--gray-med);
+  border-radius: 4px; font-size: 12px; font-family: var(--font);
+  width: 100%; box-sizing: border-box; outline: none;
+}
+.umgmt-add-form input:focus, .umgmt-add-form select:focus {
+  border-color: var(--red);
+}
+.umgmt-add-btn {
+  padding: 8px 12px; background: var(--red); color: #fff;
+  border: none; border-radius: 4px; font-size: 12px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+.umgmt-add-btn:hover { background: var(--red-dark); }
+.umgmt-add-error { font-size: 11px; color: var(--red); margin-top: 6px; min-height: 14px; }
+
+/* ── RESET RESULT MODAL ── */
+#reset-result-modal {
+  position: fixed; inset: 0; z-index: 10001;
+  background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#reset-result-modal.hidden { display: none; }
+.reset-box {
+  background: #fff; border-radius: 8px;
+  padding: 32px 36px 28px; width: 360px; max-width: 94vw;
+  box-shadow: 0 20px 56px rgba(0,0,0,.3);
+  text-align: center;
+}
+.reset-icon { font-size: 32px; margin-bottom: 10px; }
+.reset-box h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.reset-box p  { font-size: 12px; color: var(--gray); margin-bottom: 16px; }
+.reset-pwd-display {
+  background: var(--gray-light); border: 1px dashed var(--gray-med);
+  border-radius: 4px; padding: 12px 14px;
+  font-size: 16px; font-weight: 700; letter-spacing: 1px;
+  font-family: monospace; text-align: center; width: 100%;
+  box-sizing: border-box; color: var(--black);
+  cursor: text; user-select: all;
+}
+.reset-copy-btn {
+  margin-top: 10px; padding: 8px 20px;
+  background: var(--gray-light); border: 1px solid var(--gray-med);
+  border-radius: 4px; font-size: 12px; cursor: pointer;
+}
+.reset-copy-btn:hover { background: var(--green-light); border-color: var(--green); }
+.reset-close-btn {
+  margin-top: 14px; width: 100%; padding: 10px;
+  background: var(--red); color: #fff; border: none;
+  border-radius: 4px; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.reset-close-btn:hover { background: var(--red-dark); }
+
+/* ── TOAST NOTIFICATION ── */
+#toast-notif {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #333; color: #fff; padding: 10px 22px;
+  border-radius: 20px; font-size: 12px; z-index: 20000;
+  opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+#toast-notif.show { opacity: 1; }
+</style>
 </head>
 <body>
+
+<!-- ══════════ LOGIN OVERLAY ══════════ -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">CBS · FINANCE &amp; RISK</div>
+    <div class="login-app-title">BOA Côte d'Ivoire<br>Pilotage Programme Upgrade IGOR V4</div>
+
+    <label class="login-label" for="login-user">Identifiant</label>
+    <input id="login-user" class="login-input" type="text" placeholder="Entrez votre identifiant"
+           autocomplete="username" spellcheck="false" />
+
+    <label class="login-label" for="login-pass">Mot de passe</label>
+    <input id="login-pass" class="login-input" type="password" placeholder="••••••••••••"
+           autocomplete="current-password" />
+
+    <div id="login-error" class="login-error"></div>
+
+    <button id="login-btn" class="login-btn" onclick="doLogin()">Connexion</button>
+
+    <div class="login-footer">Accès réservé — BOA Afrique · CBS</div>
+  </div>
+</div>
+<!-- ════════════════════════════════════ -->
+
+<!-- ══ CHANGE PASSWORD OVERLAY ══ -->
+<div id="change-password-overlay" class="hidden">
+  <div class="chpwd-box">
+    <div class="chpwd-title" id="chpwd-title">Modifier mon mot de passe</div>
+    <div class="chpwd-subtitle">Le mot de passe doit contenir au moins 8 caractères.</div>
+
+    <div id="chpwd-old-group">
+      <label class="login-label" for="chpwd-old">Ancien mot de passe</label>
+      <input id="chpwd-old" class="chpwd-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <label class="login-label" for="chpwd-new">Nouveau mot de passe</label>
+    <input id="chpwd-new" class="chpwd-input" type="password" placeholder="••••••••" autocomplete="new-password" />
+
+    <label class="login-label" for="chpwd-confirm">Confirmer le mot de passe</label>
+    <input id="chpwd-confirm" class="chpwd-input" type="password" placeholder="••••••••" autocomplete="new-password" />
+
+    <div id="chpwd-error" class="chpwd-error"></div>
+    <button id="chpwd-btn" class="chpwd-btn">Enregistrer</button>
+    <button class="chpwd-cancel" id="chpwd-cancel-btn" onclick="document.getElementById('change-password-overlay').classList.add('hidden')">Annuler</button>
+  </div>
+</div>
+
+<!-- ══ USER MANAGEMENT MODAL ══ -->
+<div id="user-mgmt-modal" class="hidden">
+  <div class="umgmt-box">
+    <div class="umgmt-header">
+      <h2>👥 Gestion des utilisateurs</h2>
+      <button class="umgmt-close" onclick="document.getElementById('user-mgmt-modal').classList.add('hidden')" title="Fermer">✕</button>
+    </div>
+    <div class="umgmt-body">
+
+      <div class="umgmt-section-title">Ajouter un utilisateur</div>
+      <div class="umgmt-add-form">
+        <div>
+          <label class="login-label" style="margin-top:0">Identifiant</label>
+          <input id="newuser-username" type="text" placeholder="ex: marie.dupont" spellcheck="false" autocomplete="off" />
+        </div>
+        <div>
+          <label class="login-label" style="margin-top:0">Nom affiché</label>
+          <input id="newuser-display" type="text" placeholder="ex: Marie Dupont" autocomplete="off" />
+        </div>
+        <div>
+          <label class="login-label" style="margin-top:0">Rôle</label>
+          <select id="newuser-role">
+            <option value="reader">Lecteur</option>
+            <option value="editor">Éditeur</option>
+          </select>
+        </div>
+        <button class="umgmt-add-btn" onclick="adminCreateUser()">+ Créer</button>
+      </div>
+      <div id="newuser-error" class="umgmt-add-error"></div>
+
+      <div class="umgmt-section-title" style="margin-top:24px">Utilisateurs existants</div>
+      <table class="umgmt-table">
+        <thead>
+          <tr>
+            <th>Nom / Identifiant</th>
+            <th>Rôle</th>
+            <th>Statut MDP</th>
+            <th>Dernière connexion</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="user-list-tbody">
+          <tr><td colspan="5" style="text-align:center;padding:20px;color:#888">Chargement…</td></tr>
+        </tbody>
+      </table>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ RESET RESULT MODAL ══ -->
+<div id="reset-result-modal" class="hidden">
+  <div class="reset-box">
+    <div class="reset-icon">🔑</div>
+    <h3>Mot de passe temporaire généré</h3>
+    <p>Communiquez ce mot de passe à <strong id="reset-target-name"></strong>.<br>L'utilisateur devra le changer à sa prochaine connexion.</p>
+    <input id="reset-temp-pwd" class="reset-pwd-display" type="text" readonly onclick="this.select()" />
+    <button class="reset-copy-btn" onclick="copyTempPwd()">📋 Copier</button>
+    <button class="reset-close-btn" onclick="document.getElementById('reset-result-modal').classList.add('hidden')">Fermer</button>
+  </div>
+</div>
+
+<!-- ══ TOAST ══ -->
+<div id="toast-notif"></div>
+
 <datalist id="dl-owners"></datalist>
 
       <p>BOA Côte d'Ivoire · Pilotage IGOR V4</p>
@@ -440,6 +770,9 @@ textarea.auto-grow { field-sizing: content; min-height: 36px; }
       <span id="sync-status" title="Statut synchronisation" style="font-size:11px;padding:3px 8px;border-radius:10px;background:#e8f5e9;color:#388e3c;font-weight:700;margin-right:6px;">⏳ Connexion…</span>
       <span class="user-name" id="user-name">—</span>
       <span class="role-badge role-viewer" id="user-role-badge">viewer</span>
+      <button class="btn-users editor-only" id="btn-user-mgmt" title="Gérer les utilisateurs" onclick="openUserMgmt()" style="font-size:11px;">👥 Utilisateurs</button>
+      <button class="btn-users" title="Changer mon mot de passe" onclick="showChangePassword(false)" style="font-size:11px;">🔒 MDP</button>
+      <button class="btn-users" title="Se déconnecter" onclick="doLogout()" style="font-size:11px;">⎋ Déconnexion</button>
     </div>
   </div>
 </div>
@@ -2863,12 +3196,353 @@ async function retryConnection() {
   renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
 }
 
+// ─── AUTHENTIFICATION (Supabase multi-utilisateurs) ──────────────────────────
+const SESSION_KEY = 'boa_session_v2';
+let currentSession = null; // { username, displayName, role, hash }
+
+// ── Utilitaires ──────────────────────────────────────────────────────────────
+async function sha256hex(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function generateTempPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#';
+  let pwd = '';
+  for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+  return pwd;
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg, duration) {
+  const el = document.getElementById('toast-notif');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), duration || 3000);
+}
+
+function copyTempPwd() {
+  const el = document.getElementById('reset-temp-pwd');
+  if (!el) return;
+  el.select();
+  document.execCommand('copy');
+  showToast('Mot de passe copié dans le presse-papiers');
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const btn   = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+  const user  = (document.getElementById('login-user').value || '').trim().toLowerCase();
+  const pass  = document.getElementById('login-pass').value || '';
+  errEl.textContent = '';
+  if (!user || !pass) { errEl.textContent = 'Veuillez renseigner l\'identifiant et le mot de passe.'; return; }
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    if (!sb) {
+      errEl.textContent = 'Connexion au serveur impossible. Vérifiez votre connexion.';
+      return;
+    }
+    const hash = await sha256hex(pass);
+    const { data, error } = await _withTimeout(
+      sb.rpc('auth_login', { p_username: user, p_password_hash: hash }),
+      8000, 'auth_login'
+    );
+    if (error || !data || data.length === 0) {
+      errEl.textContent = 'Identifiant ou mot de passe incorrect.';
+      return;
+    }
+    const ud = data[0];
+    currentSession = { username: user, displayName: ud.display_name, role: ud.role, hash };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentSession));
+    if (ud.must_change_password) {
+      showChangePassword(true);   // force le changement avant d'accéder au dashboard
+    } else {
+      applySession(currentSession);
+      document.getElementById('login-overlay').classList.add('hidden');
+      await initApp(false);
+    }
+  } catch(e) {
+    errEl.textContent = 'Erreur de connexion : ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Connexion';
+  }
+}
+
+// ── CHANGEMENT DE MOT DE PASSE ────────────────────────────────────────────────
+function showChangePassword(isFirstLogin) {
+  const overlay = document.getElementById('change-password-overlay');
+  document.getElementById('chpwd-title').textContent = isFirstLogin
+    ? 'Première connexion — choisissez votre mot de passe'
+    : 'Modifier mon mot de passe';
+  const oldGrp = document.getElementById('chpwd-old-group');
+  oldGrp.style.display = isFirstLogin ? 'none' : 'block';
+  document.getElementById('chpwd-btn').onclick = () => doChangePassword(isFirstLogin);
+  document.getElementById('chpwd-cancel-btn').style.display = isFirstLogin ? 'none' : '';
+  document.getElementById('chpwd-error').textContent = '';
+  document.getElementById('chpwd-new').value = '';
+  document.getElementById('chpwd-confirm').value = '';
+  if (document.getElementById('chpwd-old')) document.getElementById('chpwd-old').value = '';
+  overlay.classList.remove('hidden');
+}
+
+async function doChangePassword(isFirstLogin) {
+  const btn      = document.getElementById('chpwd-btn');
+  const errEl    = document.getElementById('chpwd-error');
+  const newPass  = document.getElementById('chpwd-new').value || '';
+  const confPass = document.getElementById('chpwd-confirm').value || '';
+  errEl.textContent = '';
+  if (!newPass || !confPass) { errEl.textContent = 'Veuillez remplir tous les champs.'; return; }
+  if (newPass !== confPass)  { errEl.textContent = 'Les mots de passe ne correspondent pas.'; return; }
+  if (newPass.length < 8)    { errEl.textContent = 'Le mot de passe doit contenir au moins 8 caractères.'; return; }
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const newHash = await sha256hex(newPass);
+    const oldHash = isFirstLogin
+      ? currentSession.hash
+      : await sha256hex(document.getElementById('chpwd-old').value || '');
+    const { data, error } = await _withTimeout(
+      sb.rpc('auth_change_password', {
+        p_username: currentSession.username,
+        p_old_hash: oldHash,
+        p_new_hash: newHash
+      }),
+      8000, 'auth_change_password'
+    );
+    if (error) { errEl.textContent = 'Erreur serveur : ' + error.message; return; }
+    if (data === false) { errEl.textContent = isFirstLogin ? 'Erreur interne.' : 'Ancien mot de passe incorrect.'; return; }
+    // Mettre à jour la session avec le nouveau hash
+    currentSession.hash = newHash;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentSession));
+    document.getElementById('change-password-overlay').classList.add('hidden');
+    if (isFirstLogin) {
+      applySession(currentSession);
+      document.getElementById('login-overlay').classList.add('hidden');
+      await initApp(false);
+    } else {
+      showToast('Mot de passe modifié avec succès');
+    }
+  } catch(e) {
+    errEl.textContent = 'Erreur : ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Enregistrer';
+  }
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────────────────
+function doLogout() {
+  currentSession = null;
+  sessionStorage.removeItem(SESSION_KEY);
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-error').textContent = '';
+  document.getElementById('login-overlay').classList.remove('hidden');
+}
+
+// ── APPLICATION DE LA SESSION ─────────────────────────────────────────────────
+function applySession(session) {
+  const isEditor = session.role === 'editor';
+  document.getElementById('user-name').textContent       = session.displayName;
+  document.getElementById('user-role-badge').textContent = isEditor ? 'Éditeur' : 'Lecture seule';
+  document.getElementById('user-role-badge').className   = isEditor ? 'role-badge role-owner' : 'role-badge role-viewer';
+  // Éléments visibles éditeur seulement
+  document.querySelectorAll('.owner-only, .editor-only').forEach(el => {
+    el.style.display = isEditor ? '' : 'none';
+  });
+  // En mode lecture : désactiver tous les champs et boutons d'édition du dashboard
+  if (!isEditor) {
+    document.querySelectorAll(
+      'input:not(.login-input):not(.chpwd-input), select:not(#newuser-role), textarea'
+    ).forEach(el => { el.disabled = true; });
+    document.querySelectorAll(
+      'button.btn-save, button[onclick*="save"], button[onclick*="Save"]'
+    ).forEach(el => { el.disabled = true; });
+  }
+}
+
+// ── GESTION DES UTILISATEURS (éditeur seulement) ──────────────────────────────
+async function openUserMgmt() {
+  if (!currentSession || currentSession.role !== 'editor') return;
+  document.getElementById('user-mgmt-modal').classList.remove('hidden');
+  await loadUserList();
+}
+
+async function loadUserList() {
+  const tbody = document.getElementById('user-list-tbody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#888">Chargement…</td></tr>';
+  try {
+    const { data, error } = await _withTimeout(
+      sb.rpc('auth_list_users', {
+        p_admin_username: currentSession.username,
+        p_admin_hash:     currentSession.hash
+      }),
+      8000, 'auth_list_users'
+    );
+    if (error || !data) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--red);padding:12px">Erreur : ' + escHtml(error?.message || 'Inconnue') + '</td></tr>';
+      return;
+    }
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#888">Aucun utilisateur</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(u => {
+      const isMe      = u.username === currentSession.username;
+      const roleLabel = u.role === 'editor' ? 'Éditeur' : 'Lecteur';
+      const roleCls   = u.role === 'editor' ? 'role-owner' : 'role-viewer';
+      const lastLogin = u.last_login
+        ? new Date(u.last_login).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+        : '—';
+      const mdpStatus = u.must_change_password
+        ? '<span style="color:var(--red);font-weight:700">⚠ À changer</span>'
+        : '<span style="color:var(--green)">✓ OK</span>';
+      const otherRole = u.role === 'editor' ? 'reader' : 'editor';
+      const otherLabel = u.role === 'editor' ? 'Lecteur' : 'Éditeur';
+      return `<tr style="border-bottom:1px solid #f0f0f0">
+        <td style="padding:8px 10px;font-weight:600">
+          ${escHtml(u.display_name)}<br>
+          <small style="color:#888;font-weight:400">${escHtml(u.username)}</small>
+          ${isMe ? '<span style="font-size:10px;color:var(--red);margin-left:4px">(vous)</span>' : ''}
+        </td>
+        <td style="padding:8px 10px"><span class="role-badge ${roleCls}">${roleLabel}</span></td>
+        <td style="padding:8px 10px;font-size:11px">${mdpStatus}</td>
+        <td style="padding:8px 10px;font-size:11px;color:#888">${lastLogin}</td>
+        <td style="padding:8px 10px;white-space:nowrap">
+          <button class="btn-users" style="font-size:10px;margin-right:4px"
+            onclick="adminResetPassword('${escHtml(u.username)}','${escHtml(u.display_name)}')">🔑 Reset MDP</button>
+          ${!isMe ? `
+          <button class="btn-users" style="font-size:10px;margin-right:4px"
+            onclick="adminUpdateRole('${escHtml(u.username)}','${escHtml(u.display_name)}','${otherRole}','${otherLabel}')">
+            ↕ → ${otherLabel}</button>
+          <button class="btn-users" style="font-size:10px;color:var(--red);border-color:var(--red)"
+            onclick="adminDeleteUser('${escHtml(u.username)}','${escHtml(u.display_name)}')">🗑</button>
+          ` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--red);padding:12px">Erreur : ' + escHtml(e.message) + '</td></tr>';
+  }
+}
+
+async function adminResetPassword(username, displayName) {
+  if (!confirm('Réinitialiser le mot de passe de "' + displayName + '" ?\nUn mot de passe temporaire sera généré.')) return;
+  const tempPwd  = generateTempPassword();
+  const tempHash = await sha256hex(tempPwd);
+  const { data, error } = await _withTimeout(
+    sb.rpc('auth_admin_reset', {
+      p_admin_username:  currentSession.username,
+      p_admin_hash:      currentSession.hash,
+      p_target_username: username,
+      p_temp_hash:       tempHash
+    }),
+    8000, 'auth_admin_reset'
+  );
+  if (error || !data) { alert('Erreur : ' + (error?.message || 'Inconnue')); return; }
+  document.getElementById('reset-target-name').textContent = displayName;
+  document.getElementById('reset-temp-pwd').value          = tempPwd;
+  document.getElementById('reset-result-modal').classList.remove('hidden');
+  await loadUserList();
+}
+
+async function adminUpdateRole(username, displayName, newRole, newRoleLabel) {
+  if (!confirm('Changer le rôle de "' + displayName + '" en ' + newRoleLabel + ' ?')) return;
+  const { data, error } = await _withTimeout(
+    sb.rpc('auth_update_role', {
+      p_admin_username:  currentSession.username,
+      p_admin_hash:      currentSession.hash,
+      p_target_username: username,
+      p_new_role:        newRole
+    }),
+    8000, 'auth_update_role'
+  );
+  if (error || !data) { alert('Erreur : ' + (error?.message || 'Inconnue')); return; }
+  showToast('Rôle mis à jour');
+  await loadUserList();
+}
+
+async function adminDeleteUser(username, displayName) {
+  if (!confirm('Supprimer "' + displayName + '" (' + username + ') ?\nCette action est irréversible.')) return;
+  const { data, error } = await _withTimeout(
+    sb.rpc('auth_delete_user', {
+      p_admin_username:  currentSession.username,
+      p_admin_hash:      currentSession.hash,
+      p_target_username: username
+    }),
+    8000, 'auth_delete_user'
+  );
+  if (error || !data) { alert('Erreur : ' + (error?.message || 'Inconnue')); return; }
+  showToast('Utilisateur supprimé');
+  await loadUserList();
+}
+
+async function adminCreateUser() {
+  const username    = (document.getElementById('newuser-username').value || '').trim().toLowerCase();
+  const displayName = (document.getElementById('newuser-display').value  || '').trim();
+  const role        =  document.getElementById('newuser-role').value;
+  const errEl       =  document.getElementById('newuser-error');
+  errEl.textContent = '';
+  if (!username || !displayName) { errEl.textContent = 'Identifiant et nom complet requis.'; return; }
+  if (!/^[a-z0-9_.\-]+$/.test(username)) {
+    errEl.textContent = 'Identifiant : lettres minuscules, chiffres, _, . et - uniquement.'; return;
+  }
+  const tempPwd  = generateTempPassword();
+  const tempHash = await sha256hex(tempPwd);
+  const { data, error } = await _withTimeout(
+    sb.rpc('auth_create_user', {
+      p_admin_username: currentSession.username,
+      p_admin_hash:     currentSession.hash,
+      p_new_username:   username,
+      p_display_name:   displayName,
+      p_role:           role,
+      p_temp_hash:      tempHash
+    }),
+    8000, 'auth_create_user'
+  );
+  if (error || !data) {
+    errEl.textContent = error?.message?.includes('unique') || error?.code === '23505'
+      ? 'Cet identifiant est déjà utilisé.'
+      : 'Erreur : ' + (error?.message || 'Inconnue');
+    return;
+  }
+  document.getElementById('newuser-username').value = '';
+  document.getElementById('newuser-display').value  = '';
+  document.getElementById('reset-target-name').textContent = displayName;
+  document.getElementById('reset-temp-pwd').value          = tempPwd;
+  document.getElementById('reset-result-modal').classList.remove('hidden');
+  await loadUserList();
+}
+
+// ── SOUMISSION PAR ENTRÉE ─────────────────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter') return;
+  if (!document.getElementById('login-overlay').classList.contains('hidden')) { doLogin(); return; }
+  if (!document.getElementById('change-password-overlay').classList.contains('hidden')) {
+    const btn = document.getElementById('chpwd-btn');
+    if (btn && !btn.disabled) btn.click();
+  }
+});
+
+// ── DOMContentLoaded ──────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('user-name').textContent      = 'Équipe BOA';
-  document.getElementById('user-role-badge').textContent = 'Éditeur';
-  document.getElementById('user-role-badge').className  = 'role-badge role-owner';
-  document.querySelectorAll('.owner-only').forEach(el => el.style.display = '');
-  await initApp(false);
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  if (raw) {
+    try {
+      const sess = JSON.parse(raw);
+      if (sess.username && sess.role && sess.hash && sess.displayName) {
+        currentSession = sess;
+        applySession(sess);
+        document.getElementById('login-overlay').classList.add('hidden');
+        await initApp(false);
+        return;
+      }
+    } catch(e) { /* session corrompue */ }
+  }
+  // Pas de session → overlay de login (affiché par défaut)
 });
 
 
