@@ -594,23 +594,14 @@ textarea.auto-grow { field-sizing: content; min-height: 36px; }
           <input type="checkbox" id="gantt-chain-toggle" onchange="toggleChain(this.checked)"
             style="width:15px;height:15px;accent-color:var(--red);">
           <span>Mode chaîne</span>
+          <span style="background:#1565C0;color:white;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:help;flex-shrink:0;"
+            title="Mode chaîne : quand vous modifiez la fin d'une tâche, toutes les tâches dont le début est postérieur se décalent du même nombre de jours, en conservant leurs durées. Utile pour repousser un lot de tâches en bloc.">?</span>
         </label>
         <button onclick="openAddTask()" style="background:var(--green);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">+ Ajouter tâche</button>
         <button class="btn-reset" onclick="resetGanttDates()">↩ Réinitialiser</button>
       </div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:10px;"><span style="font-weight:700;color:#54565A;font-size:10px;white-space:nowrap;">Légende :</span><span style="display:inline-flex;align-items:center;gap:4px;background:#E63329;border:1px solid #E63329;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:white;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#E63329;display:inline-block;flex-shrink:0;"></span>Phase<span style="font-weight:400;opacity:.8;margin-left:2px;">— bloc regroupant un ensemble de tâches</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#2563EB;border:1px solid #2563EB;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:white;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#2563EB;display:inline-block;flex-shrink:0;"></span>Tâche<span style="font-weight:400;opacity:.8;margin-left:2px;">— activité élémentaire à réaliser</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#7C3AED;border:1px solid #7C3AED;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:white;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#7C3AED;display:inline-block;flex-shrink:0;"></span>◆ Jalon<span style="font-weight:400;opacity:.8;margin-left:2px;">— événement clé / point de décision</span></span></div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:10px;"><span style="font-weight:700;color:#54565A;font-size:10px;white-space:nowrap;">Légende :</span><span style="display:inline-flex;align-items:center;gap:4px;background:#DBEAFE;border:1px solid #93c5fd;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#1e40af;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#93c5fd;display:inline-block;flex-shrink:0;"></span>P0<span style="font-weight:400;opacity:.8;margin-left:2px;">— Structuration & Design Freeze</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#DCFCE7;border:1px solid #86efac;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#166534;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#86efac;display:inline-block;flex-shrink:0;"></span>P1<span style="font-weight:400;opacity:.8;margin-left:2px;">— Build / Paramétrage</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#FEF9C3;border:1px solid #fde047;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#854d0e;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#fde047;display:inline-block;flex-shrink:0;"></span>P2<span style="font-weight:400;opacity:.8;margin-left:2px;">— SIT — Tests intégrés</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#FFE4E6;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#9f1239;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#fca5a5;display:inline-block;flex-shrink:0;"></span>P3<span style="font-weight:400;opacity:.8;margin-left:2px;">— UAT — Tests utilisateurs</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#F3E8FF;border:1px solid #d8b4fe;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#6b21a8;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#d8b4fe;display:inline-block;flex-shrink:0;"></span>P4<span style="font-weight:400;opacity:.8;margin-left:2px;">— Formation & Déploiement</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3C7;border:1px solid #fcd34d;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#92400e;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#fcd34d;display:inline-block;flex-shrink:0;"></span>P5<span style="font-weight:400;opacity:.8;margin-left:2px;">— Go Live & Hypercare</span></span></div>
     </div>
     <div class="section-body" style="padding:10px 14px;">
-      <div class="gantt-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Phase 0 — Structuration</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Phase 1 — Build</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#546E7A"></div>Phase 2 — SIT</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Phase 3 — UAT</div>
-        <div class="legend-item"><div class="legend-dot" style="background:#6A1B9A"></div>Phase 4 — Cutover</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--red-dark)"></div>Phase 5 — Go Live</div>
-        <div class="legend-item"><span style="font-size:16px;color:#1565C0;line-height:1;">◆</span>&nbsp;Jalon</div>
-        <div class="legend-item" style="color:#FF5722;font-weight:700;">▏ Aujourd'hui</div>
-      </div>
       <div class="gantt-container">
         <div id="gantt-render"></div>
       </div>
@@ -1322,35 +1313,121 @@ function toggleChain(on) {
 }
 
 function openAddTask() {
-  const modal = document.getElementById('add-task-modal');
-  modal.style.display = 'flex';
+  document.getElementById('gantt-modal-title').textContent = '➕ Ajouter une tâche';
+  document.getElementById('gantt-modal-btn').textContent   = 'Ajouter au Gantt';
+  document.getElementById('new-task-edit-id').value = '';
+  document.getElementById('new-task-type').value    = 'task';
+  document.getElementById('new-task-label').value   = '';
+  document.getElementById('new-task-phase').value   = 'p1';
+  document.getElementById('new-task-resp').value    = '';
+  document.getElementById('new-task-start').value   = '';
+  document.getElementById('new-task-end').value     = '';
+  document.getElementById('new-task-dur').value     = '';
+  document.getElementById('new-task-pred').value    = '';
+  document.getElementById('new-task-pct').value     = '0';
+  document.getElementById('add-task-modal').style.display = 'flex';
+}
+
+function openEditGanttTask(id) {
+  const allTasks = [...ganttTasks, ...(state.ganttCustom || [])];
+  const task = allTasks.find(t => t.id === id);
+  if (!task) return;
+  const {start, end} = getTaskDates(task);
+  const isJalon = task.type === 'jalon';
+  const dur = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
+  document.getElementById('gantt-modal-title').textContent = "✏️ Modifier la tâche";
+  document.getElementById('gantt-modal-btn').textContent   = 'Enregistrer';
+  document.getElementById('new-task-edit-id').value = id;
+  document.getElementById('new-task-type').value    = task.type  || 'task';
+  document.getElementById('new-task-label').value   = task.label || '';
+  document.getElementById('new-task-phase').value   = task.phase || 'p1';
+  document.getElementById('new-task-resp').value    = task.owner || task.resp || '';
+  document.getElementById('new-task-start').value   = start;
+  document.getElementById('new-task-end').value     = end;
+  document.getElementById('new-task-dur').value     = dur;
+  document.getElementById('new-task-pred').value    = (task.pred || []).join(', ');
+  document.getElementById('new-task-pct').value     = Math.round((task.pct || 0) * 100);
+  document.getElementById('add-task-modal').style.display = 'flex';
 }
 
 function closeAddTask() {
   document.getElementById('add-task-modal').style.display = 'none';
-  ['new-task-label','new-task-start','new-task-end','new-task-resp'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
+}
+
+// Sync Début / Fin / Durée dans le modal
+function ganttModalDateChange(source) {
+  const s   = document.getElementById('new-task-start').value;
+  const e   = document.getElementById('new-task-end').value;
+  const dur = parseInt(document.getElementById('new-task-dur').value);
+  if (source === 'dur') {
+    // Durée saisie → calcule Fin à partir de Début
+    if (s && !isNaN(dur) && dur >= 0) {
+      document.getElementById('new-task-end').value = addDays(s, dur);
+    }
+  } else {
+    // Début ou Fin changé → recalcule Durée
+    if (s && e) {
+      const d = Math.max(0, Math.round((new Date(e) - new Date(s)) / 86400000));
+      document.getElementById('new-task-dur').value = d;
+    }
+  }
 }
 
 function submitAddTask() {
-  const label = document.getElementById('new-task-label').value.trim();
-  const start = document.getElementById('new-task-start').value;
-  const end   = document.getElementById('new-task-end').value;
-  const phase = document.getElementById('new-task-phase').value;
-  const resp  = document.getElementById('new-task-resp').value.trim();
-  if (!label || !start || !end) { alert('Veuillez renseigner le libellé, la date début et la date fin.'); return; }
-  const id = 'custom_' + Date.now();
-  if (!state.ganttCustom) state.ganttCustom = [];
-  state.ganttCustom.push({id, label, phase, start, end, resp: resp||'—'});
+  const editId  = document.getElementById('new-task-edit-id').value;
+  const label   = document.getElementById('new-task-label').value.trim();
+  const start   = document.getElementById('new-task-start').value;
+  const type    = document.getElementById('new-task-type').value;
+  const phase   = document.getElementById('new-task-phase').value;
+  const resp    = document.getElementById('new-task-resp').value.trim();
+  const predRaw = document.getElementById('new-task-pred').value.trim();
+  const pct     = Math.min(1, Math.max(0, (parseFloat(document.getElementById('new-task-pct').value) || 0) / 100));
+  let   end     = document.getElementById('new-task-end').value;
+
+  if (!label) { alert('Veuillez renseigner le libellé.'); return; }
+  if (!start) { alert('Veuillez renseigner la date de début.'); return; }
+  if (!end) end = start;   // Jalon : fin = début
+
+  const pred = predRaw ? predRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  if (editId) {
+    // ── Édition d'une tâche personnalisée existante ──
+    const ct = (state.ganttCustom || []).find(t => t.id === editId);
+    if (ct) {
+      ct.type  = type;
+      ct.label = label;
+      ct.phase = phase;
+      ct.owner = resp || '—';
+      ct.resp  = resp || '—';
+      ct.start = start;
+      ct.end   = end;
+      ct.pred  = pred;
+      ct.pct   = pct;
+      if (!state.gantt[editId]) state.gantt[editId] = {};
+      state.gantt[editId].start = start;
+      state.gantt[editId].end   = end;
+    }
+  } else {
+    // ── Ajout d'une nouvelle tâche ──
+    const id = 'custom_' + Date.now();
+    if (!state.ganttCustom) state.ganttCustom = [];
+    state.ganttCustom.push({
+      id, type, label, phase,
+      start, end, pred, pct,
+      owner: resp || '—', resp: resp || '—',
+      _custom: true
+    });
+  }
+
   saveState();
   closeAddTask();
   renderGantt();
 }
 
 function removeCustomTask(id) {
-  state.ganttCustom = (state.ganttCustom||[]).filter(t => t.id !== id);
+  if (!confirm('Supprimer cette tâche du Gantt ?')) return;
+  state.ganttCustom = (state.ganttCustom || []).filter(t => t.id !== id);
+  delete state.gantt[id];
   saveState();
   renderGantt();
 }
@@ -1424,30 +1501,56 @@ function renderGantt() {
     </tr>`;
   });
 
-  // Custom tasks
+  // ── Tâches personnalisées ─────────────────────────────────────────────
   (state.ganttCustom || []).forEach(task => {
-    const {start, end} = getTaskDates(task);
+    const {start, end}  = getTaskDates(task);
+    const cIsPhase  = task.type === 'phase';
+    const cIsJalon  = task.type === 'jalon';
     const left  = ganttPct(start);
     const width = ganttWidthPct(start, end);
-    const dur   = Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000));
-    rows += `<tr class="gantt-sub-row custom-task-row">
-      <td class="center"><span class="type-badge type-custom">★</span></td>
-      <td>&nbsp;&nbsp;<span style="color:#3949AB;">${task.label}</span></td>
-      <td style="font-size:10px;color:var(--gray);text-align:center;">${task.resp||'—'}</td>
-      <td class="center" style="color:var(--gray);">—</td>
-      <td><input class="date-input" type="date" value="${start}" onchange="updateGanttDate('${task.id}','start',this.value)"></td>
-      <td><input class="date-input" type="date" value="${end}" onchange="updateGanttDate('${task.id}','end',this.value)"></td>
-      <td class="center"><input type="number" min="1" max="400" value="${dur}" onchange="updateGanttDuration('${task.id}',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>
-      <td class="center" style="color:var(--gray);">—</td>
-      <td style="padding:0;position:relative;">
-        <div class="gantt-bar-cell">
-          <div class="gantt-months-bg">${monthsBgTpl}</div>
-          <div class="today-line" style="left:${todayPct.toFixed(1)}%"></div>
-          <div class="gantt-bar" style="left:${left.toFixed(1)}%;width:${Math.max(0.5,width).toFixed(1)}%;opacity:0.75;border:2px dashed #3949AB;background:#EEF0F8;color:#3949AB;" title="${task.label}: ${start} → ${end}">${width>3?task.label.substring(0,22):''}</div>
-        </div>
-      </td>
-      <td style="text-align:center;"><button onclick="removeCustomTask('${task.id}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0;" title="Supprimer">✕</button></td>
-    </tr>`;
+    const dur   = cIsJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
+    const pctC  = Math.round((task.pct || 0) * 100);
+    const predC = (task.pred && task.pred.length) ? task.pred.join(', ') : '—';
+
+    let cRowClass, cTypeBadge, cBarHtml, cDatesCells;
+    if (cIsPhase) {
+      cRowClass   = 'gantt-phase-row';
+      cTypeBadge  = '<span class="type-badge type-phase">Phase</span>';
+      cBarHtml    = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + Math.max(0.5,width).toFixed(1) + '%;opacity:.8;border:2px dashed rgba(0,0,0,.2);" title="' + task.label + ': ' + start + ' \u2192 ' + end + '">' + (width>4 ? task.label.substring(0,18) : '') + '</div>';
+      cDatesCells = '<td style="font-size:11px;">' + start + '</td><td style="font-size:11px;">' + end + '</td><td class="center" style="font-size:11px;">' + dur + 'j</td>';
+    } else if (cIsJalon) {
+      cRowClass   = 'gantt-jalon-row';
+      cTypeBadge  = '<span class="type-badge type-jalon">Jalon</span>';
+      cBarHtml    = '<div class="gantt-milestone" style="left:calc(' + left.toFixed(1) + '% - 10px);" title="' + task.label + ': ' + start + '">\u25C6</div>';
+      cDatesCells = '<td style="font-weight:700;text-align:center;font-size:11px;">' + start + '</td><td style="color:var(--gray);text-align:center;">\u2014</td><td class="center" style="color:var(--gray);">\u2014</td>';
+    } else {
+      cRowClass   = 'gantt-sub-row custom-task-row';
+      cTypeBadge  = '<span class="type-badge type-custom">\u2605</span>';
+      cBarHtml    = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + Math.max(0.5,width).toFixed(1) + '%;opacity:.75;border:2px dashed rgba(0,0,0,.18);" title="' + task.label + ': ' + start + ' \u2192 ' + end + '">' + (width>3 ? task.label.substring(0,22) : '') + '</div>';
+      cDatesCells = '<td><input class="date-input" type="date" value="' + start + '" onchange="updateGanttDate(\'' + task.id + '\',\'start\',this.value)"></td>'
+        + '<td><input class="date-input" type="date" value="' + end + '" onchange="updateGanttDate(\'' + task.id + '\',\'end\',this.value)"></td>'
+        + '<td class="center"><input type="number" min="0" max="400" value="' + dur + '" onchange="updateGanttDuration(\'' + task.id + '\',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>';
+    }
+
+    rows += '<tr class="' + cRowClass + '">'
+      + '<td class="center">' + cTypeBadge + '</td>'
+      + '<td>&nbsp;&nbsp;<span style="color:#3949AB;font-style:italic;">' + task.label + '</span></td>'
+      + '<td style="font-size:10px;color:var(--gray);text-align:center;">' + (task.owner || task.resp || '—') + '</td>'
+      + '<td style="font-size:10px;text-align:center;color:#3949AB;">' + predC + '</td>'
+      + cDatesCells
+      + '<td class="center" style="font-size:10px;">' + (pctC > 0 ? pctC + '%' : '—') + '</td>'
+      + '<td style="padding:0;position:relative;">'
+        + '<div class="gantt-bar-cell">'
+          + '<div class="gantt-months-bg">' + monthsBgTpl + '</div>'
+          + '<div class="today-line" style="left:' + todayPct.toFixed(1) + '%"></div>'
+          + cBarHtml
+        + '</div>'
+      + '</td>'
+      + '<td style="text-align:center;white-space:nowrap;">'
+        + '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px;" title="Modifier">\u270F\uFE0F</button>'
+        + '<button onclick="removeCustomTask(\'' + task.id + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:2px;" title="Supprimer">\u2715</button>'
+      + '</td>'
+      + '</tr>';
   });
 
   const header = `<table class="gantt-table"><thead><tr>
@@ -2212,47 +2315,95 @@ window.addEventListener('DOMContentLoaded', async () => {
 </script>
 
 
-<!-- ════ MODAL AJOUT TÂCHE ════ -->
+<!-- ════ MODAL AJOUT / ÉDITION TÂCHE GANTT ════ -->
 <div id="add-task-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:8px;padding:28px;width:440px;box-shadow:0 8px 32px rgba(0,0,0,.25);">
-    <div style="font-size:16px;font-weight:700;color:var(--black);margin-bottom:18px;border-bottom:3px solid var(--red);padding-bottom:8px;">
-      ➕ Ajouter une tâche personnalisée
+  <div style="background:white;border-radius:10px;padding:26px 28px;width:510px;max-width:96vw;box-shadow:0 8px 36px rgba(0,0,0,.28);max-height:92vh;overflow-y:auto;">
+    <div id="gantt-modal-title" style="font-size:15px;font-weight:700;color:var(--black);margin-bottom:18px;border-bottom:3px solid var(--red);padding-bottom:8px;">
+      ➕ Ajouter une tâche
     </div>
+    <input type="hidden" id="new-task-edit-id">
     <div style="display:grid;gap:12px;">
-      <div>
-        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Libellé *</label>
-        <input id="new-task-label" type="text" placeholder="Ex: Réunion alignement paramétrage..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:13px;">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+
+      <!-- Ligne 1 : Type + Libellé -->
+      <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;">
         <div>
-          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Date début *</label>
-          <input id="new-task-start" type="date" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-        </div>
-        <div>
-          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Date fin *</label>
-          <input id="new-task-end" type="date" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div>
-          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Phase</label>
-          <select id="new-task-phase" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
-            <option value="freeze">Pré-Design Freeze</option>
-            <option value="build">Phase 1 — Build</option>
-            <option value="sit">Phase 2 — SIT</option>
-            <option value="uat">Phase 3 — UAT</option>
-            <option value="live">Go Live</option>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Type</label>
+          <select id="new-task-type" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option value="task">Tâche</option>
+            <option value="phase">Phase</option>
+            <option value="jalon">Jalon</option>
           </select>
         </div>
         <div>
-          <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px;">Responsable</label>
-          <input id="new-task-resp" type="text" placeholder="CBS / BOA / Conjoint" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Libellé *</label>
+          <input id="new-task-label" type="text" placeholder="Ex: Réunion alignement paramétrage…"
+            style="width:100%;padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
         </div>
       </div>
+
+      <!-- Ligne 2 : Phase + Owner -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Phase de rattachement</label>
+          <select id="new-task-phase" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option value="p0">P0 — Structuration / Design Freeze</option>
+            <option value="p1">P1 — Build / Paramétrage</option>
+            <option value="p2">P2 — SIT (Tests intégrés)</option>
+            <option value="p3">P3 — UAT (Tests utilisateurs)</option>
+            <option value="p4">P4 — Formation & Déploiement</option>
+            <option value="p5">P5 — Go Live & Hypercare</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Owner / Responsable</label>
+          <input id="new-task-resp" type="text" placeholder="CBS, BOA CI, Conjoint…"
+            style="width:100%;padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+
+      <!-- Ligne 3 : Début + Fin + Durée (liés dynamiquement) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:10px;align-items:end;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Début *</label>
+          <input id="new-task-start" type="date" oninput="ganttModalDateChange('dates')"
+            style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Fin <span style="font-weight:400;color:var(--gray);">(auto si durée)</span></label>
+          <input id="new-task-end" type="date" oninput="ganttModalDateChange('dates')"
+            style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Durée (j)</label>
+          <input id="new-task-dur" type="number" min="0" max="400" placeholder="—"
+            oninput="ganttModalDateChange('dur')"
+            style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;text-align:center;">
+        </div>
+      </div>
+
+      <!-- Ligne 4 : Prédécesseurs + % avancement -->
+      <div style="display:grid;grid-template-columns:1fr 90px;gap:10px;align-items:end;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">
+            Prédécesseurs
+            <span style="font-weight:400;color:var(--gray);">(IDs séparés par virgule, ex : 1.3, M0)</span>
+          </label>
+          <input id="new-task-pred" type="text" placeholder="1.3, M0, custom_…"
+            style="width:100%;padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">% avance</label>
+          <input id="new-task-pct" type="number" min="0" max="100" value="0"
+            style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;text-align:center;">
+        </div>
+      </div>
+
     </div>
     <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
-      <button onclick="closeAddTask()" style="padding:8px 18px;background:#f5f5f5;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:13px;">Annuler</button>
-      <button onclick="submitAddTask()" style="padding:8px 18px;background:var(--red);color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;">Ajouter au Gantt</button>
+      <button onclick="closeAddTask()"
+        style="padding:8px 18px;background:#f5f5f5;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:13px;">Annuler</button>
+      <button onclick="submitAddTask()" id="gantt-modal-btn"
+        style="padding:8px 18px;background:var(--red);color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;">Ajouter au Gantt</button>
     </div>
   </div>
 </div>
