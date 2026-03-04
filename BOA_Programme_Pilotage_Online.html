@@ -1080,11 +1080,16 @@ function saveState() {
   // Always backup to localStorage
   try { localStorage.setItem('boa_v4_state', JSON.stringify(state)); } catch(e) {}
   // Cloud save (async, fire-and-forget)
-  if (sb && canEdit()) {
+  if (sb && canEdit() && window._sbWriteOK !== false) {
     sb.from('project_state')
       .upsert({ id: 'boa_ci_v4', state_data: state,
                 updated_at: new Date().toISOString(), updated_by: 'shared' })
-      .then(({ error }) => { if (error) console.warn('Cloud save error:', error.message); });
+      .then(({ error }) => {
+        if (error) {
+          console.warn('Cloud save error:', error.message);
+          window._sbWriteOK = false; // désactiver pour cette session
+        }
+      });
   }
   const indicator = document.getElementById('save-indicator');
   if (indicator) { indicator.style.display = 'block'; setTimeout(() => indicator.style.display = 'none', 1500); }
@@ -1845,17 +1850,32 @@ function printSection(tabId) {
 // APP INIT — called after successful auth
 // ─────────────────────────────────────────────────────────────────────────
 async function initApp() {
-  // Load state from Supabase (or fallback to localStorage)
+  // Load state : Supabase si accessible en écriture, sinon localStorage
   if (sb) {
     try {
-      const { data, error } = await sb.from('project_state')
-        .select('state_data').eq('id', 'boa_ci_v4').single();
-      if (data && data.state_data && !error) {
-        applyParsedState(data.state_data);
-      } else {
+      // Test écriture Supabase (RLS check)
+      const testWrite = await sb.from('project_state')
+        .upsert({ id: 'boa_ci_v4_ping', state_data: { ping: true }, updated_at: new Date().toISOString(), updated_by: 'shared' });
+
+      if (testWrite.error) {
+        // RLS bloque — utiliser localStorage uniquement
+        console.warn('Supabase non accessible (RLS) — mode localStorage activé');
         loadState();
+        window._sbWriteOK = false;
+      } else {
+        window._sbWriteOK = true;
+        // Lecture de l'état cloud
+        const { data, error } = await sb.from('project_state')
+          .select('state_data').eq('id', 'boa_ci_v4').single();
+        if (data && data.state_data && !error) {
+          applyParsedState(data.state_data);
+        } else {
+          loadState();
+        }
+        // Nettoyer le ping
+        await sb.from('project_state').delete().eq('id', 'boa_ci_v4_ping').then(() => {});
       }
-    } catch(e) { loadState(); }
+    } catch(e) { loadState(); window._sbWriteOK = false; }
 
     // Real-time sync — listen for other users' changes
     sb.channel('boa_state')
