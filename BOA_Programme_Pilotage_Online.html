@@ -1084,7 +1084,7 @@ function saveState() {
   if (sb && canEdit() && window._sbWriteOK) {
     sb.from('project_state')
       .upsert({ id: 'boa_ci_v4', state_data: state,
-                updated_at: new Date().toISOString(), updated_by: 'shared' })
+                updated_at: new Date().toISOString(), updated_by: null })
       .then(({ error }) => {
         if (error) {
           console.warn('Cloud save error:', error.message);
@@ -1874,7 +1874,7 @@ async function initApp() {
 
       // Test écriture
       const testPayload = { id:'boa_ci_v4', state_data: (rData && rData.state_data) || state,
-        updated_at: new Date().toISOString(), updated_by:'shared' };
+        updated_at: new Date().toISOString(), updated_by: null };
       const { error: wErr } = await sb.from('project_state').upsert(testPayload);
 
       if (wErr) {
