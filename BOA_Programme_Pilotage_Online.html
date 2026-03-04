@@ -272,6 +272,33 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 /* GANTT DEPENDENCY SVG */
 #gantt-dep-svg { pointer-events: none; }
 
+/* GANTT ZOOM BUTTONS */
+.gantt-zoom-btn {
+  background: #f0f2f5; border: 1px solid #c0c8d8; color: #54565A;
+  padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; line-height: 1;
+}
+.gantt-zoom-btn:hover { background: #dde3f0; color: #1565C0; }
+.gantt-zoom-btn.active { background: #1565C0; color: white; border-color: #1565C0; }
+
+/* GANTT N° cell: hover → show + button, hide number */
+.gantt-num-cell {
+  font-size: 10px; color: #aaa; font-weight: 600; min-width: 26px;
+  text-align: center; cursor: default; position: relative;
+}
+.gantt-num-cell .g-num-label { pointer-events: none; }
+.gantt-num-cell .g-add-btn {
+  display: none; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  background: #e8f5e9; border: 1px solid #a5d6a7; color: #2e7d32;
+  border-radius: 50%; width: 17px; height: 17px; font-size: 13px; font-weight: 700;
+  cursor: pointer; line-height: 1; padding: 0;
+  align-items: center; justify-content: center;
+}
+tr:hover .gantt-num-cell .g-num-label { visibility: hidden; }
+tr:hover .gantt-num-cell .g-add-btn { display: inline-flex; }
+tr:hover .gantt-num-cell .g-add-btn:hover { background: #c8e6c9; }
+
 /* COMMENT INPUT */
 .comment-input { width: 100%; padding: 3px 6px; border: 1px solid var(--gray-med);
   border-radius: 3px; font-family: var(--font); font-size: 11px; }
@@ -614,6 +641,12 @@ textarea.auto-grow { field-sizing: content; min-height: 36px; }
           <span style="background:#1565C0;color:white;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:help;flex-shrink:0;"
             title="Mode chaîne : quand vous modifiez la fin d'une tâche, toutes les tâches dont le début est postérieur se décalent du même nombre de jours, en conservant leurs durées. Utile pour repousser un lot de tâches en bloc.">?</span>
         </label>
+        <div style="display:flex;gap:3px;align-items:center;">
+          <span style="font-size:10px;color:#aaa;margin-right:2px;">Zoom:</span>
+          <button onclick="setGanttZoom('month')" id="zoom-btn-month" class="gantt-zoom-btn active">Mois</button>
+          <button onclick="setGanttZoom('week')"  id="zoom-btn-week"  class="gantt-zoom-btn">Semaines</button>
+          <button onclick="setGanttZoom('day')"   id="zoom-btn-day"   class="gantt-zoom-btn">Jours</button>
+        </div>
         <button onclick="openAddTask()" style="background:var(--green);color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:700;">+ Ajouter tâche</button>
         <button class="btn-reset" onclick="resetGanttDates()">↩ Réinitialiser</button>
       </div>
@@ -1100,6 +1133,7 @@ let state = {
   customGaps:    [],  // GAPs ajoutés manuellement
   ganttChain:    false,
   ganttCollapsed:{},
+  ganttZoom:     'month',
 };
 
 function applyParsedState(parsed) {
@@ -1113,6 +1147,7 @@ function applyParsedState(parsed) {
     customGaps:     parsed.customGaps     || [],
     ganttChain:     parsed.ganttChain     || false,
     ganttCollapsed: parsed.ganttCollapsed || {},
+    ganttZoom:      parsed.ganttZoom      || 'month',
   };
 }
 
@@ -1189,6 +1224,79 @@ const MONTHS = [
   {name:'Avr', days:30}, {name:'Mai', days:31}, {name:'Jun', days:30},
   {name:'Jul', days:31}, {name:'Aoû', days:16}
 ];
+
+// ── Gantt column builder (zoom: 'month' | 'week' | 'day') ────────────────
+function buildGanttCols(zoom) {
+  zoom = zoom || 'month';
+
+  if (zoom === 'month') {
+    const header = MONTHS.map((m,i) =>
+      '<div class="gantt-month-header" style="flex:' + m.days + ';background:' + (i%2===0?'#c8d0e0':'#d8e0f0') + ';border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;">' + m.name + '</div>'
+    ).join('');
+    const bg = MONTHS.map((m,i) =>
+      '<div class="month-col ' + (i%2===1?'alt':'') + '" style="flex:' + m.days + '"></div>'
+    ).join('');
+    return { headerHtml: header, bgHtml: bg, minWidth: '400px' };
+  }
+
+  if (zoom === 'week') {
+    const weeks = [];
+    const d = new Date(GANTT_RANGE_START);
+    let wi = 0;
+    while (d <= GANTT_RANGE_END) {
+      const ws = new Date(d);
+      const we = new Date(d);
+      we.setDate(we.getDate() + 6);
+      if (we > GANTT_RANGE_END) we.setTime(GANTT_RANGE_END.getTime());
+      const days = Math.max(1, Math.round((we - ws) / 86400000) + 1);
+      const wNum = String(wi + 1).padStart(2, '0');
+      const mon  = ws.toLocaleDateString('fr-FR', {month:'short'});
+      weeks.push({ label: 'S' + wNum + ' ' + mon, days, alt: wi % 2 === 1 });
+      d.setDate(d.getDate() + 7);
+      wi++;
+      if (d > GANTT_RANGE_END) break;
+    }
+    const header = weeks.map(w =>
+      '<div class="gantt-month-header" style="flex:' + w.days + ';background:' + (w.alt?'#d8e0f0':'#c8d0e0') + ';border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;font-size:9px;white-space:nowrap;">' + w.label + '</div>'
+    ).join('');
+    const bg = weeks.map(w =>
+      '<div class="month-col ' + (w.alt?'alt':'') + '" style="flex:' + w.days + '"></div>'
+    ).join('');
+    return { headerHtml: header, bgHtml: bg, minWidth: '1200px' };
+  }
+
+  if (zoom === 'day') {
+    const days = [];
+    const d = new Date(GANTT_RANGE_START);
+    let di = 0;
+    while (d <= GANTT_RANGE_END) {
+      const dow = d.getDay();
+      const isWe = (dow === 0 || dow === 6);
+      days.push({ label: d.getDate(), alt: di % 2 === 1, isWe });
+      d.setDate(d.getDate() + 1);
+      di++;
+    }
+    const header = days.map(dd =>
+      '<div class="gantt-month-header" style="flex:1;min-width:11px;background:' + (dd.isWe?'#dfc8c8':(dd.alt?'#d8e0f0':'#c8d0e0')) + ';border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;font-size:8px;overflow:hidden;">' + dd.label + '</div>'
+    ).join('');
+    const bg = days.map(dd =>
+      '<div class="month-col ' + (dd.alt?'alt':'') + '" style="flex:1;min-width:11px;' + (dd.isWe?'background:rgba(200,0,0,.05);':'') + '"></div>'
+    ).join('');
+    return { headerHtml: header, bgHtml: bg, minWidth: '2720px' };
+  }
+
+  return buildGanttCols('month');
+}
+
+function setGanttZoom(z) {
+  state.ganttZoom = z;
+  saveState();
+  ['month','week','day'].forEach(k => {
+    const btn = document.getElementById('zoom-btn-' + k);
+    if (btn) btn.classList.toggle('active', k === z);
+  });
+  renderGantt();
+}
 
 function phaseClass(phase) {
   return {freeze:'ph-freeze',build:'ph-build',sit:'ph-sit',uat:'ph-uat',live:'ph-live',copil:'ph-copil'}[phase] || '';
@@ -1368,27 +1476,36 @@ function openEditGanttTask(id) {
   const allTasks = [...ganttTasks, ...(state.ganttCustom || [])];
   const task = allTasks.find(t => t.id === id);
   if (!task) return;
+  const isCustom = !!task._custom;
   const {start, end} = getTaskDates(task);
   const isJalon = task.type === 'jalon';
   const dur = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
-  // Afficher les N° de ligne pour les prédécesseurs
-  const predDisplay = (task.pred || []).map(pid => {
+
+  // Pour les tâches statiques : lire les overrides stockés dans state.gantt[id]
+  const ov    = (!isCustom && state.gantt[id]) ? state.gantt[id] : {};
+  const label = ov._label != null  ? ov._label : (task.label || '');
+  const owner = ov._owner != null  ? ov._owner : (task.owner || task.resp || '');
+  const pct   = ov._pct   != null  ? ov._pct   : Math.round((task.pct || 0) * 100);
+  const pred  = ov._pred  != null  ? ov._pred  : (task.pred || []);
+
+  const predDisplay = pred.map(pid => {
     const rn = _ganttIdMap[pid];
     return rn != null ? String(rn) : pid;
   }).join(', ');
+
   _resetGanttModal();
-  document.getElementById('gantt-modal-title').textContent   = "✏️ Modifier la tâche";
+  document.getElementById('gantt-modal-title').textContent   = isCustom ? "\u270F\uFE0F Modifier la t\u00e2che" : "\u270F\uFE0F Modifier la t\u00e2che (statique)";
   document.getElementById('gantt-modal-btn').textContent     = 'Enregistrer';
   document.getElementById('new-task-edit-id').value          = id;
   document.getElementById('new-task-type').value             = task.type  || 'task';
-  document.getElementById('new-task-label').value            = task.label || '';
+  document.getElementById('new-task-label').value            = label;
   document.getElementById('new-task-phase').value            = task.phase || 'p1';
-  document.getElementById('new-task-resp').value             = task.owner || task.resp || '';
+  document.getElementById('new-task-resp').value             = owner;
   document.getElementById('new-task-start').value            = start;
   document.getElementById('new-task-end').value              = end;
   document.getElementById('new-task-dur').value              = dur;
   document.getElementById('new-task-pred').value             = predDisplay;
-  document.getElementById('new-task-pct').value              = Math.round((task.pct || 0) * 100);
+  document.getElementById('new-task-pct').value              = pct;
   document.getElementById('add-task-modal').style.display    = 'flex';
 }
 
@@ -1442,12 +1559,22 @@ function submitAddTask() {
     // ── Édition ──
     const ct = (state.ganttCustom || []).find(t => t.id === editId);
     if (ct) {
+      // Tâche custom : mise à jour directe de l'objet
       ct.type  = type;  ct.label = label; ct.phase = phase;
       ct.owner = resp || '—'; ct.resp = resp || '—';
       ct.start = start; ct.end = end; ct.pred = pred; ct.pct = pct;
       if (!state.gantt[editId]) state.gantt[editId] = {};
       state.gantt[editId].start = start;
       state.gantt[editId].end   = end;
+    } else {
+      // Tâche statique : stocker les overrides dans state.gantt[id]
+      if (!state.gantt[editId]) state.gantt[editId] = {};
+      state.gantt[editId].start  = start;
+      state.gantt[editId].end    = end;
+      state.gantt[editId]._label = label;
+      state.gantt[editId]._owner = resp || '—';
+      state.gantt[editId]._pct   = pct;
+      state.gantt[editId]._pred  = pred;
     }
   } else {
     // ── Ajout ──
@@ -1484,28 +1611,30 @@ function renderGantt() {
   if (toggle) toggle.checked = !!state.ganttChain;
   if (!state.ganttCollapsed) state.ganttCollapsed = {};
 
+  // ── Mettre à jour les boutons de zoom ─────────────────────────────────
+  const curZoom = state.ganttZoom || 'month';
+  ['month','week','day'].forEach(k => {
+    const btn = document.getElementById('zoom-btn-' + k);
+    if (btn) btn.classList.toggle('active', k === curZoom);
+  });
+
   // ── 1. Construire la liste ordonnée des tâches affichées ──────────────
-  // Grouper les tâches custom par insertAfterId
-  const customAfter = {};      // insertAfterId → [task…]
-  const customOrphan = [];     // pas d'ancre trouvée → mis à la fin
+  const customAfter  = {};
+  const customOrphan = [];
   (state.ganttCustom || []).forEach(ct => {
     const anchor = ct.insertAfterId || null;
     if (anchor) {
       if (!customAfter[anchor]) customAfter[anchor] = [];
       customAfter[anchor].push(ct);
-    } else {
-      customOrphan.push(ct);
-    }
+    } else { customOrphan.push(ct); }
   });
 
   const allTasksRendered = [];
   let currentPhaseId = null;
-
   ganttTasks.forEach(task => {
     if (task.type === 'phase') { currentPhaseId = task.id; }
     else if (currentPhaseId && state.ganttCollapsed[currentPhaseId]) return;
     allTasksRendered.push(task);
-    // Insérer les tâches custom ancrées après cette tâche
     (customAfter[task.id] || []).forEach(ct => allTasksRendered.push(ct));
   });
   customOrphan.forEach(ct => allTasksRendered.push(ct));
@@ -1518,16 +1647,23 @@ function renderGantt() {
     _ganttIdMap[task.id] = i + 1;
   });
 
-  // ── 3. Générer les lignes HTML ─────────────────────────────────────────
-  const monthsBgTpl = MONTHS.map((m, i) =>
-    '<div class="month-col ' + (i%2===1?'alt':'') + '" style="flex:' + m.days + '"></div>'
-  ).join('');
+  // ── 3. Colonnes selon le zoom ─────────────────────────────────────────
+  const cols = buildGanttCols(curZoom);
 
+  // ── 4. Générer les lignes HTML ─────────────────────────────────────────
   let rows = '';
 
   allTasksRendered.forEach((task, idx) => {
     const rowNum   = idx + 1;
     const isCustom = !!task._custom;
+
+    // Lire les overrides pour les tâches statiques
+    const ov         = (!isCustom && state.gantt[task.id]) ? state.gantt[task.id] : {};
+    const dispLabel  = ov._label  || task.label            || '';
+    const dispOwner  = ov._owner  || task.owner || task.resp || '—';
+    const dispPct    = ov._pct    != null ? ov._pct : Math.round((task.pct || 0) * 100);
+    const dispPred   = ov._pred   || task.pred   || [];
+
     const {start, end} = getTaskDates(task);
     const isPhase  = task.type === 'phase';
     const isJalon  = task.type === 'jalon';
@@ -1536,36 +1672,30 @@ function renderGantt() {
     const barLeft  = left.toFixed(3);
     const barWidth = Math.max(0.5, width).toFixed(3);
     const dur      = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
-    const pct      = Math.round((task.pct || 0) * 100);
 
     // Prédécesseurs : afficher N° de ligne
-    const predNums = (task.pred || []).map(pid => {
-      const rn = _ganttIdMap[pid];
-      return rn != null ? rn : pid;
-    });
-    const predStr = predNums.length ? predNums.join(', ') : '—';
-    const predTitle = (task.pred || []).join(', ') || '';
+    const predNums  = dispPred.map(pid => { const rn = _ganttIdMap[pid]; return rn != null ? rn : pid; });
+    const predStr   = predNums.length ? predNums.join(', ') : '—';
+    const predTitle = dispPred.join(', ') || '';
 
-    // Type badge + row class
+    // Type badge (basé sur le vrai type, ★ uniquement comme décoration de libellé)
     let typeBadge, rowClass, barHtml, datesCells;
     const dashed = isCustom ? 'border:2px dashed rgba(0,0,0,.18);opacity:.82;' : '';
 
     if (isPhase) {
       rowClass  = 'gantt-phase-row';
-      typeBadge = '<span class="type-badge type-phase">' + (isCustom ? '★ ' : '') + 'Phase</span>';
-      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + task.label + ': ' + start + ' \u2192 ' + end + '">' + (width>4 ? task.label.substring(0,18) : '') + '</div>';
+      typeBadge = '<span class="type-badge type-phase">Phase</span>';
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + '">' + (width>4 ? dispLabel.substring(0,18) : '') + '</div>';
       datesCells = '<td style="font-size:11px;">' + start + '</td><td style="font-size:11px;">' + end + '</td><td class="center" style="font-size:11px;">' + dur + 'j</td>';
     } else if (isJalon) {
       rowClass  = 'gantt-jalon-row';
-      typeBadge = '<span class="type-badge type-jalon">' + (isCustom ? '★ ' : '') + 'Jalon</span>';
-      barHtml   = '<div class="gantt-milestone" style="left:calc(' + left.toFixed(1) + '% - 10px);" title="' + task.label + ': ' + start + '">\u25C6</div>';
+      typeBadge = '<span class="type-badge type-jalon">Jalon</span>';
+      barHtml   = '<div class="gantt-milestone" style="left:calc(' + left.toFixed(1) + '% - 10px);" title="' + dispLabel + ': ' + start + '">\u25C6</div>';
       datesCells = '<td style="font-weight:700;text-align:center;font-size:11px;">' + start + '</td><td style="color:var(--gray);text-align:center;">\u2014</td><td class="center" style="color:var(--gray);">\u2014</td>';
     } else {
       rowClass  = isCustom ? 'gantt-sub-row custom-task-row' : 'gantt-sub-row';
-      typeBadge = isCustom
-        ? '<span class="type-badge type-custom">\u2605</span>'
-        : '<span class="type-badge type-task">T\u00e2che</span>';
-      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + task.label + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">' + (width>3 ? task.label.substring(0,22) : '') + '</div>';
+      typeBadge = '<span class="type-badge type-task">T\u00e2che</span>';
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">' + (width>3 ? dispLabel.substring(0,22) : '') + '</div>';
       datesCells = '<td><input class="date-input" type="date" value="' + start + '" onchange="updateGanttDate(\'' + task.id + '\',\'start\',this.value)"></td>'
         + '<td><input class="date-input" type="date" value="' + end + '" onchange="updateGanttDate(\'' + task.id + '\',\'end\',this.value)"></td>'
         + '<td class="center"><input type="number" min="0" max="400" value="' + dur + '" onchange="updateGanttDuration(\'' + task.id + '\',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>';
@@ -1575,38 +1705,43 @@ function renderGantt() {
     const collapseBtn = isPhase
       ? '<button onclick="togglePhaseCollapse(\'' + task.id + '\')" class="phase-toggle-btn" title="' + (isCollapsed?'D\u00e9ployer':'R\u00e9duire') + '">' + (isCollapsed?'\u25B6':'\u25BC') + '</button>'
       : '';
-    const labelCell = isPhase
-      ? collapseBtn + (isCustom ? '<span style="color:#3949AB;font-style:italic;">' + task.label + '</span>' : task.label)
-      : '&nbsp;&nbsp;' + (isCustom ? '<span style="color:#3949AB;font-style:italic;">' + task.label + '</span>' : task.label);
-    const editBtns = isCustom
-      ? '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px;" title="Modifier">\u270F\uFE0F</button>'
-        + '<button onclick="removeCustomTask(\'' + task.id + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:1px;" title="Supprimer">\u2715</button>'
-      : '';
+    const labelStyle = isCustom ? ' style="color:#3949AB;font-style:italic;"' : '';
+    const starMark   = isCustom ? '\u2605 ' : '';
+    const labelCell  = isPhase
+      ? collapseBtn + '<span' + labelStyle + '>' + starMark + dispLabel + '</span>'
+      : '&nbsp;&nbsp;<span' + labelStyle + '>' + starMark + dispLabel + '</span>';
+
+    // Bouton ✏️ sur TOUTES les lignes ; bouton ✕ uniquement sur les tâches custom
+    const editBtns = '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px;" title="Modifier">\u270F\uFE0F</button>'
+      + (isCustom ? '<button onclick="removeCustomTask(\'' + task.id + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:1px;" title="Supprimer">\u2715</button>' : '');
+
+    // Colonne N° : affiche le numéro par défaut, + au survol de la ligne
+    const numCell = '<td class="gantt-num-cell">'
+      + '<span class="g-num-label">' + rowNum + '</span>'
+      + '<button class="g-add-btn" onclick="openAddTaskAfter(\'' + task.id + '\')" title="Ins\u00e9rer apr\u00e8s ligne ' + rowNum + '">+</button>'
+      + '</td>';
 
     rows += '<tr class="' + rowClass + '" data-task-id="' + task.id + '" data-row="' + rowNum + '" data-bar-left="' + barLeft + '" data-bar-width="' + barWidth + '">'
-      + '<td class="gantt-row-num">' + rowNum + '</td>'
+      + numCell
       + '<td class="center">' + typeBadge + '</td>'
       + '<td>' + labelCell + '</td>'
-      + '<td style="font-size:10px;color:var(--gray);text-align:center;">' + (task.owner||task.resp||'—') + '</td>'
+      + '<td style="font-size:10px;color:var(--gray);text-align:center;">' + dispOwner + '</td>'
       + '<td style="font-size:10px;text-align:center;color:#3949AB;" title="' + predTitle + '">' + predStr + '</td>'
       + datesCells
-      + '<td class="center" style="font-size:10px;">' + (pct>0 ? pct+'%' : '—') + '</td>'
+      + '<td class="center" style="font-size:10px;">' + (dispPct>0 ? dispPct+'%' : '—') + '</td>'
       + '<td style="padding:0;position:relative;">'
-        + '<div class="gantt-bar-cell">'
-          + '<div class="gantt-months-bg">' + monthsBgTpl + '</div>'
+        + '<div class="gantt-bar-cell" style="min-width:' + cols.minWidth + ';">'
+          + '<div class="gantt-months-bg">' + cols.bgHtml + '</div>'
           + '<div class="today-line" style="left:' + todayPct.toFixed(1) + '%"></div>'
           + barHtml
         + '</div>'
       + '</td>'
-      + '<td style="text-align:center;white-space:nowrap;padding:2px 4px;">'
-        + '<button onclick="openAddTaskAfter(\'' + task.id + '\')" class="gantt-add-row-btn" title="Ins\u00e9rer une t\u00e2che apr\u00e8s la ligne ' + rowNum + '">+</button>'
-        + editBtns
-      + '</td>'
+      + '<td style="text-align:center;white-space:nowrap;padding:2px 4px;">' + editBtns + '</td>'
       + '</tr>';
   });
 
   const header = '<table class="gantt-table"><thead><tr>'
-    + '<th style="width:26px;text-align:center;font-size:10px;color:#aaa;padding:4px 2px;">N\u00b0</th>'
+    + '<th style="width:28px;text-align:center;font-size:10px;color:#aaa;padding:4px 2px;">N\u00b0</th>'
     + '<th style="width:52px;text-align:center;">Type</th>'
     + '<th class="col-name">T\u00e2che / Livrable</th>'
     + '<th style="width:80px;text-align:center;">Owner</th>'
@@ -1615,10 +1750,10 @@ function renderGantt() {
     + '<th class="col-end">Fin</th>'
     + '<th style="width:52px" class="center">Dur\u00e9e</th>'
     + '<th style="width:35px" class="center">%</th>'
-    + '<th class="col-bar" style="padding:0;"><div style="display:flex;height:26px;">'
-    + MONTHS.map((m,i) => '<div class="gantt-month-header" style="flex:' + m.days + ';background:' + (i%2===0?'#c8d0e0':'#d8e0f0') + ';border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;">' + m.name + '</div>').join('')
+    + '<th class="col-bar" style="padding:0;"><div style="display:flex;height:26px;min-width:' + cols.minWidth + ';">'
+    + cols.headerHtml
     + '</div></th>'
-    + '<th style="width:58px;"></th>'
+    + '<th style="width:48px;"></th>'
     + '</tr></thead>';
 
   const ganttRender = document.getElementById('gantt-render');
