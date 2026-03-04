@@ -800,8 +800,7 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
               <th style="width:110px">Domaine</th>
               <th style="width:95px">Processus</th>
               <th>Description</th>
-              <th style="width:50px" class="center">P.CBS</th>
-              <th style="width:55px" class="center">P.BOA</th>
+              <th style="width:60px" class="center">Priorité</th>
               <th style="width:50px" class="center">Phase</th>
               <th style="width:90px">Bank Model</th>
               <th style="width:130px" class="center">Décision BOA</th>
@@ -1718,10 +1717,8 @@ function renderGaps() {
     const isAnomalie  = g.bm === 'Anomalie' || g.bm === 'Anomalie V4 CG';
     const isExclusion = g.bm === 'Exclusion';
 
-    const prioCssClass = `badge-${g.prio_cbs.toLowerCase().replace('.','').replace(' ','')}`;
     const prioBoaClass = `badge-${g.prio.toLowerCase().replace('.','').replace(' ','')}`;
 
-    const prioCbsCell = `<span class="badge ${prioCssClass}" style="font-size:9px;">${g.prio_cbs}</span>`;
     const prioBoaCell = prioChanged
       ? `<span class="badge ${prioBoaClass}" style="font-size:9px;">${g.prio}</span><span style="color:var(--orange);font-weight:900;font-size:10px;display:block;margin-top:1px;">▲</span>`
       : `<span class="badge ${prioBoaClass}" style="font-size:9px;">${g.prio}</span>`;
@@ -1752,8 +1749,9 @@ function renderGaps() {
       placeholder="Note libre..."
       style="font-size:10px;padding:2px 5px;border:1px solid #ddd;border-radius:3px;width:165px;">`;
 
+    const traite = dec !== '' && dec !== 'En attente' && dec !== 'En analyse';
     const rowBg = dec === 'Exclu périmètre' ? 'opacity:0.45;' :
-                  dec === 'Validé V4 Standard' || dec === 'Validé Spécifique' ? 'background:#f7fff9;' : '';
+                  traite ? 'background:#f7fff9;' : '';
 
     return `<tr style="${rowBg}">
       <td style="color:var(--gray);font-size:10px;">${g.n}</td>
@@ -1763,14 +1761,13 @@ function renderGaps() {
       <td style="font-size:10px;">${g.domain.replace(' & ',' &amp; ')}</td>
       <td style="font-size:10px;color:var(--gray);">${g.processus}</td>
       <td style="font-size:10px;">${g.desc}</td>
-      <td class="center">${prioCbsCell}</td>
       <td class="center">${prioBoaCell}</td>
       <td class="center" style="font-size:10px;font-weight:700;">${g.phase}</td>
       <td>${bmBadge}</td>
       <td class="center">${decCell}</td>
       <td>${noteCell}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
+  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
 
   // Update decision summary bar
   updateGapsSummary();
@@ -1785,11 +1782,11 @@ function updateGapsSummary() {
   });
   const el = document.getElementById('gaps-summary-bar');
   if (!el) return;
-  const valides = counts['Validé V4 Standard'] + counts['Validé Spécifique'];
-  const pct = Math.round(valides / counts.total * 100);
+  const traites = counts.total - counts['En attente'] - counts['En analyse'];
+  const pct = Math.round(traites / counts.total * 100);
   el.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div style="background:#E8F5ED;color:#2E7D52;border:1px solid #2E7D52;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${valides} Validés</div>
+      <div style="background:#E8F5ED;color:#2E7D52;border:1px solid #2E7D52;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${traites} Traités</div>
       <div style="background:#FEF3E2;color:#E8702A;border:1px solid #E8702A;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['En analyse']} En analyse</div>
       <div style="background:#F5F5F5;color:#54565A;border:1px solid #ccc;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['En attente']} En attente</div>
       <div style="background:#FDEEEC;color:#E63329;border:1px solid #E63329;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['Exclu périmètre']} Exclus</div>
