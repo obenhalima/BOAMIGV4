@@ -1248,9 +1248,15 @@ function renderOwnerDatalist() {
 // ─────────────────────────────────────────────────────────────────────────
 const SUPABASE_URL     = 'https://mvjyolfsheoxhojzbjdc.supabase.co';     // ex: https://xxxx.supabase.co
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12anlvbGZzaGVveGhvanpiamRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIyMzY5MjcsImV4cCI6MjA4NzgxMjkyN30.VYq6j_UPRwX10kQ8wjS0dprOtWLVZO-vuSl2LK1DjHU'; // clé publique (anon)
-const sb = (SUPABASE_URL !== 'YOUR_SUPABASE_URL')
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-  : null; // mode local si pas configuré
+let sb = null;
+try {
+  if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && window.supabase && typeof window.supabase.createClient === 'function') {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch(e) {
+  console.warn('Supabase createClient failed:', e.message);
+  sb = null;
+}
 
 let currentUser = null;
 let currentRole = 'owner';
@@ -2732,45 +2738,71 @@ function printSection(tabId) {
 // ─────────────────────────────────────────────────────────────────────────
 // APP INIT — called after successful auth
 // ─────────────────────────────────────────────────────────────────────────
-async function initApp() {
+// Helper: promesse avec timeout
+function _withTimeout(promise, ms, label) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout ' + ms + 'ms — ' + label)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+
+async function initApp(isRetry) {
   const syncEl = document.getElementById('sync-status');
-  const setSync = (icon, text, color, bg) => {
+  const setSync = (icon, text, color, bg, showRetry) => {
     if (!syncEl) return;
-    syncEl.textContent = icon + ' ' + text;
+    syncEl.innerHTML = icon + '\u00A0' + text +
+      (showRetry ? ' <button onclick="retryConnection()" title="Relancer la connexion" style="margin-left:5px;background:none;border:1px solid currentColor;border-radius:4px;padding:1px 6px;font-size:10px;cursor:pointer;font-weight:700;color:inherit;">&#x21BA;</button>' : '');
     syncEl.style.color = color;
     syncEl.style.background = bg;
     syncEl.title = text;
   };
 
-  setSync('⏳', 'Connexion…', '#1565c0', '#e3f2fd');
+  if (!isRetry) setSync('\u23F3', 'Connexion\u2026', '#1565c0', '#e3f2fd', false);
 
   if (!sb) {
+    // Supabase non disponible — mode local
+    const reason = (SUPABASE_URL === 'YOUR_SUPABASE_URL')
+      ? 'Clés Supabase non configurées'
+      : 'Librairie Supabase introuvable (CDN\u00A0?)';
     loadState();
-    setSync('💾', 'Mode local', '#757575', '#f5f5f5');
+    setSync('\uD83D\uDCBE', 'Mode local', '#757575', '#f5f5f5', false);
+    console.warn('Supabase non disponible:', reason);
     window._sbWriteOK = false;
   } else {
     try {
-      // Test lecture
-      const { data: rData, error: rErr } = await sb
-        .from('project_state').select('state_data').eq('id','boa_ci_v4').single();
+      // ── Test lecture (timeout 8 s) ──────────────────────────────────────
+      const { data: rData, error: rErr } = await _withTimeout(
+        sb.from('project_state').select('state_data').eq('id','boa_ci_v4').single(),
+        8000, 'lecture Supabase'
+      );
 
-      // Test écriture
-      const testPayload = { id:'boa_ci_v4', state_data: (rData && rData.state_data) || state,
-        updated_at: new Date().toISOString(), updated_by: null };
-      const { error: wErr } = await sb.from('project_state').upsert(testPayload);
+      // ── Test écriture (timeout 8 s) ─────────────────────────────────────
+      const testPayload = {
+        id: 'boa_ci_v4',
+        state_data: (rData && rData.state_data) || state,
+        updated_at: new Date().toISOString(),
+        updated_by: null
+      };
+      const { error: wErr } = await _withTimeout(
+        sb.from('project_state').upsert(testPayload),
+        8000, 'écriture Supabase'
+      );
 
       if (wErr) {
         const code = wErr.code || '';
         const msg  = wErr.message || 'Erreur inconnue';
         console.error('Supabase write error:', code, msg);
-        setSync('⛔', code + ': ' + msg.substring(0,40), '#b71c1c', '#ffebee');
+        // Message lisible + bouton reconnect
+        const hint = code === '42501' ? 'RLS: permission refusée'
+                   : msg.includes('pause') || msg.includes('503') ? 'Projet Supabase en pause\u00A0?'
+                   : code + ': ' + msg.substring(0, 35);
+        setSync('\u26D4', hint, '#b71c1c', '#ffebee', true);
         window._sbWriteOK = false;
-        // Charger depuis localStorage
         if (rData && rData.state_data && !rErr) applyParsedState(rData.state_data);
         else loadState();
       } else {
         window._sbWriteOK = true;
-        setSync('☁️', 'Cloud sync OK', '#2e7d32', '#e8f5e9');
+        setSync('\u2601\uFE0F', 'Cloud sync OK', '#2e7d32', '#e8f5e9', false);
         if (rData && rData.state_data && !rErr) applyParsedState(rData.state_data);
         else loadState();
 
@@ -2791,7 +2823,11 @@ async function initApp() {
       }
     } catch(e) {
       console.error('Supabase exception:', e);
-      setSync('⛔', e.message ? e.message.substring(0,40) : 'Exception', '#b71c1c', '#ffebee');
+      const isTimeout = e.message && e.message.startsWith('Timeout');
+      const hint = isTimeout
+        ? 'Délai dépassé — réseau ou projet en pause'
+        : (e.message ? e.message.substring(0, 45) : 'Exception');
+      setSync('\u26D4', hint, '#b71c1c', '#ffebee', true);
       window._sbWriteOK = false;
       loadState();
     }
@@ -2812,12 +2848,27 @@ async function initApp() {
 // ════════════════════════════════════════════════════════
 currentRole = 'owner';
 
+async function retryConnection() {
+  const syncEl = document.getElementById('sync-status');
+  if (syncEl) {
+    syncEl.innerHTML = '\u23F3\u00A0Reconnexion\u2026';
+    syncEl.style.color = '#1565c0';
+    syncEl.style.background = '#e3f2fd';
+  }
+  // Réinitialiser le client si nécessaire
+  if (!sb && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && window.supabase && typeof window.supabase.createClient === 'function') {
+    try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } catch(e) {}
+  }
+  await initApp(true);
+  renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
+}
+
 window.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('user-name').textContent      = 'Équipe BOA';
   document.getElementById('user-role-badge').textContent = 'Éditeur';
   document.getElementById('user-role-badge').className  = 'role-badge role-owner';
   document.querySelectorAll('.owner-only').forEach(el => el.style.display = '');
-  await initApp();
+  await initApp(false);
 });
 
 
