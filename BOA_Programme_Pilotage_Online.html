@@ -1713,15 +1713,24 @@ function renderGaps() {
   document.getElementById('gaps-count').textContent = filtered.length;
 
   document.getElementById('gaps-tbody').innerHTML = filtered.map(g => {
-    const prioChanged = g.prio !== g.prio_cbs;
     const isAnomalie  = g.bm === 'Anomalie' || g.bm === 'Anomalie V4 CG';
     const isExclusion = g.bm === 'Exclusion';
 
-    const prioBoaClass = `badge-${g.prio.toLowerCase().replace('.','').replace(' ','')}`;
-
-    const prioBoaCell = prioChanged
-      ? `<span class="badge ${prioBoaClass}" style="font-size:9px;">${g.prio}</span><span style="color:var(--orange);font-weight:900;font-size:10px;display:block;margin-top:1px;">▲</span>`
-      : `<span class="badge ${prioBoaClass}" style="font-size:9px;">${g.prio}</span>`;
+    // Priorité : valeur courante depuis state (modifiable), référence = g.prio
+    const prioCurrent  = (state.gaps[g.ref] && state.gaps[g.ref].prio) ? state.gaps[g.ref].prio : g.prio;
+    const prioRef      = g.prio; // valeur de référence (originale)
+    const prioModified = prioCurrent !== prioRef;
+    const prioBgMap    = {'P1':'#FDEEEC','P2':'#FEF3E2','P2.1':'#FEF3E2','P3':'#F5F5F5'};
+    const prioClrMap   = {'P1':'#E63329','P2':'#E8702A','P2.1':'#E8702A','P3':'#54565A'};
+    const prioBoaCell  = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <select onchange="setGapField('${g.ref}','prio',this.value)"
+        style="font-size:10px;padding:2px 3px;border-radius:3px;width:52px;text-align:center;
+        background:${prioBgMap[prioCurrent]||'#F5F5F5'};color:${prioClrMap[prioCurrent]||'#54565A'};
+        border:1px solid ${prioClrMap[prioCurrent]||'#ccc'};font-weight:700;cursor:pointer;">
+        ${['P1','P2','P2.1','P3'].map(p=>`<option value="${p}" ${p===prioCurrent?'selected':''}>${p}</option>`).join('')}
+      </select>
+      ${prioModified ? `<span style="font-size:8px;color:var(--orange);font-weight:700;" title="Ref: ${prioRef}">▲ ref:${prioRef}</span>` : ''}
+    </div>`;
 
     let bmColor = '#54565A', bmBg = '#F5F5F5';
     if (g.bm === 'BM UEMOA' || g.bm === 'Prérequis BM UEMOA') { bmColor='#2E7D52'; bmBg='#E8F5ED'; }
@@ -1730,6 +1739,19 @@ function renderGaps() {
     else if (g.bm === 'Evolution') { bmColor='var(--orange)'; bmBg='var(--orange-light)'; }
     const bmLabel = g.bm === 'Prérequis BM UEMOA' ? 'Prérequis' : g.bm;
     const bmBadge = `<span style="background:${bmBg};color:${bmColor};border:1px solid ${bmColor};border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;white-space:nowrap;">${bmLabel}</span>`;
+
+    // Phase : valeur courante depuis state, référence = g.phase
+    const phaseRef      = g.phase;
+    const phaseCurrent  = (state.gaps[g.ref] && state.gaps[g.ref].phase) ? state.gaps[g.ref].phase : phaseRef;
+    const phaseModified = phaseCurrent !== phaseRef;
+    const phaseCell = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <select onchange="setGapField('${g.ref}','phase',this.value)"
+        style="font-size:10px;padding:2px 3px;border-radius:3px;width:48px;text-align:center;
+        background:#EEF0F8;color:#3949AB;border:1px solid #3949AB;font-weight:700;cursor:pointer;">
+        ${['I','II','III'].map(p=>`<option value="${p}" ${p===phaseCurrent?'selected':''}>${p}</option>`).join('')}
+      </select>
+      ${phaseModified ? `<span style="font-size:8px;color:var(--orange);font-weight:700;" title="Ref: ${phaseRef}">▲ ref:${phaseRef}</span>` : ''}
+    </div>`;
 
     // GAP decision (stored in state)
     const saved = state.gaps[g.ref] || {};
@@ -1762,7 +1784,7 @@ function renderGaps() {
       <td style="font-size:10px;color:var(--gray);">${g.processus}</td>
       <td style="font-size:10px;">${g.desc}</td>
       <td class="center">${prioBoaCell}</td>
-      <td class="center" style="font-size:10px;font-weight:700;">${g.phase}</td>
+      <td class="center">${phaseCell}</td>
       <td>${bmBadge}</td>
       <td class="center">${decCell}</td>
       <td>${noteCell}</td>
@@ -1800,6 +1822,14 @@ function updateGapsSummary() {
 }
 
 function setGapDecision(ref, field, value) {
+  if (!state.gaps[ref]) state.gaps[ref] = {};
+  state.gaps[ref][field] = value;
+  saveState();
+  renderGaps();
+  renderDashboard();
+}
+
+function setGapField(ref, field, value) {
   if (!state.gaps[ref]) state.gaps[ref] = {};
   state.gaps[ref][field] = value;
   saveState();
