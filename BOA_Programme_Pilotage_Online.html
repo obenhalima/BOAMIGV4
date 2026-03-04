@@ -386,6 +386,7 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
       <span id="days-live">—</span>
     </div>
     <div class="user-widget" id="user-actions">
+      <span id="sync-status" title="Statut synchronisation" style="font-size:11px;padding:3px 8px;border-radius:10px;background:#e8f5e9;color:#388e3c;font-weight:700;margin-right:6px;">⏳ Connexion…</span>
       <span class="user-name" id="user-name">—</span>
       <span class="role-badge role-viewer" id="user-role-badge">viewer</span>
     </div>
@@ -1080,7 +1081,7 @@ function saveState() {
   // Always backup to localStorage
   try { localStorage.setItem('boa_v4_state', JSON.stringify(state)); } catch(e) {}
   // Cloud save (async, fire-and-forget)
-  if (sb && canEdit() && window._sbWriteOK !== false) {
+  if (sb && canEdit() && window._sbWriteOK) {
     sb.from('project_state')
       .upsert({ id: 'boa_ci_v4', state_data: state,
                 updated_at: new Date().toISOString(), updated_by: 'shared' })
@@ -1850,51 +1851,58 @@ function printSection(tabId) {
 // APP INIT — called after successful auth
 // ─────────────────────────────────────────────────────────────────────────
 async function initApp() {
-  // Load state : Supabase si accessible en écriture, sinon localStorage
+  const syncEl = document.getElementById('sync-status');
+
   if (sb) {
     try {
-      // Test écriture Supabase (RLS check)
-      const testWrite = await sb.from('project_state')
-        .upsert({ id: 'boa_ci_v4_ping', state_data: { ping: true }, updated_at: new Date().toISOString(), updated_by: 'shared' });
+      // Charger l'état depuis Supabase
+      const { data, error } = await sb.from('project_state')
+        .select('state_data, updated_at').eq('id', 'boa_ci_v4').single();
 
-      if (testWrite.error) {
-        // RLS bloque — utiliser localStorage uniquement
-        console.warn('Supabase non accessible (RLS) — mode localStorage activé');
+      if (!error && data && data.state_data) {
+        applyParsedState(data.state_data);
+      } else {
         loadState();
+      }
+
+      // Tester l'écriture pour vérifier que RLS est ouvert
+      const { error: writeErr } = await sb.from('project_state')
+        .upsert({ id: 'boa_ci_v4', state_data: state,
+                  updated_at: new Date().toISOString(), updated_by: 'shared' });
+
+      if (writeErr) {
+        console.warn('Supabase write blocked (RLS). Falling back to localStorage.', writeErr.message);
         window._sbWriteOK = false;
+        if (syncEl) { syncEl.textContent = '💾 Local only'; syncEl.style.background = '#fff3e0'; syncEl.style.color = '#e65100'; }
       } else {
         window._sbWriteOK = true;
-        // Lecture de l'état cloud
-        const { data, error } = await sb.from('project_state')
-          .select('state_data').eq('id', 'boa_ci_v4').single();
-        if (data && data.state_data && !error) {
-          applyParsedState(data.state_data);
-        } else {
-          loadState();
-        }
-        // Nettoyer le ping
-        await sb.from('project_state').delete().eq('id', 'boa_ci_v4_ping').then(() => {});
+        if (syncEl) { syncEl.textContent = '☁️ Cloud sync'; syncEl.style.background = '#e8f5e9'; syncEl.style.color = '#2e7d32'; }
+
+        // Écoute temps réel
+        sb.channel('boa_state')
+          .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'project_state' },
+            payload => {
+              if (payload.new && payload.new.updated_by !== 'self_' + Date.now()) {
+                applyParsedState(payload.new.state_data);
+                renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab && activeTab.id === 'tab-gantt') renderGantt();
+                showSyncIndicator();
+              }
+            }
+          ).subscribe();
       }
-    } catch(e) { loadState(); window._sbWriteOK = false; }
-
-    // Real-time sync — listen for other users' changes
-    sb.channel('boa_state')
-      .on('postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'project_state' },
-        payload => {
-          if (payload.new && false) {
-            applyParsedState(payload.new.state_data);
-            renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
-            const activeTab = document.querySelector('.tab-content.active');
-            if (activeTab && activeTab.id === 'tab-gantt') renderGantt();
-            showSyncIndicator();
-          }
-        }
-      ).subscribe();
+    } catch(e) {
+      console.warn('Supabase error:', e);
+      loadState();
+      window._sbWriteOK = false;
+      if (syncEl) { syncEl.textContent = '💾 Local only'; syncEl.style.background = '#fff3e0'; syncEl.style.color = '#e65100'; }
+    }
   } else {
-    loadState(); // local mode
+    loadState();
+    if (syncEl) { syncEl.textContent = '💾 Local'; syncEl.style.background = '#f5f5f5'; syncEl.style.color = '#757575'; }
   }
-
   countdowns();
   renderDashboard();
   renderArbitrages();
