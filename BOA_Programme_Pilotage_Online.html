@@ -594,27 +594,11 @@ textarea.auto-grow { field-sizing: content; min-height: 36px; }
     </div>
   </div>
 
-  <!-- RETROPLANNING MINI -->
+  <!-- RETROPLANNING MINI (dynamique) -->
   <div class="section-card">
     <div class="section-header">📅 Retroplanning — Vue Globale</div>
     <div class="section-body" style="padding:16px;">
-      <div style="display:flex;gap:4px;margin-bottom:8px;">
-        <div style="flex:2.2;text-align:center;background:var(--red);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
-          ◼ Design Freeze<br><span style="font-size:9px;font-weight:400">≤ 9 mars 2026</span>
-        </div>
-        <div style="flex:3.1;text-align:center;background:var(--orange);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
-          ◼ Phase 1 — Build<br><span style="font-size:9px;font-weight:400">10 mars – 13 avr.</span>
-        </div>
-        <div style="flex:3.1;text-align:center;background:var(--gray);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
-          ◼ Phase 2 — SIT<br><span style="font-size:9px;font-weight:400">14 avr. – 19 mai</span>
-        </div>
-        <div style="flex:5;text-align:center;background:var(--green);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
-          ◼ Phase 3 — UAT<br><span style="font-size:9px;font-weight:400">19 mai – 14 juil.</span>
-        </div>
-        <div style="flex:0.8;text-align:center;background:var(--red-dark);color:white;padding:8px 4px;border-radius:4px;font-size:11px;font-weight:700;">
-          🎯<br><span style="font-size:9px;font-weight:400">GO LIVE</span>
-        </div>
-      </div>
+      <div id="mini-retroplanning-bars" style="display:flex;gap:4px;margin-bottom:8px;"></div>
       <div style="display:flex;gap:4px;">
         <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Jan 2026</div>
         <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Fév</div>
@@ -623,6 +607,7 @@ textarea.auto-grow { field-sizing: content; min-height: 36px; }
         <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Mai</div>
         <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Juin</div>
         <div style="flex:1;text-align:center;font-size:10px;color:var(--gray)">Juil</div>
+        <div style="flex:0.5;text-align:center;font-size:10px;color:var(--gray)">Aoû</div>
       </div>
     </div>
   </div>
@@ -1409,6 +1394,47 @@ function renderDashboard() {
       <span style="flex:1;font-size:11px;">${a.action}</span>
       <span style="font-size:10px;color:var(--gray);white-space:nowrap;">${a.echeance}</span>
     </div>`).join('') || '<div style="font-size:11px;color:var(--green);padding:6px 0;">✓ Aucune action critique en retard</div>';
+
+  // ── Retroplanning dynamique ─────────────────────────────────────────
+  const barsEl = document.getElementById('mini-retroplanning-bars');
+  if (barsEl) {
+    // Palette de couleurs pour les phases (statiques puis custom)
+    const phaseColors = ['#E63329','#E8702A','#54565A','#2E7D52','#1565C0','#7B1FA2','#00838F','#558B2F'];
+    const customColors = ['#3949AB','#00897B','#F57C00','#6D4C41','#455A64'];
+
+    // Collecte toutes les phases (statiques + custom) avec leurs dates effectives
+    const allPhases = [];
+    ganttTasks.filter(t => t.type === 'phase').forEach((t, i) => {
+      const {start, end} = getTaskDates(t);
+      const ov = state.gantt[t.id] || {};
+      const label = ov._label || t.label || '';
+      allPhases.push({ label, start, end, color: phaseColors[i % phaseColors.length], custom: false });
+    });
+    (state.ganttCustom || []).filter(t => t.type === 'phase').forEach((t, i) => {
+      const {start, end} = getTaskDates(t);
+      allPhases.push({ label: t.label || '', start, end, color: customColors[i % customColors.length], custom: true });
+    });
+
+    // Calculer la durée totale de la plage pour les proportions
+    const rangeMs = GANTT_RANGE_END - GANTT_RANGE_START;
+
+    const fmt = d => {
+      const dt = new Date(d);
+      return dt.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+    };
+
+    barsEl.innerHTML = allPhases.map(p => {
+      const s = new Date(p.start), e = new Date(p.end);
+      const dur = Math.max(1, Math.round((e - s) / 86400000));
+      const flex = Math.max(0.3, dur / (rangeMs / 86400000));
+      const shortLabel = p.label.length > 20 ? p.label.substring(0, 18) + '…' : p.label;
+      return `<div style="flex:${flex.toFixed(2)};text-align:center;background:${p.color};color:white;padding:7px 3px;border-radius:4px;font-size:10px;font-weight:700;overflow:hidden;min-width:0;"
+        title="${p.label}: ${fmt(p.start)} – ${fmt(p.end)}">
+        ${p.custom ? '★ ' : ''}${shortLabel}<br>
+        <span style="font-size:8px;font-weight:400;opacity:.88;">${fmt(p.start)} – ${fmt(p.end)}</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--gray);font-size:11px;">Aucune phase définie</div>';
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1590,7 +1616,16 @@ function submitAddTask() {
 
   saveState();
   closeAddTask();
+
+  // Si c'est une édition avec des dates, cascader les successeurs
+  if (editId) {
+    const cascadeEnd = (state.gantt[editId] && state.gantt[editId].end) || end;
+    cascadeSuccessors(editId, cascadeEnd, new Set([editId]));
+    saveState();
+  }
+
   renderGantt();
+  renderDashboard();
 }
 
 function removeCustomTask(id) {
@@ -1599,6 +1634,7 @@ function removeCustomTask(id) {
   delete state.gantt[id];
   saveState();
   renderGantt();
+  renderDashboard();
 }
 
 // Maps globaux : N° de ligne ↔ taskId (reconstruits à chaque renderGantt)
@@ -1926,7 +1962,9 @@ function cascadeSuccessors(changedId, newEndDate, visited) {
   const allTasks = [...ganttTasks, ...(state.ganttCustom || [])];
   allTasks.forEach(t => {
     if (visited.has(t.id)) return;
-    if (!t.pred || !t.pred.includes(changedId)) return;
+    // Prédécesseurs effectifs : override _pred ou pred statique
+    const effectivePred = (state.gantt[t.id] && state.gantt[t.id]._pred) || t.pred || [];
+    if (!effectivePred.includes(changedId)) return;
     const newStart = addDays(newEndDate, 1);
     const {start: os, end: oe} = getTaskDates(t);
     const dur = Math.max(0, Math.round((new Date(oe) - new Date(os)) / 86400000));
