@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/BOA_Programme_Pilotage_Online.html"
+    }
+  ]
+}
