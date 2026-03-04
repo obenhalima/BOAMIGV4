@@ -255,6 +255,23 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; }
 .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
 
+/* GANTT ROW NUMBER */
+.gantt-row-num { font-size: 10px; color: #aaa; font-weight: 600; min-width: 22px; text-align: center; }
+
+/* GANTT INSERT ROW BUTTON (+ per line) */
+.gantt-add-row-btn {
+  background: #e8f5e9; border: 1px solid #a5d6a7; color: #2e7d32;
+  border-radius: 50%; width: 17px; height: 17px; font-size: 12px; font-weight: 700;
+  cursor: pointer; line-height: 1; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  opacity: 0.5; transition: opacity .15s, background .15s;
+  vertical-align: middle;
+}
+.gantt-add-row-btn:hover { opacity: 1; background: #c8e6c9; }
+
+/* GANTT DEPENDENCY SVG */
+#gantt-dep-svg { pointer-events: none; }
+
 /* COMMENT INPUT */
 .comment-input { width: 100%; padding: 3px 6px; border: 1px solid var(--gray-med);
   border-radius: 3px; font-family: var(--font); font-size: 11px; }
@@ -1312,19 +1329,38 @@ function toggleChain(on) {
   saveState();
 }
 
+function _resetGanttModal() {
+  document.getElementById('new-task-edit-id').value       = '';
+  document.getElementById('new-task-insert-after-id').value = '';
+  document.getElementById('new-task-type').value          = 'task';
+  document.getElementById('new-task-label').value         = '';
+  document.getElementById('new-task-phase').value         = 'p1';
+  document.getElementById('new-task-resp').value          = '';
+  document.getElementById('new-task-start').value         = '';
+  document.getElementById('new-task-end').value           = '';
+  document.getElementById('new-task-dur').value           = '';
+  document.getElementById('new-task-pred').value          = '';
+  document.getElementById('new-task-pct').value           = '0';
+}
+
 function openAddTask() {
+  _resetGanttModal();
   document.getElementById('gantt-modal-title').textContent = '➕ Ajouter une tâche';
   document.getElementById('gantt-modal-btn').textContent   = 'Ajouter au Gantt';
-  document.getElementById('new-task-edit-id').value = '';
-  document.getElementById('new-task-type').value    = 'task';
-  document.getElementById('new-task-label').value   = '';
-  document.getElementById('new-task-phase').value   = 'p1';
-  document.getElementById('new-task-resp').value    = '';
-  document.getElementById('new-task-start').value   = '';
-  document.getElementById('new-task-end').value     = '';
-  document.getElementById('new-task-dur').value     = '';
-  document.getElementById('new-task-pred').value    = '';
-  document.getElementById('new-task-pct').value     = '0';
+  document.getElementById('add-task-modal').style.display  = 'flex';
+}
+
+// Ouvre le modal pour insérer une tâche APRÈS la ligne donnée
+function openAddTaskAfter(afterTaskId) {
+  _resetGanttModal();
+  const rowNum = _ganttIdMap[afterTaskId];
+  document.getElementById('gantt-modal-title').textContent = '➕ Insérer après la ligne ' + (rowNum || '');
+  document.getElementById('gantt-modal-btn').textContent   = 'Insérer au Gantt';
+  document.getElementById('new-task-insert-after-id').value = afterTaskId;
+  // Pré-remplir la phase depuis la tâche de référence
+  const allT = [...ganttTasks, ...(state.ganttCustom || [])];
+  const ref  = allT.find(t => t.id === afterTaskId);
+  if (ref) document.getElementById('new-task-phase').value = ref.phase || 'p1';
   document.getElementById('add-task-modal').style.display = 'flex';
 }
 
@@ -1335,19 +1371,25 @@ function openEditGanttTask(id) {
   const {start, end} = getTaskDates(task);
   const isJalon = task.type === 'jalon';
   const dur = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
-  document.getElementById('gantt-modal-title').textContent = "✏️ Modifier la tâche";
-  document.getElementById('gantt-modal-btn').textContent   = 'Enregistrer';
-  document.getElementById('new-task-edit-id').value = id;
-  document.getElementById('new-task-type').value    = task.type  || 'task';
-  document.getElementById('new-task-label').value   = task.label || '';
-  document.getElementById('new-task-phase').value   = task.phase || 'p1';
-  document.getElementById('new-task-resp').value    = task.owner || task.resp || '';
-  document.getElementById('new-task-start').value   = start;
-  document.getElementById('new-task-end').value     = end;
-  document.getElementById('new-task-dur').value     = dur;
-  document.getElementById('new-task-pred').value    = (task.pred || []).join(', ');
-  document.getElementById('new-task-pct').value     = Math.round((task.pct || 0) * 100);
-  document.getElementById('add-task-modal').style.display = 'flex';
+  // Afficher les N° de ligne pour les prédécesseurs
+  const predDisplay = (task.pred || []).map(pid => {
+    const rn = _ganttIdMap[pid];
+    return rn != null ? String(rn) : pid;
+  }).join(', ');
+  _resetGanttModal();
+  document.getElementById('gantt-modal-title').textContent   = "✏️ Modifier la tâche";
+  document.getElementById('gantt-modal-btn').textContent     = 'Enregistrer';
+  document.getElementById('new-task-edit-id').value          = id;
+  document.getElementById('new-task-type').value             = task.type  || 'task';
+  document.getElementById('new-task-label').value            = task.label || '';
+  document.getElementById('new-task-phase').value            = task.phase || 'p1';
+  document.getElementById('new-task-resp').value             = task.owner || task.resp || '';
+  document.getElementById('new-task-start').value            = start;
+  document.getElementById('new-task-end').value              = end;
+  document.getElementById('new-task-dur').value              = dur;
+  document.getElementById('new-task-pred').value             = predDisplay;
+  document.getElementById('new-task-pct').value              = Math.round((task.pct || 0) * 100);
+  document.getElementById('add-task-modal').style.display    = 'flex';
 }
 
 function closeAddTask() {
@@ -1360,61 +1402,61 @@ function ganttModalDateChange(source) {
   const e   = document.getElementById('new-task-end').value;
   const dur = parseInt(document.getElementById('new-task-dur').value);
   if (source === 'dur') {
-    // Durée saisie → calcule Fin à partir de Début
-    if (s && !isNaN(dur) && dur >= 0) {
+    if (s && !isNaN(dur) && dur >= 0)
       document.getElementById('new-task-end').value = addDays(s, dur);
-    }
   } else {
-    // Début ou Fin changé → recalcule Durée
-    if (s && e) {
-      const d = Math.max(0, Math.round((new Date(e) - new Date(s)) / 86400000));
-      document.getElementById('new-task-dur').value = d;
-    }
+    if (s && e)
+      document.getElementById('new-task-dur').value = Math.max(0, Math.round((new Date(e) - new Date(s)) / 86400000));
   }
 }
 
+// Convertit un token (N° de ligne ou ID direct) en taskId
+function _resolveTaskRef(token) {
+  const num = parseInt(token);
+  if (!isNaN(num) && _ganttRowMap[num]) return _ganttRowMap[num];
+  return token; // déjà un ID
+}
+
 function submitAddTask() {
-  const editId  = document.getElementById('new-task-edit-id').value;
-  const label   = document.getElementById('new-task-label').value.trim();
-  const start   = document.getElementById('new-task-start').value;
-  const type    = document.getElementById('new-task-type').value;
-  const phase   = document.getElementById('new-task-phase').value;
-  const resp    = document.getElementById('new-task-resp').value.trim();
-  const predRaw = document.getElementById('new-task-pred').value.trim();
-  const pct     = Math.min(1, Math.max(0, (parseFloat(document.getElementById('new-task-pct').value) || 0) / 100));
-  let   end     = document.getElementById('new-task-end').value;
+  const editId        = document.getElementById('new-task-edit-id').value;
+  const insertAfterId = document.getElementById('new-task-insert-after-id').value;
+  const label         = document.getElementById('new-task-label').value.trim();
+  const start         = document.getElementById('new-task-start').value;
+  const type          = document.getElementById('new-task-type').value;
+  const phase         = document.getElementById('new-task-phase').value;
+  const resp          = document.getElementById('new-task-resp').value.trim();
+  const predRaw       = document.getElementById('new-task-pred').value.trim();
+  const pct           = Math.min(1, Math.max(0, (parseFloat(document.getElementById('new-task-pct').value) || 0) / 100));
+  let   end           = document.getElementById('new-task-end').value;
 
   if (!label) { alert('Veuillez renseigner le libellé.'); return; }
   if (!start) { alert('Veuillez renseigner la date de début.'); return; }
-  if (!end) end = start;   // Jalon : fin = début
+  if (!end) end = start;
 
-  const pred = predRaw ? predRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  // Convertir tokens (N° ou IDs) en IDs internes
+  const pred = predRaw
+    ? predRaw.split(',').map(s => _resolveTaskRef(s.trim())).filter(Boolean)
+    : [];
 
   if (editId) {
-    // ── Édition d'une tâche personnalisée existante ──
+    // ── Édition ──
     const ct = (state.ganttCustom || []).find(t => t.id === editId);
     if (ct) {
-      ct.type  = type;
-      ct.label = label;
-      ct.phase = phase;
-      ct.owner = resp || '—';
-      ct.resp  = resp || '—';
-      ct.start = start;
-      ct.end   = end;
-      ct.pred  = pred;
-      ct.pct   = pct;
+      ct.type  = type;  ct.label = label; ct.phase = phase;
+      ct.owner = resp || '—'; ct.resp = resp || '—';
+      ct.start = start; ct.end = end; ct.pred = pred; ct.pct = pct;
       if (!state.gantt[editId]) state.gantt[editId] = {};
       state.gantt[editId].start = start;
       state.gantt[editId].end   = end;
     }
   } else {
-    // ── Ajout d'une nouvelle tâche ──
+    // ── Ajout ──
     const id = 'custom_' + Date.now();
     if (!state.ganttCustom) state.ganttCustom = [];
     state.ganttCustom.push({
-      id, type, label, phase,
-      start, end, pred, pct,
+      id, type, label, phase, start, end, pred, pct,
       owner: resp || '—', resp: resp || '—',
+      insertAfterId: insertAfterId || null,
       _custom: true
     });
   }
@@ -1432,145 +1474,260 @@ function removeCustomTask(id) {
   renderGantt();
 }
 
+// Maps globaux : N° de ligne ↔ taskId (reconstruits à chaque renderGantt)
+let _ganttRowMap = {}; // rowNum (1-based) → taskId
+let _ganttIdMap  = {}; // taskId → rowNum
+
 function renderGantt() {
   const todayPct = ganttPct(TODAY.toISOString().split('T')[0]);
   const toggle = document.getElementById('gantt-chain-toggle');
   if (toggle) toggle.checked = !!state.ganttChain;
   if (!state.ganttCollapsed) state.ganttCollapsed = {};
 
-  const monthsBgTpl = MONTHS.map((m,i) =>
-    `<div class="month-col ${i%2===1?'alt':''}" style="flex:${m.days}"></div>`
-  ).join('');
+  // ── 1. Construire la liste ordonnée des tâches affichées ──────────────
+  // Grouper les tâches custom par insertAfterId
+  const customAfter = {};      // insertAfterId → [task…]
+  const customOrphan = [];     // pas d'ancre trouvée → mis à la fin
+  (state.ganttCustom || []).forEach(ct => {
+    const anchor = ct.insertAfterId || null;
+    if (anchor) {
+      if (!customAfter[anchor]) customAfter[anchor] = [];
+      customAfter[anchor].push(ct);
+    } else {
+      customOrphan.push(ct);
+    }
+  });
 
-  let rows = '';
+  const allTasksRendered = [];
   let currentPhaseId = null;
 
   ganttTasks.forEach(task => {
-    const {start, end} = getTaskDates(task);
-    const isPhase = task.type === 'phase';
-    const isJalon = task.type === 'jalon';
-
-    if (isPhase) { currentPhaseId = task.id; }
+    if (task.type === 'phase') { currentPhaseId = task.id; }
     else if (currentPhaseId && state.ganttCollapsed[currentPhaseId]) return;
+    allTasksRendered.push(task);
+    // Insérer les tâches custom ancrées après cette tâche
+    (customAfter[task.id] || []).forEach(ct => allTasksRendered.push(ct));
+  });
+  customOrphan.forEach(ct => allTasksRendered.push(ct));
 
-    const left  = ganttPct(start);
-    const width = ganttWidthPct(start, end);
-    const dur   = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
-    const pct   = Math.round((task.pct || 0) * 100);
-    const predStr = (task.pred && task.pred.length) ? task.pred.join(', ') : '—';
-
-    let typeBadge, rowClass, barHtml, datesCells;
-
-    if (isPhase) {
-      rowClass   = 'gantt-phase-row';
-      typeBadge  = '<span class="type-badge type-phase">Phase</span>';
-      barHtml    = `<div class="gantt-bar ph-${task.phase}" style="left:${left.toFixed(1)}%;width:${Math.max(0.5,width).toFixed(1)}%;" title="${task.label}: ${start} → ${end}">${width>4?task.label.substring(0,18):''}</div>`;
-      datesCells = `<td style="font-size:11px;">${start}</td><td style="font-size:11px;">${end}</td><td class="center" style="font-size:11px;">${dur}j</td>`;
-    } else if (isJalon) {
-      rowClass   = 'gantt-jalon-row';
-      typeBadge  = '<span class="type-badge type-jalon">Jalon</span>';
-      barHtml    = `<div class="gantt-milestone" style="left:calc(${left.toFixed(1)}% - 10px);" title="${task.label}: ${start}">◆</div>`;
-      datesCells = `<td style="font-weight:700;text-align:center;font-size:11px;">${start}</td><td style="color:var(--gray);text-align:center;">—</td><td class="center" style="color:var(--gray);">—</td>`;
-    } else {
-      rowClass   = 'gantt-sub-row';
-      typeBadge  = '<span class="type-badge type-task">Tâche</span>';
-      barHtml    = `<div class="gantt-bar ph-${task.phase}" style="left:${left.toFixed(1)}%;width:${Math.max(0.5,width).toFixed(1)}%;" title="${task.label}: ${start} → ${end} (${dur}j)">${width>3?task.label.substring(0,22):''}</div>`;
-      datesCells = `<td><input class="date-input" type="date" value="${start}" onchange="updateGanttDate('${task.id}','start',this.value)"></td><td><input class="date-input" type="date" value="${end}" onchange="updateGanttDate('${task.id}','end',this.value)"></td><td class="center"><input type="number" min="0" max="400" value="${dur}" onchange="updateGanttDuration('${task.id}',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>`;
-    }
-
-    const isCollapsed  = isPhase && !!state.ganttCollapsed[task.id];
-    const collapseBtn  = isPhase
-      ? `<button onclick="togglePhaseCollapse('${task.id}')" class="phase-toggle-btn" title="${isCollapsed?'Déployer':'Réduire'}">${isCollapsed?'▶':'▼'}</button>`
-      : '';
-
-    rows += `<tr class="${rowClass}">
-      <td class="center">${typeBadge}</td>
-      <td>${collapseBtn}${isPhase?'':'&nbsp;&nbsp;'}${task.label}</td>
-      <td style="font-size:10px;color:var(--gray);text-align:center;">${task.owner||'—'}</td>
-      <td style="font-size:10px;text-align:center;color:#3949AB;">${predStr}</td>
-      ${datesCells}
-      <td class="center" style="font-size:10px;">${pct>0?pct+'%':'—'}</td>
-      <td style="padding:0;position:relative;">
-        <div class="gantt-bar-cell">
-          <div class="gantt-months-bg">${monthsBgTpl}</div>
-          <div class="today-line" style="left:${todayPct.toFixed(1)}%"></div>
-          ${barHtml}
-        </div>
-      </td>
-      <td></td>
-    </tr>`;
+  // ── 2. Construire les maps N° ↔ ID ───────────────────────────────────
+  _ganttRowMap = {};
+  _ganttIdMap  = {};
+  allTasksRendered.forEach((task, i) => {
+    _ganttRowMap[i + 1]  = task.id;
+    _ganttIdMap[task.id] = i + 1;
   });
 
-  // ── Tâches personnalisées ─────────────────────────────────────────────
-  (state.ganttCustom || []).forEach(task => {
-    const {start, end}  = getTaskDates(task);
-    const cIsPhase  = task.type === 'phase';
-    const cIsJalon  = task.type === 'jalon';
-    const left  = ganttPct(start);
-    const width = ganttWidthPct(start, end);
-    const dur   = cIsJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
-    const pctC  = Math.round((task.pct || 0) * 100);
-    const predC = (task.pred && task.pred.length) ? task.pred.join(', ') : '—';
+  // ── 3. Générer les lignes HTML ─────────────────────────────────────────
+  const monthsBgTpl = MONTHS.map((m, i) =>
+    '<div class="month-col ' + (i%2===1?'alt':'') + '" style="flex:' + m.days + '"></div>'
+  ).join('');
 
-    let cRowClass, cTypeBadge, cBarHtml, cDatesCells;
-    if (cIsPhase) {
-      cRowClass   = 'gantt-phase-row';
-      cTypeBadge  = '<span class="type-badge type-phase">Phase</span>';
-      cBarHtml    = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + Math.max(0.5,width).toFixed(1) + '%;opacity:.8;border:2px dashed rgba(0,0,0,.2);" title="' + task.label + ': ' + start + ' \u2192 ' + end + '">' + (width>4 ? task.label.substring(0,18) : '') + '</div>';
-      cDatesCells = '<td style="font-size:11px;">' + start + '</td><td style="font-size:11px;">' + end + '</td><td class="center" style="font-size:11px;">' + dur + 'j</td>';
-    } else if (cIsJalon) {
-      cRowClass   = 'gantt-jalon-row';
-      cTypeBadge  = '<span class="type-badge type-jalon">Jalon</span>';
-      cBarHtml    = '<div class="gantt-milestone" style="left:calc(' + left.toFixed(1) + '% - 10px);" title="' + task.label + ': ' + start + '">\u25C6</div>';
-      cDatesCells = '<td style="font-weight:700;text-align:center;font-size:11px;">' + start + '</td><td style="color:var(--gray);text-align:center;">\u2014</td><td class="center" style="color:var(--gray);">\u2014</td>';
+  let rows = '';
+
+  allTasksRendered.forEach((task, idx) => {
+    const rowNum   = idx + 1;
+    const isCustom = !!task._custom;
+    const {start, end} = getTaskDates(task);
+    const isPhase  = task.type === 'phase';
+    const isJalon  = task.type === 'jalon';
+    const left     = ganttPct(start);
+    const width    = ganttWidthPct(start, end);
+    const barLeft  = left.toFixed(3);
+    const barWidth = Math.max(0.5, width).toFixed(3);
+    const dur      = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
+    const pct      = Math.round((task.pct || 0) * 100);
+
+    // Prédécesseurs : afficher N° de ligne
+    const predNums = (task.pred || []).map(pid => {
+      const rn = _ganttIdMap[pid];
+      return rn != null ? rn : pid;
+    });
+    const predStr = predNums.length ? predNums.join(', ') : '—';
+    const predTitle = (task.pred || []).join(', ') || '';
+
+    // Type badge + row class
+    let typeBadge, rowClass, barHtml, datesCells;
+    const dashed = isCustom ? 'border:2px dashed rgba(0,0,0,.18);opacity:.82;' : '';
+
+    if (isPhase) {
+      rowClass  = 'gantt-phase-row';
+      typeBadge = '<span class="type-badge type-phase">' + (isCustom ? '★ ' : '') + 'Phase</span>';
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + task.label + ': ' + start + ' \u2192 ' + end + '">' + (width>4 ? task.label.substring(0,18) : '') + '</div>';
+      datesCells = '<td style="font-size:11px;">' + start + '</td><td style="font-size:11px;">' + end + '</td><td class="center" style="font-size:11px;">' + dur + 'j</td>';
+    } else if (isJalon) {
+      rowClass  = 'gantt-jalon-row';
+      typeBadge = '<span class="type-badge type-jalon">' + (isCustom ? '★ ' : '') + 'Jalon</span>';
+      barHtml   = '<div class="gantt-milestone" style="left:calc(' + left.toFixed(1) + '% - 10px);" title="' + task.label + ': ' + start + '">\u25C6</div>';
+      datesCells = '<td style="font-weight:700;text-align:center;font-size:11px;">' + start + '</td><td style="color:var(--gray);text-align:center;">\u2014</td><td class="center" style="color:var(--gray);">\u2014</td>';
     } else {
-      cRowClass   = 'gantt-sub-row custom-task-row';
-      cTypeBadge  = '<span class="type-badge type-custom">\u2605</span>';
-      cBarHtml    = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + Math.max(0.5,width).toFixed(1) + '%;opacity:.75;border:2px dashed rgba(0,0,0,.18);" title="' + task.label + ': ' + start + ' \u2192 ' + end + '">' + (width>3 ? task.label.substring(0,22) : '') + '</div>';
-      cDatesCells = '<td><input class="date-input" type="date" value="' + start + '" onchange="updateGanttDate(\'' + task.id + '\',\'start\',this.value)"></td>'
+      rowClass  = isCustom ? 'gantt-sub-row custom-task-row' : 'gantt-sub-row';
+      typeBadge = isCustom
+        ? '<span class="type-badge type-custom">\u2605</span>'
+        : '<span class="type-badge type-task">T\u00e2che</span>';
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + task.label + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">' + (width>3 ? task.label.substring(0,22) : '') + '</div>';
+      datesCells = '<td><input class="date-input" type="date" value="' + start + '" onchange="updateGanttDate(\'' + task.id + '\',\'start\',this.value)"></td>'
         + '<td><input class="date-input" type="date" value="' + end + '" onchange="updateGanttDate(\'' + task.id + '\',\'end\',this.value)"></td>'
         + '<td class="center"><input type="number" min="0" max="400" value="' + dur + '" onchange="updateGanttDuration(\'' + task.id + '\',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>';
     }
 
-    rows += '<tr class="' + cRowClass + '">'
-      + '<td class="center">' + cTypeBadge + '</td>'
-      + '<td>&nbsp;&nbsp;<span style="color:#3949AB;font-style:italic;">' + task.label + '</span></td>'
-      + '<td style="font-size:10px;color:var(--gray);text-align:center;">' + (task.owner || task.resp || '—') + '</td>'
-      + '<td style="font-size:10px;text-align:center;color:#3949AB;">' + predC + '</td>'
-      + cDatesCells
-      + '<td class="center" style="font-size:10px;">' + (pctC > 0 ? pctC + '%' : '—') + '</td>'
+    const isCollapsed = isPhase && !!state.ganttCollapsed[task.id];
+    const collapseBtn = isPhase
+      ? '<button onclick="togglePhaseCollapse(\'' + task.id + '\')" class="phase-toggle-btn" title="' + (isCollapsed?'D\u00e9ployer':'R\u00e9duire') + '">' + (isCollapsed?'\u25B6':'\u25BC') + '</button>'
+      : '';
+    const labelCell = isPhase
+      ? collapseBtn + (isCustom ? '<span style="color:#3949AB;font-style:italic;">' + task.label + '</span>' : task.label)
+      : '&nbsp;&nbsp;' + (isCustom ? '<span style="color:#3949AB;font-style:italic;">' + task.label + '</span>' : task.label);
+    const editBtns = isCustom
+      ? '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px;" title="Modifier">\u270F\uFE0F</button>'
+        + '<button onclick="removeCustomTask(\'' + task.id + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:1px;" title="Supprimer">\u2715</button>'
+      : '';
+
+    rows += '<tr class="' + rowClass + '" data-task-id="' + task.id + '" data-row="' + rowNum + '" data-bar-left="' + barLeft + '" data-bar-width="' + barWidth + '">'
+      + '<td class="gantt-row-num">' + rowNum + '</td>'
+      + '<td class="center">' + typeBadge + '</td>'
+      + '<td>' + labelCell + '</td>'
+      + '<td style="font-size:10px;color:var(--gray);text-align:center;">' + (task.owner||task.resp||'—') + '</td>'
+      + '<td style="font-size:10px;text-align:center;color:#3949AB;" title="' + predTitle + '">' + predStr + '</td>'
+      + datesCells
+      + '<td class="center" style="font-size:10px;">' + (pct>0 ? pct+'%' : '—') + '</td>'
       + '<td style="padding:0;position:relative;">'
         + '<div class="gantt-bar-cell">'
           + '<div class="gantt-months-bg">' + monthsBgTpl + '</div>'
           + '<div class="today-line" style="left:' + todayPct.toFixed(1) + '%"></div>'
-          + cBarHtml
+          + barHtml
         + '</div>'
       + '</td>'
-      + '<td style="text-align:center;white-space:nowrap;">'
-        + '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px;" title="Modifier">\u270F\uFE0F</button>'
-        + '<button onclick="removeCustomTask(\'' + task.id + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:2px;" title="Supprimer">\u2715</button>'
+      + '<td style="text-align:center;white-space:nowrap;padding:2px 4px;">'
+        + '<button onclick="openAddTaskAfter(\'' + task.id + '\')" class="gantt-add-row-btn" title="Ins\u00e9rer une t\u00e2che apr\u00e8s la ligne ' + rowNum + '">+</button>'
+        + editBtns
       + '</td>'
       + '</tr>';
   });
 
-  const header = `<table class="gantt-table"><thead><tr>
-    <th style="width:52px;text-align:center;">Type</th>
-    <th class="col-name">Tâche / Livrable</th>
-    <th style="width:90px;text-align:center;">Owner</th>
-    <th style="width:62px;text-align:center;">Préd.</th>
-    <th class="col-start">Début</th>
-    <th class="col-end">Fin</th>
-    <th style="width:52px" class="center">Durée</th>
-    <th style="width:35px" class="center">%</th>
-    <th class="col-bar" style="padding:0;">
-      <div style="display:flex;height:26px;">
-        ${MONTHS.map((m,i)=>`<div class="gantt-month-header" style="flex:${m.days};background:${i%2===0?'#c8d0e0':'#d8e0f0'};border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;">${m.name}</div>`).join('')}
-      </div>
-    </th>
-    <th style="width:24px"></th>
-  </tr></thead>`;
+  const header = '<table class="gantt-table"><thead><tr>'
+    + '<th style="width:26px;text-align:center;font-size:10px;color:#aaa;padding:4px 2px;">N\u00b0</th>'
+    + '<th style="width:52px;text-align:center;">Type</th>'
+    + '<th class="col-name">T\u00e2che / Livrable</th>'
+    + '<th style="width:80px;text-align:center;">Owner</th>'
+    + '<th style="width:50px;text-align:center;" title="Pr\u00e9d\u00e9cesseurs (N\u00b0 de ligne)">Pr\u00e9d.</th>'
+    + '<th class="col-start">D\u00e9but</th>'
+    + '<th class="col-end">Fin</th>'
+    + '<th style="width:52px" class="center">Dur\u00e9e</th>'
+    + '<th style="width:35px" class="center">%</th>'
+    + '<th class="col-bar" style="padding:0;"><div style="display:flex;height:26px;">'
+    + MONTHS.map((m,i) => '<div class="gantt-month-header" style="flex:' + m.days + ';background:' + (i%2===0?'#c8d0e0':'#d8e0f0') + ';border-right:1px solid #b0bcd0;display:flex;align-items:center;justify-content:center;">' + m.name + '</div>').join('')
+    + '</div></th>'
+    + '<th style="width:58px;"></th>'
+    + '</tr></thead>';
 
-  document.getElementById('gantt-render').innerHTML = header + '<tbody>' + rows + '</tbody></table>';
+  const ganttRender = document.getElementById('gantt-render');
+  ganttRender.style.position = 'relative';
+  ganttRender.innerHTML = header + '<tbody>' + rows + '</tbody></table>';
+
+  // Flèches de dépendance (après rendu DOM)
+  requestAnimationFrame(() => drawDependencyArrows(allTasksRendered));
+}
+
+// ── Flèches de dépendance (SVG overlay sur la colonne barre) ─────────────
+function drawDependencyArrows(allTasksRendered) {
+  const existing = document.getElementById('gantt-dep-svg');
+  if (existing) existing.remove();
+
+  const ganttRender = document.getElementById('gantt-render');
+  if (!ganttRender) return;
+
+  // Collecter les dépendances à dessiner
+  const arrows = [];
+  allTasksRendered.forEach(task => {
+    if (!task.pred || !task.pred.length) return;
+    task.pred.forEach(predId => {
+      if (predId && predId !== task.id) arrows.push({ predId, succId: task.id });
+    });
+  });
+  if (!arrows.length) return;
+
+  // Récupérer les positions DOM
+  const barTh = ganttRender.querySelector('th.col-bar');
+  if (!barTh) return;
+  const containerRect = ganttRender.getBoundingClientRect();
+  const barThRect     = barTh.getBoundingClientRect();
+  const tbodyRect     = (ganttRender.querySelector('tbody') || ganttRender).getBoundingClientRect();
+
+  const svgLeft   = barThRect.left  - containerRect.left;
+  const svgTop    = tbodyRect.top   - containerRect.top;
+  const svgWidth  = barThRect.width;
+  const svgHeight = tbodyRect.height;
+  if (svgWidth < 1 || svgHeight < 1) return;
+
+  // Map taskId → {barLeft%, barWidth%, rowMidY (px relatif au tbodyRect.top)}
+  const geom = {};
+  ganttRender.querySelectorAll('tr[data-task-id]').forEach(tr => {
+    const tid = tr.getAttribute('data-task-id');
+    const bl  = parseFloat(tr.getAttribute('data-bar-left'));
+    const bw  = parseFloat(tr.getAttribute('data-bar-width'));
+    const trRect = tr.getBoundingClientRect();
+    geom[tid] = {
+      barLeft:  bl,
+      barRight: bl + bw,
+      midY:     trRect.top + trRect.height / 2 - (containerRect.top + svgTop)
+    };
+  });
+
+  // Créer le SVG
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.id = 'gantt-dep-svg';
+  svg.setAttribute('width',  svgWidth);
+  svg.setAttribute('height', svgHeight);
+  svg.style.cssText = 'position:absolute;left:' + svgLeft + 'px;top:' + svgTop + 'px;pointer-events:none;z-index:5;overflow:visible;';
+
+  // Marqueur de flèche
+  const defs = document.createElementNS(NS, 'defs');
+  defs.innerHTML = '<marker id="dep-arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#E63329" opacity="0.75"/></marker>';
+  svg.appendChild(defs);
+
+  arrows.forEach(({predId, succId}) => {
+    const pg = geom[predId];
+    const sg = geom[succId];
+    if (!pg || !sg) return;
+
+    const x1 = pg.barRight / 100 * svgWidth;
+    const y1 = pg.midY;
+    const x2 = sg.barLeft  / 100 * svgWidth;
+    const y2 = sg.midY;
+
+    // Chemin courbé : sortie droite → entrée gauche
+    const gap  = x2 - x1;
+    const cpx  = gap > 0
+      ? x1 + Math.max(12, gap * 0.45)
+      : x1 + 20;                            // flèche qui « revient en arrière »
+    const d = 'M ' + x1.toFixed(1) + ' ' + y1.toFixed(1)
+      + ' C ' + cpx.toFixed(1) + ' ' + y1.toFixed(1)
+      + ', ' + cpx.toFixed(1) + ' ' + y2.toFixed(1)
+      + ', ' + x2.toFixed(1)  + ' ' + y2.toFixed(1);
+
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', '#E63329');
+    path.setAttribute('stroke-width', '1.4');
+    path.setAttribute('stroke-dasharray', '5,3');
+    path.setAttribute('opacity', '0.6');
+    path.setAttribute('marker-end', 'url(#dep-arr)');
+    svg.appendChild(path);
+
+    // Petit point à l'origine
+    const dot = document.createElementNS(NS, 'circle');
+    dot.setAttribute('cx', x1.toFixed(1));
+    dot.setAttribute('cy', y1.toFixed(1));
+    dot.setAttribute('r', '3');
+    dot.setAttribute('fill', '#E63329');
+    dot.setAttribute('opacity', '0.65');
+    svg.appendChild(dot);
+  });
+
+  ganttRender.appendChild(svg);
 }
 
 function togglePhaseCollapse(phaseId) {
@@ -2322,6 +2479,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       ➕ Ajouter une tâche
     </div>
     <input type="hidden" id="new-task-edit-id">
+    <input type="hidden" id="new-task-insert-after-id">
     <div style="display:grid;gap:12px;">
 
       <!-- Ligne 1 : Type + Libellé -->
@@ -2386,9 +2544,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         <div>
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">
             Prédécesseurs
-            <span style="font-weight:400;color:var(--gray);">(IDs séparés par virgule, ex : 1.3, M0)</span>
+            <span style="font-weight:400;color:var(--gray);">(N° de ligne séparés par virgule, ex : 5, 12)</span>
           </label>
-          <input id="new-task-pred" type="text" placeholder="1.3, M0, custom_…"
+          <input id="new-task-pred" type="text" placeholder="5, 12, 23…"
             style="width:100%;padding:6px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
         </div>
         <div>
