@@ -1713,8 +1713,9 @@ function renderGaps() {
   document.getElementById('gaps-count').textContent = filtered.length;
 
   document.getElementById('gaps-tbody').innerHTML = filtered.map(g => {
-    const isAnomalie  = g.bm === 'Anomalie' || g.bm === 'Anomalie V4 CG';
-    const isExclusion = g.bm === 'Exclusion';
+    const bmCur0 = (state.gaps[g.ref] && state.gaps[g.ref].bm) ? state.gaps[g.ref].bm : g.bm;
+    const isAnomalie  = bmCur0 === 'Anomalie' || bmCur0 === 'Anomalie V4 CG';
+    const isExclusion = bmCur0 === 'Exclusion';
 
     // Priorité : valeur courante depuis state (modifiable), référence = g.prio
     const prioCurrent  = (state.gaps[g.ref] && state.gaps[g.ref].prio) ? state.gaps[g.ref].prio : g.prio;
@@ -1732,13 +1733,28 @@ function renderGaps() {
       ${prioModified ? `<span style="font-size:8px;color:var(--orange);font-weight:700;" title="Ref: ${prioRef}">▲ ref:${prioRef}</span>` : ''}
     </div>`;
 
-    let bmColor = '#54565A', bmBg = '#F5F5F5';
-    if (g.bm === 'BM UEMOA' || g.bm === 'Prérequis BM UEMOA') { bmColor='#2E7D52'; bmBg='#E8F5ED'; }
-    else if (isAnomalie) { bmColor='#3949AB'; bmBg='#E8F0FE'; }
-    else if (isExclusion) { bmColor='var(--red)'; bmBg='var(--red-light)'; }
-    else if (g.bm === 'Evolution') { bmColor='var(--orange)'; bmBg='var(--orange-light)'; }
-    const bmLabel = g.bm === 'Prérequis BM UEMOA' ? 'Prérequis' : g.bm;
-    const bmBadge = `<span style="background:${bmBg};color:${bmColor};border:1px solid ${bmColor};border-radius:3px;padding:2px 5px;font-size:9px;font-weight:700;white-space:nowrap;">${bmLabel}</span>`;
+    // Bank Model : valeur courante depuis state, référence = g.bm
+    const bmRef      = g.bm;
+    const bmCurrent  = (state.gaps[g.ref] && state.gaps[g.ref].bm) ? state.gaps[g.ref].bm : bmRef;
+    const bmModified = bmCurrent !== bmRef;
+    const bmStyles   = {
+      'BM UEMOA':        { c:'#2E7D52', bg:'#E8F5ED' },
+      'Prérequis BM UEMOA': { c:'#2E7D52', bg:'#E8F5ED' },
+      'Anomalie':        { c:'#3949AB', bg:'#E8F0FE' },
+      'Anomalie V4 CG':  { c:'#3949AB', bg:'#E8F0FE' },
+      'Exclusion':       { c:'#E63329', bg:'#FDEEEC' },
+      'Evolution':       { c:'#E8702A', bg:'#FEF3E2' },
+    };
+    const bms = ['BM UEMOA','Prérequis BM UEMOA','Anomalie','Anomalie V4 CG','Exclusion','Evolution'];
+    const bmS = bmStyles[bmCurrent] || { c:'#54565A', bg:'#F5F5F5' };
+    const bmBadge = `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+      <select onchange="setGapField('${g.ref}','bm',this.value)"
+        style="font-size:9px;padding:2px 3px;border-radius:3px;width:90px;text-align:center;
+        background:${bmS.bg};color:${bmS.c};border:1px solid ${bmS.c};font-weight:700;cursor:pointer;">
+        ${bms.map(b=>`<option value="${b}" ${b===bmCurrent?'selected':''}>${b==='Prérequis BM UEMOA'?'Prérequis':b}</option>`).join('')}
+      </select>
+      ${bmModified ? `<span style="font-size:8px;color:var(--orange);font-weight:700;" title="Ref: ${bmRef}">▲ ref:${bmRef==='Prérequis BM UEMOA'?'Prérequis':bmRef}</span>` : ''}
+    </div>`;
 
     // Phase : valeur courante depuis state, référence = g.phase
     const phaseRef      = g.phase;
