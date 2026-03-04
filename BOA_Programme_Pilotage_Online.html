@@ -1777,7 +1777,7 @@ function openEditActionModal(id) {
   const a = all.find(x => x.id === id);
   if (!a) return;
   const saved = state.actions[id] || {};
-  document.getElementById('action-modal-title').textContent = '✏️ Modifier l'action';
+  document.getElementById('action-modal-title').textContent = "✏️ Modifier l'action";
   document.getElementById('action-modal-id').value     = a.id;
   document.getElementById('action-modal-domain').value = a.domain;
   document.getElementById('action-modal-action').value = a.action;
@@ -1823,12 +1823,6 @@ function saveActionModal() {
 function setActionComment(id, val) {
   setActionField(id, 'commentaire', val);
 }
-function _DEAD_setActionComment_orig(id, val) {
-  if (!state.actions[id]) state.actions[id] = {};
-  state.actions[id].commentaire = val;
-  saveState();
-}
-
 function resetActFilters() {
   ['act-filter-domain','act-filter-rag','act-filter-resp'].forEach(id => {
     document.getElementById(id).value = '';
