@@ -343,6 +343,10 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 .btn-invite { background: var(--green); color: white; border: none; padding: 8px 14px;
   border-radius: 4px; font-size: 12px; font-weight: 700; cursor: pointer; }
 
+
+/* Textarea commentaire extensible */
+textarea.auto-grow { field-sizing: content; min-height: 36px; }
+
 </style>
   <!-- Supabase client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -730,18 +734,24 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
         </select>
         <button class="btn-reset" onclick="resetActFilters()">✕ Effacer</button>
       </div>
+      <div style="padding:8px 16px 4px;display:flex;justify-content:flex-end;">
+        <button onclick="openAddActionModal()" style="background:var(--red);color:white;border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">➕ Ajouter une action</button>
+      </div>
       <div class="table-scroll">
         <table class="data-table">
           <thead>
             <tr>
               <th style="width:45px">Réf.</th>
-              <th style="width:110px">Domaine</th>
+              <th style="width:100px">Domaine</th>
               <th>Action / Décision requise</th>
-              <th style="width:90px">Responsable</th>
-              <th style="width:80px">Échéance</th>
+              <th style="width:85px">Responsable</th>
+              <th style="width:72px">Échéance</th>
+              <th style="width:80px">Urgence</th>
               <th style="width:100px" class="center">Statut RAG</th>
-              <th style="width:130px">Avancement</th>
-              <th style="width:180px">Commentaire</th>
+              <th style="width:110px">Avancement</th>
+              <th style="width:130px">Source</th>
+              <th style="width:220px">Commentaire</th>
+              <th style="width:50px" class="center">Actions</th>
             </tr>
           </thead>
           <tbody id="act-tbody"></tbody>
@@ -815,6 +825,9 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
         <span style="background:var(--orange-light);color:var(--orange);border:1px solid var(--orange);border-radius:3px;padding:1px 8px;font-size:10px;font-weight:700;">▲ = priorité réhaussée par BOA</span>
         <span style="background:#E8F0FE;color:#3949AB;border:1px solid #3949AB;border-radius:3px;padding:1px 8px;font-size:10px;font-weight:700;">⚠ Anomalie V4</span>
       </div>
+      <div style="padding:8px 16px 4px;display:flex;justify-content:flex-end;">
+        <button onclick="openAddGapModal()" style="background:var(--red);color:white;border:none;border-radius:5px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;">➕ Ajouter un GAP</button>
+      </div>
       <div class="table-scroll">
         <table class="data-table" style="font-size:11px;">
           <thead>
@@ -828,7 +841,8 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
               <th style="width:50px" class="center">Phase</th>
               <th style="width:90px">Bank Model</th>
               <th style="width:130px" class="center">Décision BOA</th>
-              <th style="width:170px">Notes</th>
+              <th style="width:200px">Notes</th>
+              <th style="width:45px" class="center">Actions</th>
             </tr>
           </thead>
           <tbody id="gaps-tbody"></tbody>
@@ -1069,13 +1083,15 @@ let currentRole = 'owner';
 
 // ─── STATE ────────────────────────────────────────────────────────────────
 let state = {
-  arbitrages: {},   // {id: {decision, commentaire}}
-  actions: {},      // {id: {rag, pct, commentaire}}
-  gantt: {},        // {id: {start, end}}
-  gaps: {},         // {ref: {decision, note}}
-  ganttCustom: [],  // [{id, label, phase, start, end, resp}]
-  ganttChain: false, // forward chain mode
-  ganttCollapsed: {}, // {phaseId: bool}
+  arbitrages:    {},  // {id: {decision, commentaire}}
+  actions:       {},  // {id: {rag, pct, commentaire, source}}
+  gantt:         {},  // {id: {start, end}}
+  gaps:          {},  // {ref: {decision, note, prio, phase, bm}}
+  ganttCustom:   [],  // [{id, label, phase, start, end, resp}]
+  customActions: [],  // actions ajoutées manuellement
+  customGaps:    [],  // GAPs ajoutés manuellement
+  ganttChain:    false,
+  ganttCollapsed:{},
 };
 
 function applyParsedState(parsed) {
@@ -1085,6 +1101,8 @@ function applyParsedState(parsed) {
     gantt:          parsed.gantt          || {},
     gaps:           parsed.gaps           || {},
     ganttCustom:    parsed.ganttCustom    || [],
+    customActions:  parsed.customActions  || [],
+    customGaps:     parsed.customGaps     || [],
     ganttChain:     parsed.ganttChain     || false,
     ganttCollapsed: parsed.ganttCollapsed || {},
   };
@@ -1629,11 +1647,17 @@ function setArbDecision(id, field, value) {
 // ════════════════════════════════════════════════════════════════════════
 
 function renderActions() {
-  const domF = document.getElementById('act-filter-domain').value;
-  const ragF = document.getElementById('act-filter-rag').value;
+  const domF  = document.getElementById('act-filter-domain').value;
+  const ragF  = document.getElementById('act-filter-rag').value;
   const respF = document.getElementById('act-filter-resp').value;
 
-  const filtered = actions.filter(a => {
+  // Combiner actions statiques + actions custom
+  const allActions = [
+    ...actions,
+    ...state.customActions
+  ];
+
+  const filtered = allActions.filter(a => {
     const rag = (state.actions[a.id]||{}).rag || 'X';
     if (domF && a.domain !== domF) return false;
     if (ragF && rag !== ragF) return false;
@@ -1641,19 +1665,30 @@ function renderActions() {
     return true;
   });
 
+  const urgColors = {
+    'Critique':{'bg':'#FDEEEC','c':'#E63329'},
+    'Haute':   {'bg':'#FEF3E2','c':'#E8702A'},
+    'Normale': {'bg':'#F5F5F5','c':'#54565A'}
+  };
+
   document.getElementById('act-tbody').innerHTML = filtered.map(a => {
-    const saved = state.actions[a.id] || {};
-    const rag = saved.rag || 'X';
-    const pct = saved.pct || 0;
+    const saved   = state.actions[a.id] || {};
+    const rag     = saved.rag     || 'X';
+    const pct     = saved.pct     || 0;
     const comment = saved.commentaire || '';
-    const urgBadge = a.urgence === 'Critique' ? 'badge-crit' : (a.urgence === 'Haute' ? 'badge-haute' : 'badge-std');
-    const progClass = rag === 'G' ? 'pg' : (rag === 'O' ? 'po' : 'pr');
+    const source  = saved.source  || '';
+    const isCustom = !!a._custom;
+    const urg     = a.urgence || 'Normale';
+    const urgStyle= urgColors[urg] || urgColors['Normale'];
+    const progClass = rag==='G' ? 'pg' : (rag==='O' ? 'po' : 'pr');
+
     return `<tr>
-      <td><strong style="color:var(--red)">${a.id}</strong></td>
-      <td><span class="badge ${urgBadge}" style="font-size:9px;">${a.domain}</span></td>
+      <td style="font-weight:700;color:var(--red);font-size:11px;">${a.id}</td>
+      <td><span class="badge" style="background:#eee;color:#333;font-size:9px;">${a.domain}</span></td>
       <td style="font-size:11px;">${a.action}</td>
       <td style="font-size:11px;text-align:center;">${a.resp}</td>
       <td style="font-size:11px;text-align:center;">${a.echeance}</td>
+      <td><span style="background:${urgStyle.bg};color:${urgStyle.c};border:1px solid ${urgStyle.c};border-radius:3px;padding:2px 6px;font-size:9px;font-weight:700;">${urg}</span></td>
       <td>
         <div class="rag-group" style="justify-content:center;">
           <button class="rag-btn rag-r ${rag==='R'?'active':''}" onclick="setActionRag('${a.id}','R')">R</button>
@@ -1670,12 +1705,35 @@ function renderActions() {
             onchange="setActionPct('${a.id}',this.value)"> %
         </div>
       </td>
-      <td><input class="comment-input" type="text" placeholder="Commentaire…" value="${comment}"
-        onchange="setActionComment('${a.id}',this.value)"></td>
+      <td>
+        <input type="text" value="${source.replace(/"/g,'&quot;')}"
+          onchange="setActionField('${a.id}','source',this.value)"
+          placeholder="CR réunion, fichier..."
+          style="font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;width:100%;box-sizing:border-box;">
+      </td>
+      <td>
+        <textarea onchange="setActionField('${a.id}','commentaire',this.value)"
+          placeholder="Commentaire..."
+          style="font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;width:100%;box-sizing:border-box;min-height:36px;resize:vertical;font-family:inherit;">${comment}</textarea>
+      </td>
+      <td style="text-align:center;">
+        <button onclick="openEditActionModal('${a.id}')" title="Modifier"
+          style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px;">✏️</button>
+        ${isCustom ? `<button onclick="deleteAction('${a.id}')" title="Supprimer"
+          style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px;">🗑️</button>` : ''}
+      </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
 
   renderDashboard();
+}
+
+
+// ── ACTIONS CRUD ─────────────────────────────────────────────────────────
+function setActionField(id, field, value) {
+  if (!state.actions[id]) state.actions[id] = {};
+  state.actions[id][field] = value;
+  saveState();
 }
 
 function setActionRag(id, rag) {
@@ -1693,7 +1751,79 @@ function setActionPct(id, val) {
   renderActions();
 }
 
+function deleteAction(id) {
+  if (!confirm('Supprimer cette action ?')) return;
+  state.customActions = state.customActions.filter(a => a.id !== id);
+  delete state.actions[id];
+  saveState();
+  renderActions();
+}
+
+function openAddActionModal() {
+  document.getElementById('action-modal-title').textContent = '➕ Nouvelle action';
+  document.getElementById('action-modal-id').value    = 'A' + String(Date.now()).slice(-4);
+  document.getElementById('action-modal-domain').value = '';
+  document.getElementById('action-modal-action').value = '';
+  document.getElementById('action-modal-resp').value   = '';
+  document.getElementById('action-modal-ech').value    = '';
+  document.getElementById('action-modal-urgence').value= 'Normale';
+  document.getElementById('action-modal-source').value = '';
+  document.getElementById('action-modal-isEdit').value = '';
+  document.getElementById('action-modal').style.display = 'flex';
+}
+
+function openEditActionModal(id) {
+  const all = [...actions, ...state.customActions];
+  const a = all.find(x => x.id === id);
+  if (!a) return;
+  const saved = state.actions[id] || {};
+  document.getElementById('action-modal-title').textContent = '✏️ Modifier l'action';
+  document.getElementById('action-modal-id').value     = a.id;
+  document.getElementById('action-modal-domain').value = a.domain;
+  document.getElementById('action-modal-action').value = a.action;
+  document.getElementById('action-modal-resp').value   = a.resp;
+  document.getElementById('action-modal-ech').value    = a.echeance;
+  document.getElementById('action-modal-urgence').value= a.urgence || 'Normale';
+  document.getElementById('action-modal-source').value = saved.source || '';
+  document.getElementById('action-modal-isEdit').value = id;
+  document.getElementById('action-modal').style.display = 'flex';
+}
+
+function saveActionModal() {
+  const isEdit = document.getElementById('action-modal-isEdit').value;
+  const id     = document.getElementById('action-modal-id').value.trim();
+  const domain = document.getElementById('action-modal-domain').value.trim();
+  const action = document.getElementById('action-modal-action').value.trim();
+  const resp   = document.getElementById('action-modal-resp').value.trim();
+  const ech    = document.getElementById('action-modal-ech').value.trim();
+  const urg    = document.getElementById('action-modal-urgence').value;
+  const source = document.getElementById('action-modal-source').value.trim();
+  if (!action) { alert('Le libellé de l\'action est requis.'); return; }
+
+  if (isEdit) {
+    // Modifier dans customActions si c'est une custom
+    const idx = state.customActions.findIndex(a => a.id === isEdit);
+    if (idx >= 0) {
+      state.customActions[idx] = { ...state.customActions[idx], id, domain, action, resp, echeance: ech, urgence: urg, _custom: true };
+    }
+    // Modifier dans les actions statiques (champs éditables via state)
+    if (!state.actions[id]) state.actions[id] = {};
+    state.actions[id].source = source;
+  } else {
+    state.customActions.push({ id, domain, action, resp, echeance: ech, urgence: urg, _custom: true });
+    if (!state.actions[id]) state.actions[id] = {};
+    state.actions[id].source = source;
+  }
+
+  saveState();
+  document.getElementById('action-modal').style.display = 'none';
+  renderActions();
+}
+
 function setActionComment(id, val) {
+  setActionField(id, 'commentaire', val);
+}
+function _DEAD_setActionComment_orig(id, val) {
   if (!state.actions[id]) state.actions[id] = {};
   state.actions[id].commentaire = val;
   saveState();
@@ -1718,7 +1848,10 @@ function renderGaps() {
   const decF   = document.getElementById('gaps-filter-dec') ? document.getElementById('gaps-filter-dec').value : '';
   const search = document.getElementById('gaps-search').value.toLowerCase();
 
-  const filtered = gaps.filter(g => {
+  // Combiner gaps statiques + custom
+  const allGaps = [...gaps, ...state.customGaps];
+
+  const filtered = allGaps.filter(g => {
     if (domF && g.domain !== domF) return false;
     if (prioF && g.prio !== prioF) return false;
     if (changedF === 'true' && !g.changed) return false;
@@ -1736,7 +1869,7 @@ function renderGaps() {
 
   document.getElementById('gaps-count').textContent = filtered.length;
 
-  document.getElementById('gaps-tbody').innerHTML = filtered.map(g => {
+  document.getElementById('gaps-tbody').innerHTML = filtered.map((g, idx_g) => {
     const bmCur0 = (state.gaps[g.ref] && state.gaps[g.ref].bm) ? state.gaps[g.ref].bm : g.bm;
     const isAnomalie  = bmCur0 === 'Anomalie' || bmCur0 === 'Anomalie V4 CG';
     const isExclusion = bmCur0 === 'Exclusion';
@@ -1806,17 +1939,16 @@ function renderGaps() {
       border:1px solid ${decColors[dec]||'#ccc'};font-weight:${dec?'700':'400'};">
       ${decOptions.map(o => `<option value="${o}" ${o===dec?'selected':''}>${o||'— choisir —'}</option>`).join('')}
     </select>`;
-    const noteCell = `<input type="text" value="${note.replace(/"/g,'&quot;')}"
-      onchange="setGapDecision('${g.ref}','note',this.value)"
-      placeholder="Note libre..."
-      style="font-size:10px;padding:2px 5px;border:1px solid #ddd;border-radius:3px;width:165px;">`;
+    const noteCell = `<textarea onchange="setGapDecision('${g.ref}','note',this.value)"
+      placeholder="Note / commentaire..."
+      style="font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;width:100%;box-sizing:border-box;min-height:38px;resize:vertical;font-family:inherit;">${note}</textarea>`;
 
     const traite = dec !== '' && dec !== 'En attente' && dec !== 'En analyse';
     const rowBg = dec === 'Exclu périmètre' ? 'opacity:0.45;' :
                   traite ? 'background:#f7fff9;' : '';
 
     return `<tr style="${rowBg}">
-      <td style="color:var(--gray);font-size:10px;">${g.n}</td>
+      <td style="color:var(--gray);font-size:10px;">${g.n || idx_g+1}</td>
       <td><span class="badge badge-spec" style="font-size:9px;font-family:monospace;">${g.ref}</span>
           ${isAnomalie ? '<span title="Anomalie V4" style="color:#3949AB;font-size:10px;margin-left:3px;">⚠</span>' : ''}
           ${isExclusion ? '<span title="Hors périmètre" style="color:var(--red);font-size:10px;margin-left:3px;">✕</span>' : ''}</td>
@@ -1828,8 +1960,14 @@ function renderGaps() {
       <td>${bmBadge}</td>
       <td class="center">${decCell}</td>
       <td>${noteCell}</td>
+      <td style="text-align:center;white-space:nowrap;">
+        <button onclick="openEditGapModal('${g.ref}')" title="Modifier"
+          style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px;">✏️</button>
+        ${g._custom ? `<button onclick="deleteGap('${g.ref}')" title="Supprimer"
+          style="background:none;border:none;cursor:pointer;font-size:13px;padding:2px;">🗑️</button>` : ''}
+      </td>
     </tr>`;
-  }).join('') || '<tr><td colspan="10" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
+  }).join('') || '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--gray);">Aucun résultat</td></tr>';
 
   // Update decision summary bar
   updateGapsSummary();
@@ -1859,6 +1997,78 @@ function updateGapsSummary() {
         <div style="font-size:10px;color:var(--gray);margin-top:2px;">${pct}% validés (${valides}/${counts.total})</div>
       </div>
     </div>`;
+}
+
+
+// ── GAP CRUD ──────────────────────────────────────────────────────────────
+function deleteGap(ref) {
+  if (!confirm('Supprimer ce GAP ?')) return;
+  state.customGaps = state.customGaps.filter(g => g.ref !== ref);
+  delete state.gaps[ref];
+  saveState();
+  renderGaps();
+}
+
+function openAddGapModal() {
+  const n = (gaps.length + state.customGaps.length + 1);
+  document.getElementById('gap-modal-title').textContent = '➕ Nouveau GAP';
+  document.getElementById('gap-modal-ref').value      = 'GAP-CUSTOM-' + String(n).padStart(3,'0');
+  document.getElementById('gap-modal-domain').value   = '';
+  document.getElementById('gap-modal-processus').value= '';
+  document.getElementById('gap-modal-desc').value     = '';
+  document.getElementById('gap-modal-prio').value     = 'P2';
+  document.getElementById('gap-modal-phase').value    = 'II';
+  document.getElementById('gap-modal-bm').value       = 'BM UEMOA';
+  document.getElementById('gap-modal-resp').value     = '';
+  document.getElementById('gap-modal-isEdit').value   = '';
+  document.getElementById('gap-modal').style.display  = 'flex';
+}
+
+function openEditGapModal(ref) {
+  const allG = [...gaps, ...state.customGaps];
+  const g = allG.find(x => x.ref === ref);
+  if (!g) return;
+  const sv = state.gaps[ref] || {};
+  document.getElementById('gap-modal-title').textContent = '✏️ Modifier le GAP';
+  document.getElementById('gap-modal-ref').value      = g.ref;
+  document.getElementById('gap-modal-domain').value   = g.domain;
+  document.getElementById('gap-modal-processus').value= g.processus;
+  document.getElementById('gap-modal-desc').value     = g.desc;
+  document.getElementById('gap-modal-prio').value     = sv.prio || g.prio;
+  document.getElementById('gap-modal-phase').value    = sv.phase || g.phase;
+  document.getElementById('gap-modal-bm').value       = sv.bm   || g.bm;
+  document.getElementById('gap-modal-resp').value     = g.resp || '';
+  document.getElementById('gap-modal-isEdit').value   = ref;
+  document.getElementById('gap-modal').style.display  = 'flex';
+}
+
+function saveGapModal() {
+  const isEdit    = document.getElementById('gap-modal-isEdit').value;
+  const ref       = document.getElementById('gap-modal-ref').value.trim();
+  const domain    = document.getElementById('gap-modal-domain').value.trim();
+  const processus = document.getElementById('gap-modal-processus').value.trim();
+  const desc      = document.getElementById('gap-modal-desc').value.trim();
+  const prio      = document.getElementById('gap-modal-prio').value;
+  const phase     = document.getElementById('gap-modal-phase').value;
+  const bm        = document.getElementById('gap-modal-bm').value;
+  const resp      = document.getElementById('gap-modal-resp').value.trim();
+  if (!desc || !ref) { alert('Référence et description sont requis.'); return; }
+
+  if (isEdit) {
+    const idx = state.customGaps.findIndex(g => g.ref === isEdit);
+    if (idx >= 0) {
+      state.customGaps[idx] = { ...state.customGaps[idx], ref, domain, processus, desc, prio, prio_cbs: prio, phase, phase_cbs: phase, bm, resp };
+    }
+    if (!state.gaps[ref]) state.gaps[ref] = {};
+    Object.assign(state.gaps[ref], { prio, phase, bm });
+  } else {
+    const n = gaps.length + state.customGaps.length + 1;
+    state.customGaps.push({ n, ref, domain, processus, desc, prio, prio_cbs: prio, phase, phase_cbs: phase, bm, resp, _custom: true, changed: false });
+  }
+
+  saveState();
+  document.getElementById('gap-modal').style.display = 'none';
+  renderGaps();
 }
 
 function setGapDecision(ref, field, value) {
@@ -2055,5 +2265,114 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 
 </div><!-- /app-content -->
+
+<!-- ════ MODAL ACTION ════ -->
+<div id="action-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:10px;padding:28px;width:520px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
+    <div style="font-size:15px;font-weight:700;color:var(--black);margin-bottom:18px;border-bottom:3px solid var(--red);padding-bottom:8px;" id="action-modal-title">Action</div>
+    <input type="hidden" id="action-modal-isEdit">
+    <div style="display:grid;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Référence *</label>
+          <input id="action-modal-id" type="text" placeholder="A31" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Domaine</label>
+          <input id="action-modal-domain" type="text" placeholder="Référentiel, Engagements..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Action / Décision requise *</label>
+        <textarea id="action-modal-action" rows="3" placeholder="Description de l'action..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Responsable</label>
+          <input id="action-modal-resp" type="text" placeholder="CBS, BOA CI..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Échéance</label>
+          <input id="action-modal-ech" type="text" placeholder="15 mars, T2 2026..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Urgence</label>
+          <select id="action-modal-urgence" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option value="Critique">🔴 Critique</option>
+            <option value="Haute">🟠 Haute</option>
+            <option value="Normale">⚪ Normale</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Source (compte rendu, fichier, réunion…)</label>
+        <input id="action-modal-source" type="text" placeholder="Ex: CR COPIL 12/02, Fichier GAP v1.2..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+      <button onclick="document.getElementById('action-modal').style.display='none'" style="padding:8px 18px;border:1px solid #ccc;border-radius:5px;background:white;cursor:pointer;font-size:12px;">Annuler</button>
+      <button onclick="saveActionModal()" style="padding:8px 20px;background:var(--red);color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL GAP ════ -->
+<div id="gap-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:10px;padding:28px;width:560px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.3);max-height:90vh;overflow-y:auto;">
+    <div style="font-size:15px;font-weight:700;color:var(--black);margin-bottom:18px;border-bottom:3px solid var(--red);padding-bottom:8px;" id="gap-modal-title">GAP</div>
+    <input type="hidden" id="gap-modal-isEdit">
+    <div style="display:grid;gap:12px;">
+      <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Référence *</label>
+          <input id="gap-modal-ref" type="text" placeholder="GAP-RC-086" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Domaine</label>
+          <input id="gap-modal-domain" type="text" placeholder="Référentiel Clients, Négoce..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Processus</label>
+        <input id="gap-modal-processus" type="text" placeholder="Ex: Entrée en relation, KYC..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Description *</label>
+        <textarea id="gap-modal-desc" rows="3" placeholder="Description du GAP..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Priorité</label>
+          <select id="gap-modal-prio" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option>P1</option><option>P2</option><option>P2.1</option><option>P3</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Phase</label>
+          <select id="gap-modal-phase" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option>I</option><option>II</option><option>III</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Bank Model</label>
+          <select id="gap-modal-bm" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+            <option>BM UEMOA</option><option>Prérequis BM UEMOA</option>
+            <option>Anomalie</option><option>Anomalie V4 CG</option>
+            <option>Evolution</option><option>Exclusion</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Responsable</label>
+          <input id="gap-modal-resp" type="text" placeholder="CBS, BOA..." style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+      <button onclick="document.getElementById('gap-modal').style.display='none'" style="padding:8px 18px;border:1px solid #ccc;border-radius:5px;background:white;cursor:pointer;font-size:12px;">Annuler</button>
+      <button onclick="saveGapModal()" style="padding:8px 20px;background:var(--red);color:white;border:none;border-radius:5px;cursor:pointer;font-size:12px;font-weight:700;">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
