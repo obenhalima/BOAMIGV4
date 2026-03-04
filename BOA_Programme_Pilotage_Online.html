@@ -279,40 +279,7 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 /* SCROLLABLE TABLE */
 .table-scroll { overflow-x: auto; }
 
-/* ══════════════════════════════════════════════════
-   AUTH OVERLAY
-══════════════════════════════════════════════════ */
-#auth-overlay {
-  position: fixed; inset: 0; z-index: 9999;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  display: flex; align-items: center; justify-content: center;
-}
-.auth-box {
-  background: white; border-radius: 10px; padding: 36px 40px;
-  width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,.4);
-}
-.auth-logo { text-align: center; margin-bottom: 24px; }
-.auth-logo .logo-big { display: inline-block; background: var(--red); color: white;
-  font-weight: 900; font-size: 22px; padding: 10px 24px; border-radius: 5px;
-  letter-spacing: 2px; }
-.auth-logo p { margin-top: 8px; font-size: 12px; color: var(--gray); }
-.auth-title { font-size: 16px; font-weight: 700; margin-bottom: 18px; color: var(--black); }
-.auth-field { margin-bottom: 14px; }
-.auth-field label { display: block; font-size: 11px; font-weight: 700;
-  color: var(--gray); margin-bottom: 4px; }
-.auth-field input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-med);
-  border-radius: 5px; font-size: 13px; font-family: var(--font); }
-.auth-field input:focus { outline: none; border-color: var(--red); }
-.auth-btn { width: 100%; padding: 11px; background: var(--red); color: white;
-  border: none; border-radius: 5px; font-size: 14px; font-weight: 700;
-  cursor: pointer; font-family: var(--font); margin-top: 6px; }
-.auth-btn:hover { background: var(--red-dark); }
-.auth-toggle { text-align: center; margin-top: 14px; font-size: 12px; color: var(--gray); }
-.auth-toggle a { color: var(--red); cursor: pointer; font-weight: 700; text-decoration: none; }
-.auth-error { background: var(--red-light); border: 1px solid var(--red); color: var(--red);
-  padding: 8px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 12px; display: none; }
-.auth-msg { background: var(--green-light); border: 1px solid var(--green); color: var(--green);
-  padding: 8px 12px; border-radius: 4px; font-size: 11px; margin-bottom: 12px; display: none; }
+
 
 /* ══════════════════════════════════════════════════
    USER HEADER WIDGET
@@ -324,9 +291,6 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 .role-editor { background: var(--orange); color: white; }
 .role-viewer { background: var(--gray-med); color: var(--gray); }
 .user-name   { font-size: 12px; font-weight: 600; color: var(--black); }
-.btn-logout  { background: none; border: 1px solid var(--gray-med); color: var(--gray);
-  padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
-.btn-logout:hover { border-color: var(--red); color: var(--red); }
 .btn-users   { background: none; border: 1px solid var(--gray-med); color: var(--gray);
   padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; }
 .btn-users:hover { background: var(--red-light); border-color: var(--red); color: var(--red); }
@@ -334,27 +298,9 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 /* ══════════════════════════════════════════════════
    READONLY BANNER
 ══════════════════════════════════════════════════ */
-#readonly-banner {
-  display: none; background: #FFF8E1; border-bottom: 2px solid #F9A825;
-  padding: 8px 20px; font-size: 12px; color: #795548; align-items: center; gap: 8px;
-}
-
 /* ══════════════════════════════════════════════════
    VIEWER MODE — disable all editable elements
 ══════════════════════════════════════════════════ */
-.viewer-mode .date-input,
-.viewer-mode input[type="number"],
-.viewer-mode input[type="text"],
-.viewer-mode select,
-.viewer-mode textarea,
-.viewer-mode .comment-input {
-  pointer-events: none; background: #f7f8fa; color: #666;
-}
-.viewer-mode button:not(#user-actions button):not(.phase-toggle-btn):not(.tab-btn) {
-  pointer-events: none; opacity: 0.45;
-}
-.viewer-mode .phase-toggle-btn { pointer-events: all; opacity: 1; }
-
 /* ══════════════════════════════════════════════════
    SYNC INDICATOR
 ══════════════════════════════════════════════════ */
@@ -367,11 +313,6 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 /* ══════════════════════════════════════════════════
    USER MANAGEMENT MODAL
 ══════════════════════════════════════════════════ */
-#users-modal {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
-  z-index: 9000; align-items: center; justify-content: center;
-}
-#users-modal.open { display: flex; }
 .users-box {
   background: white; border-radius: 8px; padding: 0; width: 560px;
   max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.3);
@@ -408,72 +349,22 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
 </head>
 <body>
 
-<!-- ══════════════════════════ AUTH OVERLAY ══════════════════════════ -->
-<div id="auth-overlay">
-  <div class="auth-box">
-    <div class="auth-logo">
-      <div class="logo-big">CBS</div>
       <p>BOA Côte d'Ivoire · Pilotage IGOR V4</p>
-    </div>
-    <div id="auth-error" class="auth-error"></div>
-    <div id="auth-success" class="auth-msg"></div>
-
-    <!-- MAGIC LINK FORM -->
-    <div id="form-login">
-      <div class="auth-title">Connexion</div>
-      <div class="auth-field">
-        <label>Votre email</label>
-        <input type="email" id="login-email" placeholder="prenom.nom@boa.com"
-          onkeydown="if(event.key==='Enter') doLogin()">
-      </div>
-      <button class="auth-btn" onclick="doLogin()">Accéder</button>
-      <div class="auth-toggle" style="margin-top:12px;font-size:11px;color:var(--gray);">
-        Entrez votre email et accédez directement à l'application.
-      </div>
     </div>
   </div>
 </div>
 
 <!-- READONLY BANNER -->
-<div id="readonly-banner">
-  👁 <strong>Mode lecture seule</strong> — Vous consultez le tableau de bord. Contactez le propriétaire du projet pour obtenir un accès éditeur.
-  &nbsp;·&nbsp; <a onclick="refreshRole()" style="color:#795548;font-weight:700;cursor:pointer;text-decoration:underline;">↻ Rafraîchir mon rôle</a>
-</div>
-
 <!-- SYNC INDICATOR -->
 <div id="sync-indicator">🔄 Mis à jour par un collègue</div>
 
 <!-- ══════════════════════════ USER MGMT MODAL ══════════════════════════ -->
-<div id="users-modal">
-  <div class="users-box">
-    <div class="users-header">
-      👥 Gestion des accès
-      <button onclick="closeUsersModal()" style="background:none;border:none;color:white;font-size:18px;cursor:pointer;">✕</button>
-    </div>
-    <div class="users-body">
-      <div id="users-list">Chargement...</div>
-      <div class="invite-section">
-        <div style="font-weight:700;font-size:13px;margin-bottom:4px;">Inviter un collègue</div>
-        <div style="font-size:11px;color:var(--gray);margin-bottom:8px;">
-          L'invité recevra un email pour créer son compte et aura accès au dashboard.
-        </div>
-        <div class="invite-row">
-          <input type="email" id="invite-email" placeholder="prenom.nom@boa.com">
-          <select id="invite-role">
-            <option value="viewer">Lecteur</option>
-            <option value="editor">Éditeur</option>
-            <option value="owner">Propriétaire</option>
-          </select>
-          <button class="btn-invite" onclick="sendInvite()">Inviter</button>
-        </div>
-        <div id="invite-msg" style="margin-top:8px;font-size:11px;"></div>
-      </div>
     </div>
   </div>
 </div>
 
 <!-- ══════════════════════════ APP CONTENT ══════════════════════════ -->
-<div id="app-content" style="display:none;">
+<div id="app-content">
 
 <!-- HEADER -->
 <div class="app-header">
@@ -497,8 +388,6 @@ body { font-family: var(--font); background: #f0f2f5; color: var(--black); font-
     <div class="user-widget" id="user-actions">
       <span class="user-name" id="user-name">—</span>
       <span class="role-badge role-viewer" id="user-role-badge">viewer</span>
-      <button class="btn-users owner-only" onclick="openUsersModal()" style="display:none;">👥 Accès</button>
-      <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
     </div>
   </div>
 </div>
@@ -1152,7 +1041,7 @@ const sb = (SUPABASE_URL !== 'YOUR_SUPABASE_URL')
   : null; // mode local si pas configuré
 
 let currentUser = null;
-let currentRole = 'viewer';
+let currentRole = 'owner';
 
 // ─── STATE ────────────────────────────────────────────────────────────────
 let state = {
@@ -1185,18 +1074,16 @@ function loadState() {
   } catch(e) {}
 }
 
-function canEdit() {
-  return currentRole === 'owner' || currentRole === 'editor';
-}
+function canEdit() { return true; }
 
 function saveState() {
   // Always backup to localStorage
   try { localStorage.setItem('boa_v4_state', JSON.stringify(state)); } catch(e) {}
   // Cloud save (async, fire-and-forget)
-  if (sb && currentUser && canEdit()) {
+  if (sb && canEdit()) {
     sb.from('project_state')
       .upsert({ id: 'boa_ci_v4', state_data: state,
-                updated_at: new Date().toISOString(), updated_by: currentUser.id })
+                updated_at: new Date().toISOString(), updated_by: 'shared' })
       .then(({ error }) => { if (error) console.warn('Cloud save error:', error.message); });
   }
   const indicator = document.getElementById('save-indicator');
@@ -1210,14 +1097,13 @@ function showSyncIndicator() {
 
 function applyRoleUI() {
   document.body.classList.remove('viewer-mode', 'editor-mode', 'owner-mode');
-  document.body.classList.add(currentRole + '-mode');
+  document.body.classList.add('owner-mode');
   // Owner-only controls
   document.querySelectorAll('.owner-only').forEach(el => {
     el.style.display = currentRole === 'owner' ? '' : 'none';
   });
   // Readonly banner
-  const banner = document.getElementById('readonly-banner');
-  if (banner) banner.style.display = currentRole === 'viewer' ? 'flex' : 'none';
+
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -1976,7 +1862,7 @@ async function initApp() {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'project_state' },
         payload => {
-          if (payload.new && payload.new.updated_by !== currentUser?.id) {
+          if (payload.new && false) {
             applyParsedState(payload.new.state_data);
             renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
             const activeTab = document.querySelector('.tab-content.active');
@@ -2000,207 +1886,19 @@ async function initApp() {
   applyRoleUI();
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// AUTH FUNCTIONS
-// ─────────────────────────────────────────────────────────────────────────
-function toggleAuthForm(mode) {
-  // Magic link mode — single form only
-  document.getElementById('auth-error').style.display   = 'none';
-  document.getElementById('auth-success').style.display = 'none';
-}
+// ════════════════════════════════════════════════════════
+// DÉMARRAGE DIRECT (sans authentification)
+// ════════════════════════════════════════════════════════
+currentRole = 'owner';
 
-function showAuthError(msg) {
-  const el = document.getElementById('auth-error');
-  el.textContent = msg; el.style.display = 'block';
-  document.getElementById('auth-success').style.display = 'none';
-}
-function showAuthSuccess(msg) {
-  const el = document.getElementById('auth-success');
-  el.textContent = msg; el.style.display = 'block';
-  document.getElementById('auth-error').style.display = 'none';
-}
-
-// Mot de passe partagé interne — transparent pour l'utilisateur
-const _APP_PWD = 'BOA-IGOR-V4-2026!';
-
-async function doLogin() {
-  if (!sb) { showAuthError('Supabase non configuré — mode local uniquement.'); return; }
-  const email = document.getElementById('login-email').value.trim();
-  if (!email) { showAuthError('Veuillez renseigner votre email.'); return; }
-  const btn = document.querySelector('.auth-btn');
-  btn.disabled = true;
-  btn.textContent = 'Connexion en cours…';
-
-  // Tentative de connexion
-  const { error: e1 } = await sb.auth.signInWithPassword({ email, password: _APP_PWD });
-  if (!e1) { btn.disabled = false; btn.textContent = 'Accéder'; return; }
-
-  // Compte inexistant → création automatique puis connexion
-  if (e1.message && e1.message.toLowerCase().includes('invalid login credentials')) {
-    const { error: e2 } = await sb.auth.signUp({ email, password: _APP_PWD });
-    if (e2) { btn.disabled = false; btn.textContent = 'Accéder'; showAuthError(e2.message); return; }
-    // Reconnexion immédiate après création
-    const { error: e3 } = await sb.auth.signInWithPassword({ email, password: _APP_PWD });
-    if (e3) {
-      showAuthSuccess('Compte créé. Si vous ne vous connectez pas automatiquement, cliquez à nouveau sur Accéder.');
-    }
-  } else {
-    showAuthError(e1.message);
-  }
-  btn.disabled = false;
-  btn.textContent = 'Accéder';
-}
-
-async function doLogout() {
-  if (sb) await sb.auth.signOut();
-  currentUser = null; currentRole = 'viewer';
-  document.getElementById('auth-overlay').style.display = 'flex';
-  document.getElementById('app-content').style.display  = 'none';
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// USER MANAGEMENT (Owner only)
-// ─────────────────────────────────────────────────────────────────────────
-async function openUsersModal() {
-  document.getElementById('users-modal').classList.add('open');
-  await refreshUsersList();
-}
-
-function closeUsersModal() {
-  document.getElementById('users-modal').classList.remove('open');
-}
-
-async function refreshUsersList() {
-  const el = document.getElementById('users-list');
-  if (!sb) { el.innerHTML = '<p>Supabase non configuré.</p>'; return; }
-  const { data, error } = await sb.from('profiles').select('id,email,full_name,role').order('role');
-  if (error || !data) { el.innerHTML = '<p>Erreur de chargement.</p>'; return; }
-  const ROLE_LABELS = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' };
-  el.innerHTML = data.map(u => {
-    const initial = (u.full_name || u.email).charAt(0).toUpperCase();
-    const isMe    = u.id === currentUser?.id;
-    return `<div class="user-row">
-      <div class="user-avatar" style="background:${u.role==='owner'?'var(--red)':u.role==='editor'?'var(--orange)':'var(--gray)'}">
-        ${initial}
-      </div>
-      <div class="user-info">
-        <div class="u-name">${u.full_name || '—'}${isMe ? ' <span style="color:var(--gray);font-weight:400;font-size:10px;">(vous)</span>' : ''}</div>
-        <div class="u-email">${u.email}</div>
-      </div>
-      <select class="user-role-select" onchange="changeUserRole('${u.id}',this.value)"
-        ${isMe ? 'disabled' : ''}>
-        <option value="viewer"  ${u.role==='viewer' ?'selected':''}>Lecteur</option>
-        <option value="editor"  ${u.role==='editor' ?'selected':''}>Éditeur</option>
-        <option value="owner"   ${u.role==='owner'  ?'selected':''}>Propriétaire</option>
-      </select>
-    </div>`;
-  }).join('');
-}
-
-async function changeUserRole(userId, newRole) {
-  if (!sb || currentRole !== 'owner') return;
-  const { error } = await sb.from('profiles').update({ role: newRole }).eq('id', userId);
-  if (error) alert('Erreur : ' + error.message);
-  else await refreshUsersList();
-}
-
-async function refreshRole() {
-  if (!sb || !currentUser) return;
-  try {
-    const { data, error } = await sb.from('profiles')
-      .select('role, full_name').eq('id', currentUser.id).single();
-    if (error) throw error;
-    currentRole = (data && data.role) || 'viewer';
-    currentUser.full_name = (data && data.full_name) || currentUser.email;
-    const badge = document.getElementById('user-role-badge');
-    badge.textContent = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' }[currentRole] || currentRole;
-    badge.className   = 'role-badge role-' + currentRole;
-    document.querySelectorAll('.owner-only').forEach(el => {
-      el.style.display = currentRole === 'owner' ? '' : 'none';
-    });
-    applyRoleUI();
-    alert('Rôle mis à jour : ' + badge.textContent);
-  } catch(e) {
-    alert('Erreur : ' + e.message);
-  }
-}
-
-async function sendInvite() {
-  const email = document.getElementById('invite-email').value.trim();
-  const role  = document.getElementById('invite-role').value;
-  const msgEl = document.getElementById('invite-msg');
-  if (!email) { msgEl.textContent = 'Veuillez saisir un email.'; msgEl.style.color = 'var(--red)'; return; }
-  if (!sb) { msgEl.textContent = 'Supabase non configuré.'; return; }
-  // Use Supabase admin invite (requires service role key on backend — simplified here)
-  // For now: create a pending entry in profiles table
-  msgEl.textContent = "📧 Invitation envoyée. L'utilisateur devra créer son compte avec cet email.";
-  msgEl.style.color = 'var(--green)';
-  document.getElementById('invite-email').value = '';
-  // Pre-register the role so when they sign up, they get the right role
-  await sb.from('pending_invites').upsert({ email, role, invited_by: currentUser.id })
-    .then(() => {}); // table may not exist yet - silent fail is OK
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// AUTH STATE LISTENER — entry point
-// ─────────────────────────────────────────────────────────────────────────
-if (sb) {
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (session && session.user) {
-      currentUser = session.user;
-
-      // Load role from profiles — retry up to 3x to handle lock/timing issues
-      async function fetchRole(retries) {
-        try {
-          const { data, error } = await sb.from('profiles')
-            .select('role, full_name').eq('id', currentUser.id).single();
-          if (error) throw error;
-          return data;
-        } catch(e) {
-          if (retries > 0) {
-            await new Promise(r => setTimeout(r, 800));
-            return fetchRole(retries - 1);
-          }
-          return null;
-        }
-      }
-
-      const profileData = await fetchRole(3);
-      currentRole = (profileData && profileData.role) || 'viewer';
-      currentUser.full_name = (profileData && profileData.full_name) || currentUser.email;
-
-      document.getElementById('auth-overlay').style.display  = 'none';
-      document.getElementById('app-content').style.display   = 'block';
-      document.getElementById('user-name').textContent       = currentUser.full_name || currentUser.email;
-      const badge = document.getElementById('user-role-badge');
-      badge.textContent  = { owner: 'Propriétaire', editor: 'Éditeur', viewer: 'Lecteur' }[currentRole] || currentRole;
-      badge.className    = 'role-badge role-' + currentRole;
-      document.querySelectorAll('.owner-only').forEach(el => {
-        el.style.display = currentRole === 'owner' ? '' : 'none';
-      });
-      await initApp();
-    } else {
-      // Not authenticated
-      document.getElementById('auth-overlay').style.display  = 'flex';
-      document.getElementById('app-content').style.display   = 'none';
-    }
-  });
-} else {
-  // Local mode (Supabase not configured) — show app directly
-  console.warn('Supabase non configuré. Mode local activé.');
-  document.getElementById('auth-overlay').style.display = 'none';
-  document.getElementById('app-content').style.display  = 'block';
-  document.getElementById('user-name').textContent      = 'Mode local';
-  document.getElementById('user-role-badge').textContent = 'Owner';
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('user-name').textContent      = 'Équipe BOA';
+  document.getElementById('user-role-badge').textContent = 'Éditeur';
   document.getElementById('user-role-badge').className  = 'role-badge role-owner';
-  currentRole = 'owner';
-  loadState();
-  countdowns();
-  renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
-  const _ct = document.getElementById('gantt-chain-toggle');
-  if (_ct) _ct.checked = !!state.ganttChain;
-  if (!state.ganttCollapsed) state.ganttCollapsed = {};
-}
+  document.querySelectorAll('.owner-only').forEach(el => el.style.display = '');
+  await initApp();
+});
+
 </script>
 
 
