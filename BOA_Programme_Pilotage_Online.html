@@ -1852,56 +1852,67 @@ function printSection(tabId) {
 // ─────────────────────────────────────────────────────────────────────────
 async function initApp() {
   const syncEl = document.getElementById('sync-status');
+  const setSync = (icon, text, color, bg) => {
+    if (!syncEl) return;
+    syncEl.textContent = icon + ' ' + text;
+    syncEl.style.color = color;
+    syncEl.style.background = bg;
+    syncEl.title = text;
+  };
 
-  if (sb) {
+  setSync('⏳', 'Connexion…', '#1565c0', '#e3f2fd');
+
+  if (!sb) {
+    loadState();
+    setSync('💾', 'Mode local', '#757575', '#f5f5f5');
+    window._sbWriteOK = false;
+  } else {
     try {
-      // Charger l'état depuis Supabase
-      const { data, error } = await sb.from('project_state')
-        .select('state_data, updated_at').eq('id', 'boa_ci_v4').single();
+      // Test lecture
+      const { data: rData, error: rErr } = await sb
+        .from('project_state').select('state_data').eq('id','boa_ci_v4').single();
 
-      if (!error && data && data.state_data) {
-        applyParsedState(data.state_data);
-      } else {
-        loadState();
-      }
+      // Test écriture
+      const testPayload = { id:'boa_ci_v4', state_data: (rData && rData.state_data) || state,
+        updated_at: new Date().toISOString(), updated_by:'shared' };
+      const { error: wErr } = await sb.from('project_state').upsert(testPayload);
 
-      // Tester l'écriture pour vérifier que RLS est ouvert
-      const { error: writeErr } = await sb.from('project_state')
-        .upsert({ id: 'boa_ci_v4', state_data: state,
-                  updated_at: new Date().toISOString(), updated_by: 'shared' });
-
-      if (writeErr) {
-        console.warn('Supabase write blocked (RLS). Falling back to localStorage.', writeErr.message);
+      if (wErr) {
+        const code = wErr.code || '';
+        const msg  = wErr.message || 'Erreur inconnue';
+        console.error('Supabase write error:', code, msg);
+        setSync('⛔', code + ': ' + msg.substring(0,40), '#b71c1c', '#ffebee');
         window._sbWriteOK = false;
-        if (syncEl) { syncEl.textContent = '💾 Local only'; syncEl.style.background = '#fff3e0'; syncEl.style.color = '#e65100'; }
+        // Charger depuis localStorage
+        if (rData && rData.state_data && !rErr) applyParsedState(rData.state_data);
+        else loadState();
       } else {
         window._sbWriteOK = true;
-        if (syncEl) { syncEl.textContent = '☁️ Cloud sync'; syncEl.style.background = '#e8f5e9'; syncEl.style.color = '#2e7d32'; }
+        setSync('☁️', 'Cloud sync OK', '#2e7d32', '#e8f5e9');
+        if (rData && rData.state_data && !rErr) applyParsedState(rData.state_data);
+        else loadState();
 
-        // Écoute temps réel
+        // Temps réel
         sb.channel('boa_state')
           .on('postgres_changes',
             { event: 'UPDATE', schema: 'public', table: 'project_state' },
             payload => {
-              if (payload.new && payload.new.updated_by !== 'self_' + Date.now()) {
+              if (payload.new && payload.new.state_data) {
                 applyParsedState(payload.new.state_data);
                 renderDashboard(); renderArbitrages(); renderActions(); renderGaps();
-                const activeTab = document.querySelector('.tab-content.active');
-                if (activeTab && activeTab.id === 'tab-gantt') renderGantt();
+                const at = document.querySelector('.tab-content.active');
+                if (at && at.id === 'tab-gantt') renderGantt();
                 showSyncIndicator();
               }
             }
           ).subscribe();
       }
     } catch(e) {
-      console.warn('Supabase error:', e);
-      loadState();
+      console.error('Supabase exception:', e);
+      setSync('⛔', e.message ? e.message.substring(0,40) : 'Exception', '#b71c1c', '#ffebee');
       window._sbWriteOK = false;
-      if (syncEl) { syncEl.textContent = '💾 Local only'; syncEl.style.background = '#fff3e0'; syncEl.style.color = '#e65100'; }
+      loadState();
     }
-  } else {
-    loadState();
-    if (syncEl) { syncEl.textContent = '💾 Local'; syncEl.style.background = '#f5f5f5'; syncEl.style.color = '#757575'; }
   }
   countdowns();
   renderDashboard();
