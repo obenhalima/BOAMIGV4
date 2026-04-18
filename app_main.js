@@ -2066,6 +2066,24 @@ function toggleSubtasksCollapse(parentId) {
 let _ganttRowMap = {}; // rowNum (1-based) → taskId
 let _ganttIdMap  = {}; // taskId → rowNum
 
+// ── Gantt filter helpers ──────────────────────────────────────────────────
+function applyGanttFilter(key, val) {
+  if (!state.ganttFilter) state.ganttFilter = {};
+  state.ganttFilter[key] = val;
+  saveState();
+  renderGantt();
+}
+
+function resetGanttFilters() {
+  state.ganttFilter = {};
+  saveState();
+  ['gf-search','gf-type','gf-side','gf-status','gf-phase'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderGantt();
+}
+
 function renderGantt() {
   // Recalculer la plage pour inclure les tâches importées hors plage de base
   _refreshGanttRange();
@@ -2143,6 +2161,121 @@ function renderGantt() {
   // Orphelins custom (phases ou tâches sans ancre), avec leurs enfants ancrés
   customOrphan.forEach(function(ct) {
     if (!_renderedIds.has(ct.id)) _pushWithAnchoredChildren(ct, false);
+  });
+
+  // ── 1b. Construire la map phase → tâches + alimenter le sélecteur ────────
+  const _phaseMap = {}; // taskId -> phaseId (pour la phase parente)
+  let   _lastPhaseId = null;
+  allTasksRendered.forEach(function(t) {
+    if (t.type === 'phase') { _lastPhaseId = t.id; }
+    else if (_lastPhaseId)  { _phaseMap[t.id] = _lastPhaseId; }
+  });
+
+  // Alimenter le <select id="gf-phase"> avec les phases disponibles
+  const _phaseSelect = document.getElementById('gf-phase');
+  if (_phaseSelect) {
+    const _prevPhaseVal = _phaseSelect.value;
+    const _allPhases    = allTasksRendered.filter(function(t) { return t.type === 'phase'; });
+    _phaseSelect.innerHTML = '<option value="">📌 Toutes phases</option>'
+      + _allPhases.map(function(p) {
+          const lbl = ((state.gantt[p.id] && state.gantt[p.id]._label) || p.label || p.id).substring(0, 45);
+          return '<option value="' + p.id + '"' + (p.id === _prevPhaseVal ? ' selected' : '') + '>' + escHtml(lbl) + '</option>';
+        }).join('');
+  }
+
+  // ── 1c. Appliquer les filtres actifs ──────────────────────────────────
+  const _f     = state.ganttFilter || {};
+  const _fText = (_f.text || '').trim().toLowerCase();
+  const _fType = _f.type   || '';
+  const _fSide = _f.side   || '';
+  const _fRag  = _f.rag    || '';
+  const _fStat = _f.status || '';
+  const _fPhId = _f.phaseId|| '';
+  const _hasF  = !!(_fText || _fType || _fSide || _fRag || _fStat || _fPhId);
+
+  if (_hasF) {
+    // Passe 1 : trouver les IDs de tâches qui correspondent
+    const _matchSet     = new Set();
+    const _matchedPhIds = new Set();
+
+    allTasksRendered.forEach(function(t) {
+      if (t.type === 'phase') return;
+      const isCustom = !!t._custom;
+      const ov   = (!isCustom && state.gantt[t.id]) ? state.gantt[t.id] : {};
+      const lbl  = (ov._label || t.label || '').toLowerCase();
+      const side = _getGanttTaskSide(t, ov);
+      const rag  = isCustom ? (t.rag || '') : (ov._rag || t.rag || '');
+      const pct  = ov._pct != null ? ov._pct : Math.round((t.pct || 0) * 100);
+
+      if (_fPhId && _phaseMap[t.id] !== _fPhId) return;
+      if (_fText && !lbl.includes(_fText)) return;
+      if (_fType) {
+        if (_fType === 'custom' && !isCustom) return;
+        if (_fType !== 'custom' && t.type !== _fType) return;
+      }
+      if (_fSide && side !== _fSide) return;
+      if (_fRag) {
+        const rv = String(rag).toUpperCase();
+        if (_fRag === 'R' && rv !== 'R') return;
+        if (_fRag === 'A' && rv !== 'A' && rv !== 'O') return;
+        if (_fRag === 'G' && rv !== 'G') return;
+      }
+      if (_fStat) {
+        if (_fStat === 'todo'       && pct !== 0)                    return;
+        if (_fStat === 'inprogress' && (pct <= 0 || pct >= 100))     return;
+        if (_fStat === 'done'       && pct < 100)                    return;
+      }
+
+      _matchSet.add(t.id);
+      const pid = _phaseMap[t.id];
+      if (pid) _matchedPhIds.add(pid);
+    });
+
+    // Passe 2 : filtrer allTasksRendered
+    const _filtered = allTasksRendered.filter(function(t) {
+      if (t.type === 'phase') {
+        if (_fPhId && t.id !== _fPhId) return false;
+        // Garder la phase si elle a des enfants qui matchent
+        const otherFilters = _fText || _fType || _fSide || _fRag || _fStat;
+        if (otherFilters) return _matchedPhIds.has(t.id);
+        return true; // si seul le filtre phase est actif, garder la phase
+      }
+      return _matchSet.has(t.id);
+    });
+
+    allTasksRendered.length = 0;
+    _filtered.forEach(function(t) { allTasksRendered.push(t); });
+  }
+
+  // Mettre à jour l'UI du filtre (bouton reset + compteur + RAG buttons + active class)
+  const _resetBtn  = document.getElementById('gf-reset');
+  const _countEl   = document.getElementById('gf-count');
+  if (_resetBtn) _resetBtn.style.display = _hasF ? 'inline-flex' : 'none';
+  if (_countEl) {
+    if (_hasF) {
+      const _visibleCount = allTasksRendered.filter(function(t) { return t.type !== 'phase'; }).length;
+      _countEl.textContent = _visibleCount + ' tâche' + (_visibleCount !== 1 ? 's' : '');
+      _countEl.style.display = '';
+    } else {
+      _countEl.style.display = 'none';
+    }
+  }
+  // Sync selects avec state (pour restauration après reload)
+  const _syncSel = function(id, key) {
+    const el = document.getElementById(id);
+    if (el && el.value !== (_f[key]||'')) el.value = (_f[key]||'');
+    if (el) el.classList.toggle('gf-active', !!(_f[key]||''));
+  };
+  _syncSel('gf-type',  'type');
+  _syncSel('gf-side',  'side');
+  _syncSel('gf-status','status');
+  _syncSel('gf-phase', 'phaseId');
+  const _searchEl = document.getElementById('gf-search');
+  if (_searchEl && document.activeElement !== _searchEl) _searchEl.value = _fText;
+  // Boutons RAG
+  ['', 'R', 'A', 'G'].forEach(function(v) {
+    const btn = document.getElementById('gf-rag-' + (v || 'all'));
+    if (btn) btn.classList.toggle('active', _fRag === v);
   });
 
   // ── 2. Construire les maps N° ↔ ID ───────────────────────────────────
@@ -2242,7 +2375,6 @@ function renderGantt() {
       rowClass  = 'gantt-phase-row';
       typeBadge = '<span class="type-badge type-phase">Phase</span>';
       barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + '">'
-        + '<div class="g-bar-fill" style="width:100%"></div>'
         + '<span class="g-bar-label">' + (width>4 ? dispLabel.substring(0,20) : '') + '</span>'
         + '</div>';
       datesCells = '<td style="font-size:11px;color:#334155;font-weight:600;">' + start + '</td><td style="font-size:11px;color:#334155;font-weight:600;">' + end + '</td><td class="center" style="font-size:11px;color:#64748b;">' + dur + 'j</td>';
@@ -2256,9 +2388,10 @@ function renderGantt() {
       typeBadge = isCustom
         ? '<span class="type-badge type-custom">Custom</span>'
         : '<span class="type-badge type-task">T\u00e2che</span>';
-      const fillW = Math.min(100, dispPct);
-      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j) — ' + dispPct + '%">'
-        + '<div class="g-bar-fill" style="width:' + fillW + '%"></div>'
+      const fillW  = Math.min(100, dispPct);
+      const _emptyW = Math.max(0, 100 - fillW);
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j) \u2014 ' + dispPct + '%">'
+        + (_emptyW > 0 ? '<div class="g-bar-empty" style="left:' + fillW + '%;width:' + _emptyW + '%"></div>' : '')
         + '<span class="g-bar-label">' + (width>3 ? dispLabel.substring(0,24) : '') + '</span>'
         + '</div>';
 

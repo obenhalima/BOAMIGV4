@@ -638,7 +638,7 @@ body {
 .subs-toggle-btn:hover { color: #4f46e5; }
 
 /* ── Gantt bar cell ───────────────────────────────────────────── */
-.gantt-bar-cell  { position: relative; height: 36px; }
+.gantt-bar-cell  { position: relative; height: 36px; width: 100%; }
 .gantt-months-bg {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   display: flex; pointer-events: none;
@@ -677,12 +677,13 @@ body {
   box-shadow: 0 3px 10px rgba(0,0,0,.22);
 }
 
-/* Progress fill overlay inside bar */
-.gantt-bar .g-bar-fill {
-  position: absolute; left: 0; top: 0; bottom: 0;
-  background: rgba(255,255,255,.22);
-  border-radius: 6px 0 0 6px;
+/* Unfilled (remaining) portion — dark overlay on the right of progress */
+.gantt-bar .g-bar-empty {
+  position: absolute; top: 0; bottom: 0;
+  background: rgba(0,0,0,.42);
+  border-radius: 0 6px 6px 0;
   pointer-events: none;
+  transition: width .3s ease, left .3s ease;
 }
 .gantt-bar .g-bar-label {
   position: relative; z-index: 1;
@@ -810,6 +811,67 @@ body {
 .phase-toggle-btn:hover {
   background: #1e3a8a; color: white;
   border-color: #1e3a8a;
+}
+
+/* ── Gantt filter bar ─────────────────────────────────────────── */
+.gantt-filter-bar {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 8px 16px;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+.gf-search-wrap {
+  position: relative; flex: 1; min-width: 160px; max-width: 240px;
+}
+.gf-search-icon {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 12px; pointer-events: none; opacity: .45; line-height: 1;
+}
+.gf-search {
+  width: 100%; padding: 5px 8px 5px 26px;
+  border: 1.5px solid #e2e8f0; border-radius: 7px;
+  font-size: 11px; background: #fff; box-sizing: border-box;
+  transition: border-color .15s, box-shadow .15s; color: #334155;
+}
+.gf-search:focus {
+  outline: none; border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+}
+.gf-select {
+  padding: 5px 8px; border: 1.5px solid #e2e8f0; border-radius: 7px;
+  font-size: 11px; background: #fff; cursor: pointer;
+  color: #334155; transition: border-color .15s;
+  appearance: auto;
+}
+.gf-select:focus { outline: none; border-color: #3b82f6; }
+.gf-select.gf-active { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+.gf-rag-group {
+  display: flex; align-items: center; gap: 3px;
+  background: #fff; border: 1.5px solid #e2e8f0;
+  border-radius: 7px; padding: 2px 5px;
+}
+.gf-rag-label { font-size: 10px; color: #64748b; font-weight: 600; margin-right: 3px; }
+.gf-rag-btn {
+  border: 1.5px solid transparent; border-radius: 5px;
+  padding: 2px 8px; font-size: 10.5px; font-weight: 700;
+  cursor: pointer; background: #f1f5f9; color: #64748b;
+  transition: all .12s; line-height: 1.4;
+}
+.gf-rag-btn:hover { border-color: #94a3b8; }
+.gf-rag-btn.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
+.gf-rag-btn-R.active  { background: #dc2626; border-color: #dc2626; }
+.gf-rag-btn-A.active  { background: #d97706; border-color: #d97706; }
+.gf-rag-btn-G.active  { background: #16a34a; border-color: #16a34a; }
+.gf-reset-btn {
+  padding: 5px 10px; background: #fee2e2; color: #dc2626;
+  border: 1.5px solid #fca5a5; border-radius: 7px;
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+}
+.gf-reset-btn:hover { background: #fecaca; border-color: #f87171; }
+.gf-count-badge {
+  margin-left: auto; font-size: 10.5px; color: #64748b;
+  background: #e2e8f0; border-radius: 20px; padding: 2px 10px;
+  font-weight: 600; white-space: nowrap;
 }
 
 /* ── Gantt legend ─────────────────────────────────────────────── */
