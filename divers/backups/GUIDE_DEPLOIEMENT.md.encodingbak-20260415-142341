@@ -1,0 +1,236 @@
+﻿# ðŸš€ Guide de dÃ©ploiement â€” BOA CI Pilotage IGOR V4
+
+Temps estimÃ© : **25 minutes** Â· CoÃ»t : **0 â‚¬**
+
+---
+
+## Ce que vous obtenez
+
+- Une URL HTTPS accessible depuis n'importe quel navigateur ou tÃ©lÃ©phone
+- Connexion sÃ©curisÃ©e (identifiant + mot de passe)
+- 3 niveaux d'accÃ¨s : **PropriÃ©taire**, **Ã‰diteur**, **Lecteur**
+- Synchronisation temps rÃ©el entre tous les utilisateurs (Supabase)
+- **Application mobile installable** sur iOS et Android (PWA)
+
+---
+
+## Fichiers Ã  dÃ©ployer
+
+Le dossier `Online_Deploy` doit contenir tous ces fichiers :
+
+```
+Online_Deploy/
+â”œâ”€â”€ BOA_Programme_Pilotage_Online.html   â† Application principale
+â”œâ”€â”€ boa_styles.css                       â† Styles
+â”œâ”€â”€ manifest.json                        â† DÃ©claration PWA
+â”œâ”€â”€ sw.js                                â† Service Worker (mode hors-ligne)
+â”œâ”€â”€ favicon.ico                          â† Favicon
+â”œâ”€â”€ _headers                             â† Headers HTTP Netlify (PWA)
+â”œâ”€â”€ netlify.toml                         â† Configuration Netlify
+â”œâ”€â”€ vercel.json                          â† Configuration Vercel (alternative)
+â””â”€â”€ icons/
+    â”œâ”€â”€ icon-192.png
+    â”œâ”€â”€ icon-512.png
+    â”œâ”€â”€ apple-touch-icon.png
+    â”œâ”€â”€ favicon-16.png
+    â””â”€â”€ favicon-32.png
+```
+
+> âš ï¸ **Ne dÃ©ployez que ces fichiers.** Les fichiers `.sql`, `.docx`, `.bak` et autres documents ne doivent pas Ãªtre mis en ligne.
+
+---
+
+## Ã‰TAPE 1 â€” CrÃ©er votre base Supabase (10 min)
+
+### 1.1 CrÃ©er le projet
+
+1. Allez sur **[supabase.com](https://supabase.com)** â†’ "Start for free"
+2. Connectez-vous avec GitHub ou votre email
+3. Cliquez **"New project"**
+4. Remplissez :
+   - **Name** : `boa-ci-pilotage`
+   - **Database Password** : choisissez un mot de passe fort (notez-le !)
+   - **Region** : `EU West (Ireland)` ou `EU Central (Frankfurt)`
+5. Cliquez **"Create new project"** â€” attendez ~2 minutes
+
+### 1.2 ExÃ©cuter le schÃ©ma SQL
+
+1. Dans Supabase â†’ **"SQL Editor"** â†’ **"New query"**
+2. Ouvrez `supabase_setup.sql`, copiez tout le contenu et collez-le
+3. Cliquez **"Run"** â†’ vous devriez voir "Success. No rows returned"
+4. RÃ©pÃ©tez avec les fichiers dans cet ordre si nÃ©cessaire :
+   - `migration_gaps_step_A.sql`
+   - `migration_perimeter_step_B.sql`
+   - `migration_gantt_step_C.sql`
+   - `migration_actions_arb_step_D.sql`
+   - `migration_permissions.sql`
+   - `fix_auth_list_users.sql`
+   - `priority1_security_rpc.sql` - cree des backups, durcit `project_state` / `app_defaults` et ne modifie pas les utilisateurs existants
+
+### 1.3 RÃ©cupÃ©rer vos clÃ©s API
+
+1. Menu gauche â†’ **"Project Settings"** â†’ **"API"**
+2. Notez :
+   - **Project URL** : `https://xxxxxxxxxxxx.supabase.co`
+   - **anon public key** : `eyJhbGciOiJIUzI1NiIsInR5c...` (longue chaÃ®ne)
+
+---
+
+## Ã‰TAPE 2 â€” Configurer le fichier HTML (2 min)
+
+1. Ouvrez `BOA_Programme_Pilotage_Online.html` dans un Ã©diteur de texte (Notepad, VS Code...)
+2. Cherchez (Ctrl+F) :
+
+```javascript
+const SUPABASE_URL      = 'YOUR_SUPABASE_URL';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+```
+
+3. Remplacez par vos vraies valeurs :
+
+```javascript
+const SUPABASE_URL      = 'https://xxxxxxxxxxxx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+```
+
+4. Sauvegardez le fichier.
+
+---
+
+## Ã‰TAPE 3 â€” DÃ©ployer sur Netlify (5 min)
+
+Netlify est recommandÃ© car il gÃ¨re automatiquement le HTTPS (obligatoire pour la PWA).
+
+### Option A â€” Drag & Drop (le plus simple)
+
+1. Allez sur **[netlify.com](https://netlify.com)** â†’ "Sign up for free"
+2. Connectez-vous â†’ **"Add new site"** â†’ **"Deploy manually"**
+3. SÃ©lectionnez **uniquement** les fichiers listÃ©s dans la section "Fichiers Ã  dÃ©ployer" ci-dessus (pas les `.sql`, `.docx`, etc.)
+4. Glissez-dÃ©posez le dossier sÃ©lectionnÃ© dans la zone de dÃ©pÃ´t Netlify
+5. Netlify gÃ©nÃ¨re une URL comme `random-name-123.netlify.app`
+6. Pour personnaliser : **"Site settings"** â†’ **"Change site name"** â†’ ex: `boa-ci-pilotage`
+
+> Votre URL finale sera : `https://boa-ci-pilotage.netlify.app`
+
+### Option B â€” Via GitHub (mises Ã  jour automatiques recommandÃ©e)
+
+1. CrÃ©ez un **repo GitHub privÃ©** (important : privÃ© !)
+2. Uploadez les fichiers du dossier `Online_Deploy` (uniquement les fichiers listÃ©s)
+3. Dans Netlify : "Add new site" â†’ "Import from Git" â†’ sÃ©lectionnez votre repo
+4. **Build settings** : laissez tout vide (pas de commande de build)
+5. Chaque fois que vous modifiez un fichier sur GitHub â†’ le site se met Ã  jour automatiquement en ~30 secondes
+
+### Option C â€” Vercel (alternative)
+
+1. Allez sur **[vercel.com](https://vercel.com)** â†’ "Sign up"
+2. "New Project" â†’ "Import from Git" ou "Deploy" (drag & drop)
+3. Le fichier `vercel.json` configure automatiquement les redirections
+
+---
+
+## Ã‰TAPE 4 â€” Configurer Supabase pour votre URL (2 min)
+
+**Obligatoire** sinon la connexion Ã©chouera.
+
+1. Supabase â†’ **Authentication** â†’ **URL Configuration**
+2. **Site URL** : `https://boa-ci-pilotage.netlify.app` â† votre URL rÃ©elle
+3. **Redirect URLs** : ajoutez `https://boa-ci-pilotage.netlify.app/**`
+4. Cliquez **Save**
+
+---
+
+## Ã‰TAPE 5 â€” Premier accÃ¨s
+
+1. Ouvrez votre URL Netlify dans un navigateur
+2. Vous arrivez sur l'Ã©cran de connexion
+3. Utilisez le bouton de bootstrap (cliquer 5 fois sur "AccÃ¨s rÃ©servÃ©" en bas) pour crÃ©er le premier compte admin
+4. **Le premier compte devient automatiquement PropriÃ©taire**
+
+---
+
+## ðŸ“± Installer l'application sur mobile
+
+Une fois le site dÃ©ployÃ© en HTTPS, les utilisateurs peuvent installer l'app comme une vraie application mobile.
+
+### Sur Android (Chrome)
+
+1. Ouvrez l'URL dans **Chrome**
+2. Une banniÃ¨re "Installer BOA Pilotage" apparaÃ®t automatiquement en bas
+3. Tapez **"Installer"** â†’ l'app s'ajoute Ã  l'Ã©cran d'accueil
+4. Si la banniÃ¨re n'apparaÃ®t pas : menu **â‹®** â†’ **"Ajouter Ã  l'Ã©cran d'accueil"**
+
+### Sur iPhone / iPad (Safari)
+
+> Safari ne supporte pas la banniÃ¨re automatique â€” procÃ©dure manuelle :
+
+1. Ouvrez l'URL dans **Safari** (pas Chrome, pas Firefox)
+2. Tapez l'icÃ´ne **Partage** (carrÃ© avec flÃ¨che vers le haut) en bas de l'Ã©cran
+3. Faites dÃ©filer â†’ tapez **"Sur l'Ã©cran d'accueil"**
+4. Confirmez le nom â†’ tapez **"Ajouter"**
+5. L'app apparaÃ®t sur votre Ã©cran d'accueil avec l'icÃ´ne BOA/CBS
+
+### RÃ©sultat
+
+- L'app s'ouvre en **plein Ã©cran** (sans barre d'URL)
+- Navigation par **barre infÃ©rieure** : Dashboard Â· Planning Â· Arbitrages Â· Actions Â· â˜° Plus
+- Fonctionne **hors-ligne** pour consulter les donnÃ©es dÃ©jÃ  chargÃ©es
+- Se synchronise avec Supabase dÃ¨s que la connexion est rÃ©tablie
+
+---
+
+## Mise Ã  jour de l'application
+
+Quand vous modifiez le HTML ou le CSS et redÃ©ployez sur Netlify :
+
+1. La prochaine fois qu'un utilisateur ouvre l'app, il voit un toast : **"Nouvelle version disponible â€” rechargez la page"**
+2. Il suffit de fermer et rouvrir l'app (ou actualiser la page)
+
+---
+
+## Gestion des accÃ¨s
+
+### Inviter un collÃ¨gue
+
+1. Connectez-vous en tant que PropriÃ©taire
+2. Cliquez **"ðŸ‘¥ Utilisateurs"** dans le header
+3. CrÃ©ez un compte avec son identifiant et son rÃ´le
+4. Envoyez-lui l'URL + ses identifiants
+
+### RÃ´les
+
+| RÃ´le | Peut modifier |
+|------|---------------|
+| **PropriÃ©taire** | Tout + gestion des utilisateurs |
+| **Ã‰diteur** | Arbitrages, Gantt, Actions, GAPs, Risques |
+| **Lecteur** | Lecture seule |
+
+---
+
+## En cas de problÃ¨me
+
+| ProblÃ¨me | Solution |
+|----------|----------|
+| Ã‰cran blanc | Ouvrez la console navigateur (F12) â€” cherchez les erreurs rouges |
+| "Invalid credentials" | VÃ©rifiez identifiant/mot de passe. RÃ©initialisez via l'outil Bootstrap |
+| Les donnÃ©es ne se sauvent pas | VÃ©rifiez les clÃ©s Supabase dans le HTML |
+| Erreur CORS | Ajoutez l'URL Netlify dans Supabase â†’ Authentication â†’ URL Configuration |
+| Service Worker bloquÃ© | VÃ©rifiez que le fichier `_headers` est bien dÃ©ployÃ© avec le reste |
+| PWA non installable | Le site doit Ãªtre en HTTPS. VÃ©rifiez dans Chrome â†’ F12 â†’ Application â†’ Manifest |
+| Pas de banniÃ¨re install sur iOS | Normal â€” utilisez Safari â†’ Partage â†’ "Sur l'Ã©cran d'accueil" |
+
+---
+
+## VÃ©rifier que la PWA fonctionne
+
+Dans Chrome (desktop ou Android) :
+
+1. Ouvrez l'app â†’ appuyez sur **F12** (DevTools)
+2. Onglet **"Application"**
+3. VÃ©rifiez :
+   - **Manifest** â†’ doit afficher le nom, les icÃ´nes, le thÃ¨me rouge
+   - **Service Workers** â†’ doit afficher `sw.js` avec statut "activated and running"
+   - **Cache Storage** â†’ doit lister les fichiers mis en cache
+
+---
+
+*Application gÃ©nÃ©rÃ©e par Claude (Anthropic) Â· Capital Banking Solutions Â· BOA Afrique Â· 2026*

@@ -1,0 +1,24 @@
+# Netlify — Headers HTTP pour la PWA
+# Ce fichier est indispensable pour que le Service Worker fonctionne correctement.
+
+# Service Worker : jamais mis en cache navigateur
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# Manifest : cache court
+/manifest.json
+  Cache-Control: public, max-age=86400
+  Content-Type: application/manifest+json
+
+# Icônes : cache long
+/icons/*
+  Cache-Control: public, max-age=604800
+
+# App principale : pas de cache côté navigateur (pour que les mises à jour soient reçues)
+/BOA_Programme_Pilotage_Online.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# CSS : cache court pour recevoir les mises à jour
+/boa_styles.css
+  Cache-Control: public, max-age=3600
