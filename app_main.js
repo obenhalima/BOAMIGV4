@@ -2192,43 +2192,75 @@ function renderGantt() {
     const predNums  = dispPred.map(pid => { const rn = _ganttIdMap[pid]; return rn != null ? rn : pid; });
     const predStr   = predNums.length ? predNums.join(', ') : '—';
     const predTitle = dispPred.join(', ') || '';
+    // ── Side badge helper ──────────────────────────────────────────────────
+    function _sideBadge(side) {
+      if (!side) return '<span class="g-side-empty">—</span>';
+      if (side === 'BOA')       return '<span class="g-side-boa">BOA</span>';
+      if (side === 'CBS')       return '<span class="g-side-cbs">CBS</span>';
+      if (side.includes('BOA') && side.includes('CBS')) return '<span class="g-side-boaCbs">BOA+CBS</span>';
+      return '<span class="g-side-ext">' + escHtml(side) + '</span>';
+    }
+    // ── RAG badge helper ───────────────────────────────────────────────────
+    function _ragBadge(rag) {
+      if (!rag) return '';
+      const r = String(rag).toUpperCase();
+      if (r === 'R') return '<span class="g-rag-R" title="Rouge — Bloquant">R</span>';
+      if (r === 'O' || r === 'A') return '<span class="g-rag-A" title="Ambre — À surveiller">A</span>';
+      if (r === 'G') return '<span class="g-rag-G" title="Vert — OK">G</span>';
+      return '<span class="g-rag-X" title="Non défini">?</span>';
+    }
+
     const ownerCell = (!isPhase && !isJalon)
-      ? '<input type="text" list="dl-owners" value="' + escAttr(dispOwner === '—' ? '' : dispOwner) + '" onchange="updateGanttOwner(\'' + task.id + '\',this.value)" style="width:100%;min-width:92px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:10px;box-sizing:border-box;">'
-      : '<span style="font-size:10px;color:var(--gray);">' + escHtml(dispOwner) + '</span>';
+      ? '<input type="text" list="dl-owners" value="' + escAttr(dispOwner === '—' ? '' : dispOwner) + '" onchange="updateGanttOwner(\'' + task.id + '\',this.value)" style="width:100%;min-width:88px;padding:4px 7px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:10.5px;box-sizing:border-box;background:#f8fafc;transition:border-color .15s;" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'">'
+      : '<span style="font-size:10.5px;color:#64748b;font-style:italic;">' + escHtml(dispOwner) + '</span>';
     const sideCell = (!isPhase && !isJalon)
-      ? '<select onchange="updateGanttSide(\'' + task.id + '\',this.value)" style="width:100%;min-width:74px;padding:4px 6px;border:1px solid #d1d5db;border-radius:4px;font-size:10px;box-sizing:border-box;">'
+      ? '<select onchange="updateGanttSide(\'' + task.id + '\',this.value)" style="width:100%;min-width:72px;padding:4px 6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:10.5px;box-sizing:border-box;background:#f8fafc;cursor:pointer;">'
           + '<option value=""' + (dispSide ? '' : ' selected') + '>—</option>'
-          + '<option value="BOA"' + (dispSide === 'BOA' ? ' selected' : '') + '>BOA</option>'
-          + '<option value="CBS"' + (dispSide === 'CBS' ? ' selected' : '') + '>CBS</option>'
+          + '<option value="BOA"'     + (dispSide === 'BOA'     ? ' selected' : '') + '>BOA</option>'
+          + '<option value="CBS"'     + (dispSide === 'CBS'     ? ' selected' : '') + '>CBS</option>'
           + '<option value="CBS + BOA"' + (dispSide === 'CBS + BOA' ? ' selected' : '') + '>CBS + BOA</option>'
           + '<option value="Externe"' + (dispSide === 'Externe' ? ' selected' : '') + '>Externe</option>'
         + '</select>'
-      : '<span style="font-size:10px;color:var(--gray);">' + escHtml(dispSide || '—') + '</span>';
+      : _sideBadge(dispSide);
     const predCell = (!isPhase && !isJalon)
-      ? '<button type="button" onclick="openGanttDependenciesEditor(\'' + task.id + '\')" style="width:100%;padding:4px 6px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;font-size:10px;color:#334155;cursor:pointer;" title="' + escAttr(predTitle || 'Aucune dépendance') + '">🔎 ' + escHtml(predStr) + '</button>'
-      : '<span style="font-size:10px;color:#3949AB;" title="' + predTitle + '">' + predStr + '</span>';
+      ? '<button type="button" onclick="openGanttDependenciesEditor(\'' + task.id + '\')" style="width:100%;padding:3px 6px;border:1.5px solid #e2e8f0;border-radius:6px;background:#f8fafc;font-size:10px;color:#334155;cursor:pointer;transition:all .15s;" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#93c5fd\'" onmouseout="this.style.background=\'#f8fafc\';this.style.borderColor=\'#e2e8f0\'" title="' + escAttr(predTitle || 'Aucune dépendance') + '">' + (predNums.length ? '🔗 ' + escHtml(predStr) : '<span style="color:#94a3b8">—</span>') + '</button>'
+      : '<span style="font-size:10px;color:#6366f1;font-weight:600;" title="' + predTitle + '">' + predStr + '</span>';
     const pctCell = (!isPhase && !isJalon)
-      ? '<div style="display:flex;align-items:center;justify-content:center;gap:3px;"><input type="number" min="0" max="100" value="' + dispPct + '" onchange="updateGanttPct(\'' + task.id + '\',this.value)" style="width:48px;padding:4px 5px;border:1px solid #d1d5db;border-radius:4px;font-size:10px;text-align:center;box-sizing:border-box;"><span style="font-size:10px;color:#64748b;">%</span></div>'
-      : '<span style="font-size:10px;">' + (dispPct>0 ? dispPct+'%' : '—') + '</span>';
+      ? '<div style="display:flex;align-items:center;gap:4px;">'
+        + '<div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;min-width:32px;">'
+        + '<div style="height:100%;width:' + dispPct + '%;background:' + (dispPct>=100?'#22c55e':dispPct>=60?'#3b82f6':'#f59e0b') + ';border-radius:3px;transition:width .3s;"></div>'
+        + '</div>'
+        + '<input type="number" min="0" max="100" value="' + dispPct + '" onchange="updateGanttPct(\'' + task.id + '\',this.value)" style="width:40px;padding:3px 4px;border:1.5px solid #e2e8f0;border-radius:5px;font-size:10px;text-align:center;box-sizing:border-box;background:#f8fafc;">'
+        + '</div>'
+      : '<span style="font-size:10.5px;font-weight:600;color:' + (dispPct>=100?'#16a34a':dispPct>0?'#2563eb':'#94a3b8') + ';">' + (dispPct>0 ? dispPct+'%' : '—') + '</span>';
 
-    // Type badge (basé sur le vrai type, ★ uniquement comme décoration de libellé)
+    // Type badge (basé sur le vrai type)
     let typeBadge, rowClass, barHtml, datesCells;
-    const dashed = isCustom ? 'border:2px dashed rgba(0,0,0,.18);opacity:.82;' : '';
+    const dashed = isCustom ? 'border:2px dashed rgba(255,255,255,.5);' : '';
 
     if (isPhase) {
       rowClass  = 'gantt-phase-row';
       typeBadge = '<span class="type-badge type-phase">Phase</span>';
-      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + '">' + (width>4 ? dispLabel.substring(0,18) : '') + '</div>';
-      datesCells = '<td style="font-size:11px;">' + start + '</td><td style="font-size:11px;">' + end + '</td><td class="center" style="font-size:11px;">' + dur + 'j</td>';
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + '">'
+        + '<div class="g-bar-fill" style="width:100%"></div>'
+        + '<span class="g-bar-label">' + (width>4 ? dispLabel.substring(0,20) : '') + '</span>'
+        + '</div>';
+      datesCells = '<td style="font-size:11px;color:#334155;font-weight:600;">' + start + '</td><td style="font-size:11px;color:#334155;font-weight:600;">' + end + '</td><td class="center" style="font-size:11px;color:#64748b;">' + dur + 'j</td>';
     } else if (isJalon) {
       rowClass  = 'gantt-jalon-row';
       typeBadge = '<span class="type-badge type-jalon">Jalon</span>';
-      barHtml   = '<div class="gantt-milestone" style="left:calc(' + left.toFixed(1) + '% - 10px);" title="' + dispLabel + ': ' + start + '">\u25C6</div>';
-      datesCells = '<td style="font-weight:700;text-align:center;font-size:11px;">' + start + '</td><td style="color:var(--gray);text-align:center;">\u2014</td><td class="center" style="color:var(--gray);">\u2014</td>';
+      barHtml   = '<div class="gantt-milestone" style="left:' + left.toFixed(1) + '%;" title="' + dispLabel + ': ' + start + '"></div>';
+      datesCells = '<td style="font-weight:700;text-align:center;font-size:11px;color:#92400e;">' + start + '</td><td style="color:#94a3b8;text-align:center;">\u2014</td><td class="center" style="color:#94a3b8;">\u2014</td>';
     } else {
       rowClass  = isCustom ? 'gantt-sub-row custom-task-row' : 'gantt-sub-row';
-      typeBadge = '<span class="type-badge type-task">T\u00e2che</span>';
-      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">' + (width>3 ? dispLabel.substring(0,22) : '') + '</div>';
+      typeBadge = isCustom
+        ? '<span class="type-badge type-custom">Custom</span>'
+        : '<span class="type-badge type-task">T\u00e2che</span>';
+      const fillW = Math.min(100, dispPct);
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p1') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j) — ' + dispPct + '%">'
+        + '<div class="g-bar-fill" style="width:' + fillW + '%"></div>'
+        + '<span class="g-bar-label">' + (width>3 ? dispLabel.substring(0,24) : '') + '</span>'
+        + '</div>';
 
       // Reference plan delta
       const refDates   = (state.ganttReference && state.ganttReference.isSet && state.ganttReference.dates && state.ganttReference.dates[task.id]) || null;
@@ -2257,39 +2289,37 @@ function renderGantt() {
     const collapseBtn = isPhase
       ? '<button onclick="togglePhaseCollapse(\'' + task.id + '\')" class="phase-toggle-btn" title="' + (isCollapsed?'D\u00e9ployer':'R\u00e9duire') + '">' + (isCollapsed?'\u25B6':'\u25BC') + '</button>'
       : '';
-    const labelStyle = isCustom ? ' style="color:#3949AB;font-style:italic;"' : '';
+    const labelStyle = isCustom ? ' style="color:#4f46e5;font-style:italic;"' : '';
     const _subsColl  = !!(state.ganttSubsCollapsed||{})[task.id];
     const _subsToggle = (!isPhase && !isJalon && _taskSubs.length > 0)
-      ? ' <button class="subs-toggle-btn" onclick="toggleSubtasksCollapse(\'' + task.id + '\')" title="' + (_subsColl?'Afficher':'Masquer') + ' les sous-t\u00e2ches">' + (_subsColl?'\u25B6':'\u25BC') + '\u202F<small>(' + _taskSubs.length + ')</small></button>'
+      ? ' <button class="subs-toggle-btn" onclick="toggleSubtasksCollapse(\'' + task.id + '\')" title="' + (_subsColl?'Afficher':'Masquer') + ' les sous-t\u00e2ches">' + (_subsColl?'▶':'▼') + '\u202f<small>(' + _taskSubs.length + ')</small></button>'
       : '';
-    // RAG indicator
-    const _ragDot = (!isPhase && !isJalon && dispRag)
-      ? ' <span title="RAG: ' + dispRag + '" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + (dispRag==='R'?'#ef4444':dispRag==='O'?'#f97316':'#22c55e') + ';margin-left:4px;vertical-align:middle;"></span>'
-      : '';
+    // RAG badge (nouveau style)
+    const _ragDot = (!isPhase && !isJalon && dispRag) ? _ragBadge(dispRag) : '';
     // Participants badge
     const _partsBadge = (!isPhase && !isJalon && dispParticipants.length)
-      ? ' <span title="Participants: ' + escAttr(dispParticipants.join(', ')) + '" style="font-size:9px;background:#ecfeff;color:#0f766e;border:1px solid #99f6e4;border-radius:999px;padding:1px 5px;margin-left:4px;cursor:default;">+' + dispParticipants.length + '</span>'
+      ? ' <span title="Participants: ' + escAttr(dispParticipants.join(', ')) + '" style="font-size:9px;background:#ecfeff;color:#0f766e;border:1px solid #99f6e4;border-radius:20px;padding:1px 6px;margin-left:4px;cursor:default;font-weight:700;">+' + dispParticipants.length + '</span>'
       : '';
     // Commentaire indicator
     const _commBadge = (!isPhase && !isJalon && dispCommentaire)
-      ? ' <span title="' + escAttr(dispCommentaire.substring(0, 80)) + '" style="font-size:10px;opacity:.6;margin-left:4px;cursor:default;">💬</span>'
+      ? ' <span title="' + escAttr(dispCommentaire.substring(0, 80)) + '" style="font-size:11px;opacity:.5;margin-left:3px;cursor:default;">💬</span>'
       : '';
     const labelCell  = isPhase
-      ? collapseBtn + '<span' + labelStyle + '>' + dispLabel + '</span>'
-      : '&nbsp;&nbsp;<span' + labelStyle + '>' + dispLabel + '</span>' + _subsToggle + _ragDot + _partsBadge + _commBadge;
+      ? collapseBtn + '<span style="font-weight:700;color:#1a2e55;letter-spacing:.2px;">' + escHtml(dispLabel) + '</span>'
+      : '<span style="padding-left:12px;display:inline-block;"><span' + labelStyle + '>' + escHtml(dispLabel) + '</span>' + _subsToggle + _ragDot + _partsBadge + _commBadge + '</span>';
 
-    // Bouton ✏️ sur TOUTES les lignes ; bouton ✕ si canAddDelete()
-    // Bouton 📋 pour ajouter la tâche au plan d'action (masqué si déjà liée)
-    const _isActTask   = task.type === 'task'; // uniquement les tâches (pas phases/jalons/sous-tâches)
-    const _alreadyLinked = _isActTask
-      && !!(state.customActions || []).find(a => a._ganttTaskId === task.id);
-    const editBtns = '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:12px;padding:1px;" title="Modifier">\u270F\uFE0F</button>'
-      + (canAddDelete() ? '<button onclick="deleteGanttTask(\'' + task.id + '\')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;padding:1px;" title="Supprimer">\u2715</button>' : '')
-      + (!isPhase && !isJalon && canEdit() ? '<button onclick="openAddSubtask(\'' + task.id + '\')" class="subtask-add-btn" title="Ajouter une sous-t\u00e2che">\u2295</button>' : '')
+    // ── Action buttons ─────────────────────────────────────────────────────
+    const _isActTask   = task.type === 'task';
+    const _alreadyLinked = _isActTask && !!(state.customActions || []).find(a => a._ganttTaskId === task.id);
+    const _btnStyle    = 'background:none;border:none;cursor:pointer;padding:2px 3px;border-radius:4px;transition:background .12s;';
+    const editBtns =
+        '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="' + _btnStyle + 'font-size:13px;" title="Modifier" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'none\'">✏️</button>'
+      + (canAddDelete() ? '<button onclick="deleteGanttTask(\'' + task.id + '\')" style="' + _btnStyle + 'font-size:12px;color:#ef4444;" title="Supprimer" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'none\'">✕</button>' : '')
+      + (!isPhase && !isJalon && canEdit() ? '<button onclick="openAddSubtask(\'' + task.id + '\')" class="subtask-add-btn" title="Ajouter une sous-t\u00e2che">⊕</button>' : '')
       + (_isActTask && canEdit() && !_alreadyLinked
-          ? '<button onclick="_addTaskToActionPlan(\'' + task.id + '\')" style="background:none;border:none;cursor:pointer;font-size:11px;padding:1px;opacity:.7;" title="Ajouter au plan d\'action">\uD83D\uDCCB</button>'
+          ? '<button onclick="_addTaskToActionPlan(\'' + task.id + '\')" style="' + _btnStyle + 'font-size:11px;opacity:.65;" title="Lier au plan d\'action" onmouseover="this.style.background=\'#f0fdf4\';this.style.opacity=1" onmouseout="this.style.background=\'none\';this.style.opacity=.65">📋</button>'
           : (_isActTask && _alreadyLinked
-              ? '<span style="font-size:10px;opacity:.4;" title="D\u00e9j\u00e0 dans le plan d\'action">\u2713\uD83D\uDCCB</span>'
+              ? '<span style="font-size:10px;color:#16a34a;padding:2px 3px;" title="Li\u00e9 au plan d\'action">✓📋</span>'
               : ''));
 
     // Colonne N° : affiche le numéro par défaut, + au survol de la ligne
@@ -2350,25 +2380,25 @@ function renderGantt() {
   });
 
   const header = '<table class="gantt-table"><thead><tr>'
-    + '<th style="width:28px;text-align:center;font-size:10px;color:#aaa;padding:4px 2px;">N\u00b0</th>'
-    + '<th style="width:48px;"></th>'
-    + '<th style="width:52px;text-align:center;">Type</th>'
-    + '<th class="col-name">T\u00e2che / Livrable</th>'
-    + '<th style="width:110px;text-align:center;">Owner</th>'
-    + '<th style="width:90px;text-align:center;">C\u00f4t\u00e9</th>'
-    + '<th style="width:82px;text-align:center;" title="Pr\u00e9d\u00e9cesseurs (N\u00b0 de ligne)">Pr\u00e9d.</th>'
-    + '<th class="col-start">D\u00e9but</th>'
-    + '<th class="col-end">Fin</th>'
-    + '<th style="width:52px" class="center">Dur\u00e9e</th>'
-    + '<th style="width:64px" class="center">%</th>'
-    + '<th class="col-bar" style="padding:0;"><div style="display:flex;height:26px;min-width:' + cols.minWidth + ';">'
+    + '<th style="width:30px;text-align:center;padding:8px 3px;">N°</th>'
+    + '<th style="width:52px;text-align:center;">Actions</th>'
+    + '<th style="width:56px;text-align:center;">Type</th>'
+    + '<th class="col-name">Tâche / Livrable</th>'
+    + '<th style="width:112px;text-align:center;">👤 Responsable</th>'
+    + '<th style="width:90px;text-align:center;">🏢 Entité</th>'
+    + '<th style="width:80px;text-align:center;" title="Prédécesseurs (N° de ligne)">🔗 Préd.</th>'
+    + '<th class="col-start">📅 Début</th>'
+    + '<th class="col-end">📅 Fin</th>'
+    + '<th style="width:54px;" class="center">Durée</th>'
+    + '<th style="width:90px;" class="center">Avancement</th>'
+    + '<th class="col-bar" style="padding:0;"><div style="display:flex;height:28px;min-width:' + cols.minWidth + ';">'
     + cols.headerHtml
     + '</div></th>'
     + '</tr></thead>';
 
   const ganttRender = document.getElementById('gantt-render');
   ganttRender.style.position = 'relative';
-  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:68vh;border:1px solid #e5e7eb;border-radius:8px;background:#fff;">'
+  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:70vh;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);">'
     + header + '<tbody>' + rows + '</tbody></table></div>';
   // ── Sticky top : en-têtes ──────────────────────────────────────────────────
   ganttRender.querySelectorAll('thead th').forEach(th => {

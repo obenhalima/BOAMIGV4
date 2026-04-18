@@ -1121,53 +1121,145 @@ ORDER BY table_name;</div>
 
 <!-- ═══════════════════════════════════════════ TAB: GANTT -->
 <div id="tab-gantt" class="tab-content">
-  <div class="section-card">
-    <div class="section-header">📅 Retroplanning Gantt — BOA CI Upgrade IGOR V4
-      <div style="display:flex;gap:8px;align-items:center;">
-        <label style="font-size:12px;display:flex;align-items:center;gap:5px;cursor:pointer;">
-          <input type="checkbox" id="gantt-chain-toggle" onchange="toggleChain(this.checked)"
-            style="width:15px;height:15px;accent-color:var(--red);">
-          <span>Mode chaîne</span>
-          <span style="background:#1565C0;color:white;border-radius:50%;width:15px;height:15px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:help;flex-shrink:0;"
-            title="Mode chaîne : quand vous modifiez la fin d'une tâche, toutes les tâches dont le début est postérieur se décalent du même nombre de jours, en conservant leurs durées. Utile pour repousser un lot de tâches en bloc.">?</span>
-        </label>
-        <div style="display:flex;gap:3px;align-items:center;">
-          <span style="font-size:10px;color:#aaa;margin-right:2px;">Zoom:</span>
+  <div class="section-card" style="overflow:visible;">
+
+    <!-- ── Barre d'outils Gantt ──────────────────────────────────────────── -->
+    <div style="background:linear-gradient(135deg,#1a2e55 0%,#2563eb 100%);border-radius:12px 12px 0 0;padding:14px 18px 12px;">
+
+      <!-- Titre -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="background:rgba(255,255,255,.15);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;">📅</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:white;letter-spacing:.3px;">Planning Gantt</div>
+            <div style="font-size:10.5px;color:rgba(255,255,255,.65);margin-top:1px;">Retroplanning interactif · Ctrl+Molette pour zoomer</div>
+          </div>
+        </div>
+
+        <!-- Actions principales -->
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <button onclick="openAddTask()" class="perm-add-delete"
+            style="display:inline-flex;align-items:center;gap:5px;background:#22c55e;color:white;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(34,197,94,.4);transition:all .15s;"
+            onmouseover="this.style.background='#16a34a'" onmouseout="this.style.background='#22c55e'">
+            ＋ Ajouter tâche
+          </button>
+          <button onclick="_openGanttImportModal()" class="perm-add-delete"
+            style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;backdrop-filter:blur(4px);"
+            onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
+            📥 Importer
+          </button>
+          <button onclick="_syncAllTasksToActions()" class="perm-add-delete"
+            style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;"
+            title="Créer des actions pour toutes les tâches Gantt qui n'en ont pas encore"
+            onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
+            📋 → Actions
+          </button>
+          <div class="cbs-export-wrap perm-export">
+            <button class="cbs-export-btn" onclick="_cbsToggleExportMenu('gantt')"
+              style="background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;">
+              ⬇️ Export ▾
+            </button>
+            <div id="cbs-export-menu-gantt" class="cbs-export-menu" style="display:none;">
+              <button onclick="_cbsDoExport('csv','gantt')">📄 CSV</button>
+              <button onclick="_cbsDoExport('xlsx','gantt')">📊 Excel (.xlsx)</button>
+              <button onclick="_cbsDoExport('pdf','gantt')">📑 PDF</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Séparateur -->
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:10px 0;"></div>
+
+      <!-- Contrôles secondaires -->
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+
+        <!-- Groupe Zoom période -->
+        <div style="display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px 4px;">
+          <span style="font-size:10px;color:rgba(255,255,255,.55);padding:0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Période</span>
           <button onclick="setGanttZoom('month')" id="zoom-btn-month" class="gantt-zoom-btn active">Mois</button>
           <button onclick="setGanttZoom('week')"  id="zoom-btn-week"  class="gantt-zoom-btn">Semaines</button>
           <button onclick="setGanttZoom('day')"   id="zoom-btn-day"   class="gantt-zoom-btn">Jours</button>
         </div>
-        <div style="display:flex;gap:4px;align-items:center;margin-left:4px;">
-          <span style="font-size:10px;color:#aaa;" title="Ctrl+Molette ou Ctrl+/- pour zoomer uniquement le Gantt">Gantt:</span>
-          <button onclick="changeGanttScale(-0.1)" class="gantt-zoom-btn" title="Zoom arrière (Ctrl+−)">−</button>
+
+        <!-- Groupe Zoom échelle -->
+        <div style="display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px 4px;">
+          <span style="font-size:10px;color:rgba(255,255,255,.55);padding:0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Échelle</span>
+          <button onclick="changeGanttScale(-0.1)" class="gantt-zoom-btn" title="Zoom arrière (Ctrl+−)" style="padding:4px 9px;font-size:14px;line-height:1;">−</button>
           <button onclick="resetGanttScale()" id="gantt-scale-label" class="gantt-zoom-btn" title="Réinitialiser (Ctrl+0)">100%</button>
-          <button onclick="changeGanttScale(0.1)" class="gantt-zoom-btn" title="Zoom avant (Ctrl++)">+</button>
+          <button onclick="changeGanttScale(0.1)" class="gantt-zoom-btn" title="Zoom avant (Ctrl++)" style="padding:4px 9px;font-size:14px;line-height:1;">+</button>
         </div>
-        <button onclick="openAddTask()" class="btn btn-primary btn-sm perm-add-delete">+ Ajouter tâche</button>
-        <button onclick="_openGanttImportModal()" class="btn btn-ghost btn-sm perm-add-delete">📥 Importer planning</button>
-        <button onclick="_syncAllTasksToActions()" class="btn btn-ghost btn-sm perm-add-delete" title="Créer des actions pour toutes les tâches Gantt qui n'en ont pas encore">📋 → Actions</button>
-        <button id="btn-ref-plan" onclick="defineReferencePlan()" class="btn btn-violet btn-sm">📌 Planning de référence</button>
-        <button id="btn-restore-gantt" onclick="restoreAllHiddenGantt()" class="btn btn-warning btn-sm perm-add-delete" style="display:none;">↩ Restaurer tâches</button>
-        <button class="btn btn-ghost btn-sm" onclick="resetGanttDates()">↩ Réinitialiser</button>
-        <div class="cbs-export-wrap perm-export">
-          <button class="cbs-export-btn" onclick="_cbsToggleExportMenu('gantt')">⬇️ Export ▾</button>
-          <div id="cbs-export-menu-gantt" class="cbs-export-menu" style="display:none;">
-            <button onclick="_cbsDoExport('csv','gantt')">📄 CSV</button>
-            <button onclick="_cbsDoExport('xlsx','gantt')">📊 Excel (.xlsx)</button>
-            <button onclick="_cbsDoExport('pdf','gantt')">📑 PDF</button>
-          </div>
-        </div>
+
+        <!-- Mode chaîne -->
+        <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;background:rgba(0,0,0,.2);border-radius:8px;padding:5px 10px;">
+          <input type="checkbox" id="gantt-chain-toggle" onchange="toggleChain(this.checked)"
+            style="width:14px;height:14px;accent-color:#22c55e;cursor:pointer;">
+          <span style="font-size:11.5px;color:rgba(255,255,255,.85);font-weight:600;">Mode chaîne</span>
+          <span style="background:rgba(255,255,255,.2);color:white;border-radius:50%;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;cursor:help;flex-shrink:0;"
+            title="Mode chaîne : quand vous modifiez la fin d'une tâche, toutes les tâches suivantes se décalent du même nombre de jours. Utile pour repousser un lot de tâches en bloc.">?</span>
+        </label>
+
+        <!-- Séparateur vertical -->
+        <div style="width:1px;height:24px;background:rgba(255,255,255,.15);"></div>
+
+        <!-- Boutons secondaires -->
+        <button id="btn-ref-plan" onclick="defineReferencePlan()"
+          style="display:inline-flex;align-items:center;gap:5px;background:rgba(139,92,246,.35);color:white;border:1px solid rgba(139,92,246,.5);border-radius:7px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;"
+          onmouseover="this.style.background='rgba(139,92,246,.55)'" onmouseout="this.style.background='rgba(139,92,246,.35)'">
+          📌 Référence
+        </button>
+        <button id="btn-restore-gantt" onclick="restoreAllHiddenGantt()"
+          style="display:none;align-items:center;gap:5px;background:rgba(245,158,11,.3);color:#fef3c7;border:1px solid rgba(245,158,11,.5);border-radius:7px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;">
+          ↩ Restaurer
+        </button>
+        <button onclick="resetGanttDates()"
+          style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;"
+          onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
+          ↺ Réinitialiser
+        </button>
       </div>
     </div>
-    <div class="section-body" style="padding:10px 14px;">
+
+    <!-- ── Statut planning de référence ──────────────────────────────────── -->
+    <div id="gantt-ref-status" style="font-size:11px;color:#7c3aed;padding:6px 16px;background:#faf5ff;border-left:3px solid #a855f7;display:none;"></div>
+
+    <!-- ── Table Gantt ────────────────────────────────────────────────────── -->
+    <div style="padding:0;">
       <div class="gantt-container">
         <div id="gantt-render"></div>
       </div>
     </div>
+
+    <!-- ── Légende ────────────────────────────────────────────────────────── -->
+    <div style="padding:10px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;border-radius:0 0 12px 12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <span style="font-size:10px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Légende :</span>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#475569;">
+        <div style="width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#1e3a8a,#1d4ed8);box-shadow:0 1px 3px rgba(0,0,0,.15);"></div> Phase
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#475569;">
+        <div style="width:14px;height:14px;transform:rotate(45deg);background:#f59e0b;border-radius:2px;flex-shrink:0;"></div> Jalon
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#475569;">
+        <div style="width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#c2410c,#f97316);"></div> Tâche
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#475569;">
+        <div style="width:14px;height:14px;border-radius:4px;background:linear-gradient(135deg,#3730a3,#818cf8);opacity:.85;"></div> Sous-tâche
+      </div>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center;">
+        <span class="g-rag-R" style="margin-left:0;">R</span><span style="font-size:11px;color:#475569;">Bloquant</span>
+        <span class="g-rag-A" style="margin-left:0;">A</span><span style="font-size:11px;color:#475569;">À surveiller</span>
+        <span class="g-rag-G" style="margin-left:0;">G</span><span style="font-size:11px;color:#475569;">OK</span>
+      </div>
+    </div>
+
   </div>
-  <div id="gantt-ref-status" style="font-size:11px;color:#7c3aed;padding:4px 4px 0;margin-top:2px;display:none;"></div>
-  <div style="font-size:11px;color:var(--gray);padding:0 4px;margin-top:6px;">
-    💡 <strong>▼/▶</strong> : Cliquez sur une phase pour réduire/déployer ses tâches. <strong>Dates :</strong> Modifiez début/fin ou durée — les successeurs se cascadent automatiquement. <strong>Mode chaîne :</strong> pousse toutes les tâches suivant la date modifiée.
+
+  <div style="font-size:11px;color:#94a3b8;padding:8px 4px 0;display:flex;align-items:center;gap:6px;">
+    <span style="font-size:13px;">💡</span>
+    <span><strong style="color:#475569;">▼/▶</strong> Réduire/déployer une phase ·
+    <strong style="color:#475569;">Dates</strong> Modifiez début/fin ou durée (cascadage auto) ·
+    <strong style="color:#475569;">Ctrl+Molette</strong> Zoom horizontal ·
+    <strong style="color:#475569;">+</strong> au survol d'une ligne pour insérer après</span>
   </div>
 </div>
 
