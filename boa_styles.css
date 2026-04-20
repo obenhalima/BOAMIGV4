@@ -577,7 +577,8 @@ body {
 
 /* ── Cells ────────────────────────────────────────────────────── */
 .gantt-table td {
-  padding: 5px 7px;
+  padding: 6px 7px;
+  height: 44px;
   border-bottom: 1px solid #eef0f5;
   vertical-align: middle;
   transition: background .12s ease;
@@ -638,56 +639,66 @@ body {
 .subs-toggle-btn:hover { color: #4f46e5; }
 
 /* ── Gantt bar cell ───────────────────────────────────────────── */
-.gantt-bar-cell  { position: relative; height: 36px; width: 100%; }
+.gantt-bar-cell  { position: relative; height: 44px; width: 100%; }
 .gantt-months-bg {
   position: absolute; top: 0; left: 0; right: 0; bottom: 0;
   display: flex; pointer-events: none;
 }
 .month-col {
   flex: 1;
-  border-right: 1px solid #dce3f0;
+  border-right: 1px solid rgba(203,213,225,.6);
   background: #f8faff;
 }
-.month-col.alt { background: #f0f4fb; }
+.month-col.alt { background: #f0f5fb; }
 .month-col:last-child { border-right: none; }
 
 /* ── Gantt bars ───────────────────────────────────────────────── */
 .gantt-bar {
   position: absolute;
-  top: 6px;
-  height: 24px;
-  border-radius: 6px;
+  top: 8px;
+  height: 28px;
+  min-width: 18px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
-  padding: 0 8px;
-  font-size: 9.5px;
+  padding: 0 9px;
+  font-size: 10px;
   font-weight: 700;
   color: white;
   white-space: nowrap;
   overflow: hidden;
   cursor: pointer;
   z-index: 2;
-  box-shadow: 0 2px 6px rgba(0,0,0,.18);
-  transition: filter .15s ease, transform .1s ease;
-  text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  box-shadow: 0 2px 8px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.18);
+  transition: filter .15s ease, box-shadow .15s ease, transform .1s ease;
+  text-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.gantt-bar::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,.15) 0%, transparent 100%);
+  border-radius: 8px 8px 0 0;
+  pointer-events: none;
 }
 .gantt-bar:hover {
-  filter: brightness(1.08);
-  transform: scaleY(1.06);
-  box-shadow: 0 3px 10px rgba(0,0,0,.22);
+  filter: brightness(1.1);
+  box-shadow: 0 4px 14px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.2);
+  transform: translateY(-1px);
 }
 
 /* Unfilled (remaining) portion — dark overlay on the right of progress */
 .gantt-bar .g-bar-empty {
   position: absolute; top: 0; bottom: 0;
-  background: rgba(0,0,0,.42);
-  border-radius: 0 6px 6px 0;
+  background: rgba(0,0,0,.38);
+  border-radius: 0 8px 8px 0;
   pointer-events: none;
-  transition: width .3s ease, left .3s ease;
+  z-index: 1;
 }
 .gantt-bar .g-bar-label {
-  position: relative; z-index: 1;
+  position: relative; z-index: 2;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  letter-spacing: .1px;
 }
 
 /* Phase palette — richer gradients */
@@ -702,9 +713,9 @@ body {
 
 /* Subtask bars */
 .gantt-bar.g-subtask-bar {
-  top: 8px; height: 20px; border-radius: 4px;
+  top: 11px; height: 22px; border-radius: 6px;
   background: linear-gradient(135deg, #3730a3 0%, #818cf8 100%);
-  opacity: .85; box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  opacity: .9; box-shadow: 0 1px 5px rgba(0,0,0,.18);
 }
 
 /* ── Milestone diamond ────────────────────────────────────────── */
@@ -732,24 +743,9 @@ body {
   z-index: 5; pointer-events: none;
   box-shadow: 0 0 6px rgba(239,68,68,.4);
 }
-.today-line::before {
-  content: '';
-  position: absolute; top: -4px; left: -4px;
-  width: 10px; height: 10px;
-  background: #ef4444;
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 0 0 1.5px #ef4444;
-}
-.today-line::after {
-  content: 'Aujourd\'hui';
-  position: absolute; top: 2px; left: 6px;
-  font-size: 9px; color: white; font-weight: 700;
-  white-space: nowrap;
-  background: #ef4444;
-  padding: 1px 5px; border-radius: 3px;
-  box-shadow: 0 1px 4px rgba(239,68,68,.4);
-}
+/* Dot + label supprimés des body rows — le label est rendu une seule fois dans le <thead> */
+.today-line::before { display: none; }
+.today-line::after  { display: none; }
 
 /* ── Date inputs ──────────────────────────────────────────────── */
 .date-input {
@@ -813,65 +809,176 @@ body {
   border-color: #1e3a8a;
 }
 
-/* ── Gantt filter bar ─────────────────────────────────────────── */
+/* ══ Gantt filter bar — modern pill strip ═══════════════════════ */
 .gantt-filter-bar {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  padding: 8px 16px;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 16px;
+  background: #fff;
+  border-bottom: 1px solid #e8ecf4;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.gantt-filter-bar::-webkit-scrollbar { display: none; }
+
+/* Vertical divider */
+.gf-divider {
+  width: 1px; height: 20px;
+  background: #e2e8f0;
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+/* ── Search ── */
 .gf-search-wrap {
-  position: relative; flex: 1; min-width: 160px; max-width: 240px;
+  position: relative;
+  flex-shrink: 0;
+  width: 195px;
 }
 .gf-search-icon {
-  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
-  font-size: 12px; pointer-events: none; opacity: .45; line-height: 1;
+  position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px; pointer-events: none; opacity: .4; line-height: 1;
 }
 .gf-search {
-  width: 100%; padding: 5px 8px 5px 26px;
-  border: 1.5px solid #e2e8f0; border-radius: 7px;
-  font-size: 11px; background: #fff; box-sizing: border-box;
-  transition: border-color .15s, box-shadow .15s; color: #334155;
+  width: 100%;
+  padding: 6px 12px 6px 28px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 11px;
+  background: #f8fafc;
+  box-sizing: border-box;
+  color: #334155;
+  font-weight: 500;
+  transition: all .18s;
 }
+.gf-search::placeholder { color: #a0aec0; }
 .gf-search:focus {
-  outline: none; border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59,130,246,.12);
+  outline: none;
+  border-color: #6366f1;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.1);
+}
+
+/* ── Select pill wrapper (custom arrow) ── */
+.gf-select-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+.gf-select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 10px; top: 50%;
+  transform: translateY(-50%);
+  width: 0; height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #94a3b8;
+  pointer-events: none;
 }
 .gf-select {
-  padding: 5px 8px; border: 1.5px solid #e2e8f0; border-radius: 7px;
-  font-size: 11px; background: #fff; cursor: pointer;
-  color: #334155; transition: border-color .15s;
-  appearance: auto;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 28px 6px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 11px;
+  background: #f8fafc;
+  cursor: pointer;
+  color: #475569;
+  font-weight: 500;
+  transition: all .18s;
+  white-space: nowrap;
+  max-width: 185px;
 }
-.gf-select:focus { outline: none; border-color: #3b82f6; }
-.gf-select.gf-active { border-color: #3b82f6; background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+.gf-select:focus  { outline: none; border-color: #6366f1; background: #fff; }
+.gf-select.gf-active {
+  border-color: #6366f1;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
+  color: #4f46e5;
+  font-weight: 600;
+}
+.gf-select-wrap.gf-active::after { border-top-color: #6366f1; }
+
+/* ── RAG pill group ── */
 .gf-rag-group {
-  display: flex; align-items: center; gap: 3px;
-  background: #fff; border: 1.5px solid #e2e8f0;
-  border-radius: 7px; padding: 2px 5px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  background: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 3px 6px;
 }
-.gf-rag-label { font-size: 10px; color: #64748b; font-weight: 600; margin-right: 3px; }
+.gf-rag-label {
+  font-size: 9.5px;
+  color: #94a3b8;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  padding-right: 4px;
+  border-right: 1px solid #e2e8f0;
+  margin-right: 3px;
+  white-space: nowrap;
+}
 .gf-rag-btn {
-  border: 1.5px solid transparent; border-radius: 5px;
-  padding: 2px 8px; font-size: 10.5px; font-weight: 700;
-  cursor: pointer; background: #f1f5f9; color: #64748b;
-  transition: all .12s; line-height: 1.4;
+  border: none;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: #94a3b8;
+  transition: all .14s;
+  line-height: 1.4;
+  white-space: nowrap;
 }
-.gf-rag-btn:hover { border-color: #94a3b8; }
-.gf-rag-btn.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
-.gf-rag-btn-R.active  { background: #dc2626; border-color: #dc2626; }
-.gf-rag-btn-A.active  { background: #d97706; border-color: #d97706; }
-.gf-rag-btn-G.active  { background: #16a34a; border-color: #16a34a; }
+.gf-rag-btn:hover { color: #475569; background: #e2e8f0; }
+.gf-rag-btn.active {
+  background: #1e3a8a; color: #fff;
+  box-shadow: 0 1px 4px rgba(30,58,138,.35);
+}
+.gf-rag-btn-R.active { background: #dc2626; box-shadow: 0 1px 4px rgba(220,38,38,.35); }
+.gf-rag-btn-A.active { background: #d97706; box-shadow: 0 1px 4px rgba(217,119,6,.35); }
+.gf-rag-btn-G.active { background: #16a34a; box-shadow: 0 1px 4px rgba(22,163,74,.35); }
+
+/* ── Reset button ── */
 .gf-reset-btn {
-  padding: 5px 10px; background: #fee2e2; color: #dc2626;
-  border: 1.5px solid #fca5a5; border-radius: 7px;
-  font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #fff0f0;
+  color: #dc2626;
+  border: 1.5px solid #fca5a5;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
-.gf-reset-btn:hover { background: #fecaca; border-color: #f87171; }
+.gf-reset-btn:hover { background: #fee2e2; border-color: #f87171; }
+
+/* ── Count badge ── */
 .gf-count-badge {
-  margin-left: auto; font-size: 10.5px; color: #64748b;
-  background: #e2e8f0; border-radius: 20px; padding: 2px 10px;
-  font-weight: 600; white-space: nowrap;
+  font-size: 10px;
+  color: #6366f1;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 20px;
+  padding: 3px 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 
 /* ── Gantt legend ─────────────────────────────────────────────── */

@@ -1226,7 +1226,7 @@ ORDER BY table_name;</div>
     <!-- ── Filtres Gantt ───────────────────────────────────────────────────── -->
     <div class="gantt-filter-bar" id="gantt-filter-bar">
 
-      <!-- Recherche texte -->
+      <!-- 🔍 Recherche texte -->
       <div class="gf-search-wrap">
         <span class="gf-search-icon">🔍</span>
         <input type="text" id="gf-search" class="gf-search"
@@ -1234,48 +1234,60 @@ ORDER BY table_name;</div>
           oninput="applyGanttFilter('text',this.value)">
       </div>
 
+      <div class="gf-divider"></div>
+
       <!-- Type -->
-      <select id="gf-type" class="gf-select" onchange="applyGanttFilter('type',this.value)">
-        <option value="">📂 Tous types</option>
-        <option value="phase">Phase</option>
-        <option value="task">Tâche</option>
-        <option value="jalon">Jalon</option>
-        <option value="custom">Custom</option>
-      </select>
+      <div class="gf-select-wrap" id="gf-wrap-type">
+        <select id="gf-type" class="gf-select" onchange="applyGanttFilter('type',this.value);document.getElementById('gf-wrap-type').classList.toggle('gf-active',!!this.value)">
+          <option value="">Tous types</option>
+          <option value="phase">Phase</option>
+          <option value="task">Tâche</option>
+          <option value="jalon">Jalon</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
 
       <!-- Entité -->
-      <select id="gf-side" class="gf-select" onchange="applyGanttFilter('side',this.value)">
-        <option value="">🏢 Toutes entités</option>
-        <option value="BOA">BOA</option>
-        <option value="CBS">CBS</option>
-        <option value="CBS + BOA">CBS + BOA</option>
-        <option value="Externe">Externe</option>
-      </select>
+      <div class="gf-select-wrap" id="gf-wrap-side">
+        <select id="gf-side" class="gf-select" onchange="applyGanttFilter('side',this.value);document.getElementById('gf-wrap-side').classList.toggle('gf-active',!!this.value)">
+          <option value="">Toutes entités</option>
+          <option value="BOA">BOA</option>
+          <option value="CBS">CBS</option>
+          <option value="CBS + BOA">CBS + BOA</option>
+          <option value="Externe">Externe</option>
+        </select>
+      </div>
 
       <!-- Phase -->
-      <select id="gf-phase" class="gf-select" onchange="applyGanttFilter('phaseId',this.value)" style="max-width:210px;">
-        <option value="">📌 Toutes phases</option>
-      </select>
+      <div class="gf-select-wrap" id="gf-wrap-phase">
+        <select id="gf-phase" class="gf-select" onchange="applyGanttFilter('phaseId',this.value);document.getElementById('gf-wrap-phase').classList.toggle('gf-active',!!this.value)">
+          <option value="">Toutes phases</option>
+        </select>
+      </div>
 
       <!-- Avancement -->
-      <select id="gf-status" class="gf-select" onchange="applyGanttFilter('status',this.value)">
-        <option value="">⏳ Tous statuts</option>
-        <option value="todo">Non démarré (0 %)</option>
-        <option value="inprogress">En cours (1–99 %)</option>
-        <option value="done">Terminé (100 %)</option>
-      </select>
+      <div class="gf-select-wrap" id="gf-wrap-status">
+        <select id="gf-status" class="gf-select" onchange="applyGanttFilter('status',this.value);document.getElementById('gf-wrap-status').classList.toggle('gf-active',!!this.value)">
+          <option value="">Avancement</option>
+          <option value="todo">Non démarré</option>
+          <option value="inprogress">En cours</option>
+          <option value="done">Terminé</option>
+        </select>
+      </div>
+
+      <div class="gf-divider"></div>
 
       <!-- RAG -->
       <div class="gf-rag-group">
-        <span class="gf-rag-label">RAG :</span>
-        <button id="gf-rag-all" class="gf-rag-btn active"   onclick="applyGanttFilter('rag','')">Tous</button>
+        <span class="gf-rag-label">RAG</span>
+        <button id="gf-rag-all" class="gf-rag-btn active"       onclick="applyGanttFilter('rag','')">Tous</button>
         <button id="gf-rag-R"   class="gf-rag-btn gf-rag-btn-R" onclick="applyGanttFilter('rag','R')">R</button>
         <button id="gf-rag-A"   class="gf-rag-btn gf-rag-btn-A" onclick="applyGanttFilter('rag','A')">A</button>
         <button id="gf-rag-G"   class="gf-rag-btn gf-rag-btn-G" onclick="applyGanttFilter('rag','G')">G</button>
       </div>
 
       <!-- Reset -->
-      <button id="gf-reset" class="gf-reset-btn" style="display:none;" onclick="resetGanttFilters()">✕ Effacer</button>
+      <button id="gf-reset" class="gf-reset-btn" onclick="resetGanttFilters()">✕ Effacer</button>
 
       <!-- Compteur -->
       <span id="gf-count" class="gf-count-badge" style="display:none;"></span>

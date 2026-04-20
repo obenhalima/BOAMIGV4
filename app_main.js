@@ -455,7 +455,7 @@ function buildGanttCols(zoom) {
     const bg = MONTHS.map((m,i) =>
       '<div class="month-col ' + (i%2===1?'alt':'') + '" style="flex:' + m.days + '"></div>'
     ).join('');
-    return { headerHtml: header, bgHtml: bg, minWidth: _scaleGanttPx(400) };
+    return { headerHtml: header, bgHtml: bg, minWidth: _scaleGanttPx(900) };
   }
 
   if (zoom === 'week') {
@@ -2260,16 +2260,19 @@ function renderGantt() {
       _countEl.style.display = 'none';
     }
   }
-  // Sync selects avec state (pour restauration après reload)
-  const _syncSel = function(id, key) {
-    const el = document.getElementById(id);
+  // Sync selects + wrapper highlight avec state
+  const _syncSel = function(id, key, wrapId) {
+    const el   = document.getElementById(id);
+    const wrap = wrapId ? document.getElementById(wrapId) : null;
+    const active = !!(_f[key]||'');
     if (el && el.value !== (_f[key]||'')) el.value = (_f[key]||'');
-    if (el) el.classList.toggle('gf-active', !!(_f[key]||''));
+    if (el)   el.classList.toggle('gf-active', active);
+    if (wrap) wrap.classList.toggle('gf-active', active);
   };
-  _syncSel('gf-type',  'type');
-  _syncSel('gf-side',  'side');
-  _syncSel('gf-status','status');
-  _syncSel('gf-phase', 'phaseId');
+  _syncSel('gf-type',  'type',    'gf-wrap-type');
+  _syncSel('gf-side',  'side',    'gf-wrap-side');
+  _syncSel('gf-status','status',  'gf-wrap-status');
+  _syncSel('gf-phase', 'phaseId', 'gf-wrap-phase');
   const _searchEl = document.getElementById('gf-search');
   if (_searchEl && document.activeElement !== _searchEl) _searchEl.value = _fText;
   // Boutons RAG
@@ -2307,19 +2310,36 @@ function renderGantt() {
     const dispRag          = isCustom ? (task.rag || null) : (ov._rag || task.rag || null);
     const dispCommentaire  = isCustom ? (task.commentaire || '') : (ov._commentaire || task.commentaire || '');
 
-    const {start, end} = getTaskDates(task);
+    let {start, end} = getTaskDates(task);
     const isPhase  = task.type === 'phase';
     const isJalon  = task.type === 'jalon';
+
+    // ── Phase : si pas de dates propres → enveloppe des enfants ──────────
+    if (isPhase) {
+      const _hasDate = start && start.length === 10 && end && end.length === 10 && start !== end;
+      if (!_hasDate) {
+        let _minS = null, _maxE = null;
+        allTasksRendered.forEach(function(ct) {
+          if (_phaseMap[ct.id] !== task.id) return;
+          const td = getTaskDates(ct);
+          if (td.start && (!_minS || td.start < _minS)) _minS = td.start;
+          if (td.end   && (!_maxE || td.end   > _maxE)) _maxE = td.end;
+        });
+        if (_minS) { start = _minS; end = _maxE || _minS; }
+      }
+    }
+
     // Roll up pct from subtasks if any (must be after isPhase/isJalon)
     const _taskSubs  = (!isPhase && !isJalon) ? ((state.ganttSubtasks||{})[task.id]||[]) : [];
     const dispPct    = _taskSubs.length > 0
       ? Math.round(_taskSubs.reduce((s,sb) => s + (sb.pct||0), 0) / _taskSubs.length)
       : dispPct0;
-    const left     = ganttPct(start);
-    const width    = ganttWidthPct(start, end);
+    const left     = isNaN(ganttPct(start)) ? 0 : ganttPct(start);
+    const width    = isNaN(ganttWidthPct(start, end)) ? 0 : ganttWidthPct(start, end);
     const barLeft  = left.toFixed(3);
     const barWidth = Math.max(0.5, width).toFixed(3);
-    const dur      = isJalon ? 0 : Math.max(0, Math.round((new Date(end) - new Date(start)) / 86400000));
+    const durMs    = (new Date(end) - new Date(start));
+    const dur      = isJalon ? 0 : (isNaN(durMs) ? 0 : Math.max(0, Math.round(durMs / 86400000)));
 
     // Prédécesseurs : afficher N° de ligne
     const predNums  = dispPred.map(pid => { const rn = _ganttIdMap[pid]; return rn != null ? rn : pid; });
@@ -2374,8 +2394,8 @@ function renderGantt() {
     if (isPhase) {
       rowClass  = 'gantt-phase-row';
       typeBadge = '<span class="type-badge type-phase">Phase</span>';
-      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + '">'
-        + '<span class="g-bar-label">' + (width>4 ? dispLabel.substring(0,20) : '') + '</span>'
+      barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">'
+        + '<span class="g-bar-label">' + (width>1.5 ? dispLabel.substring(0,26) : '') + '</span>'
         + '</div>';
       datesCells = '<td style="font-size:11px;color:#334155;font-weight:600;">' + start + '</td><td style="font-size:11px;color:#334155;font-weight:600;">' + end + '</td><td class="center" style="font-size:11px;color:#64748b;">' + dur + 'j</td>';
     } else if (isJalon) {
@@ -2524,8 +2544,14 @@ function renderGantt() {
     + '<th class="col-end">📅 Fin</th>'
     + '<th style="width:54px;" class="center">Durée</th>'
     + '<th style="width:90px;" class="center">Avancement</th>'
-    + '<th class="col-bar" style="padding:0;"><div style="display:flex;height:28px;min-width:' + cols.minWidth + ';">'
+    + '<th class="col-bar" style="padding:0;overflow:visible;position:relative;">'
+    + '<div style="position:relative;display:flex;height:28px;min-width:' + cols.minWidth + ';">'
     + cols.headerHtml
+    + (todayPct >= 0 && todayPct <= 100
+        ? '<div style="position:absolute;top:0;bottom:0;left:' + todayPct.toFixed(1) + '%;width:2px;background:#ef4444;z-index:5;pointer-events:none;">'
+          + '<span style="position:absolute;top:50%;left:4px;transform:translateY(-50%);background:#ef4444;color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 5px rgba(239,68,68,.45);letter-spacing:.2px;">▼ Aujourd\'hui</span>'
+          + '</div>'
+        : '')
     + '</div></th>'
     + '</tr></thead>';
 
