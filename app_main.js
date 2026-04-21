@@ -12204,6 +12204,7 @@ function _dynImportHtmlStep2() {
 function _dynImportHtmlStep3() {
   const s = _DYN_IMPORT;
   const { valid, errors } = _dynImportParseRows();
+  const existing = _dynImportGetCurrentCount(s.schemaKey);
 
   const thCells = s.schema.fields.map(f =>
     `<th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;background:#f8fafc;white-space:nowrap;border-bottom:1px solid #e2e8f0;">${_esc(f.label)}</th>`
@@ -12221,11 +12222,46 @@ function _dynImportHtmlStep3() {
          ${errors.length>5?`<br><span style="color:#64748b;">… et ${errors.length-5} autre(s)</span>`:''}
        </div>` : '';
 
+  // Mode selector
+  const modeBlock = `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:10px;">📂 Mode d'import</div>
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:6px;border:1.5px solid #86efac;background:#f0fdf4;" id="dyn-mode-label-append">
+        <input type="radio" name="dyn-import-mode" value="append" checked
+               style="margin-top:1px;accent-color:#166534;width:15px;height:15px;flex-shrink:0;"
+               onchange="_dynImportModeChange(this)">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#166534;">➕ Compléter</div>
+          <div style="font-size:11px;color:#64748b;margin-top:1px;">
+            Ajouter <b>${valid.length}</b> ligne(s) aux <b>${existing}</b> entrée(s) existantes
+            → total : <b>${existing + valid.length}</b>
+          </div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;border:1.5px solid #e2e8f0;background:white;" id="dyn-mode-label-replace"
+             onmouseover="this.style.borderColor='#fca5a5'" onmouseout="if(!document.querySelector('[name=dyn-import-mode][value=replace]:checked'))this.style.borderColor='#e2e8f0'">
+        <input type="radio" name="dyn-import-mode" value="replace"
+               style="margin-top:1px;accent-color:#dc2626;width:15px;height:15px;flex-shrink:0;"
+               onchange="_dynImportModeChange(this)">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#dc2626;">🔄 Remplacer</div>
+          <div style="font-size:11px;color:#64748b;margin-top:1px;">
+            Supprimer les <b>${existing}</b> entrée(s) existantes et importer uniquement ce fichier
+            ${existing > 0 ? '<span style="color:#dc2626;font-weight:600;"> ⚠️ irréversible</span>' : ''}
+          </div>
+        </div>
+      </label>
+    </div>`;
+
   return `
     <div style="display:flex;gap:10px;margin-bottom:14px;">
       <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;text-align:center;">
         <div style="font-size:24px;font-weight:800;color:#166534;">${valid.length}</div>
         <div style="font-size:11px;color:#166534;font-weight:600;">Ligne(s) valides</div>
+      </div>
+      <div style="flex:1;background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#4f46e5;">${existing}</div>
+        <div style="font-size:11px;color:#4f46e5;font-weight:600;">Entrée(s) existantes</div>
       </div>
       ${errors.length?`<div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;text-align:center;">
         <div style="font-size:24px;font-weight:800;color:#991b1b;">${errors.length}</div>
@@ -12233,9 +12269,10 @@ function _dynImportHtmlStep3() {
       </div>`:''}
     </div>
     ${errBlock}
+    ${modeBlock}
     ${valid.length > 0
       ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;">Aperçu des ${Math.min(5,valid.length)} première(s) ligne(s) :</div>
-         <div style="overflow:auto;max-height:220px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;">
+         <div style="overflow:auto;max-height:200px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;">
            <table style="width:100%;border-collapse:collapse;min-width:400px;">
              <thead><tr>${thCells}</tr></thead><tbody>${previewTbody}</tbody>
            </table>
@@ -12245,7 +12282,7 @@ function _dynImportHtmlStep3() {
       <button onclick="_dynImportGoStep(2)" class="btn btn-secondary btn-sm">← Modifier mapping</button>
       <div style="display:flex;gap:8px;">
         <button onclick="_closeDynImport()" class="btn btn-cancel">Annuler</button>
-        <button onclick="_dynImportConfirm()" class="btn btn-primary"
+        <button id="dyn-import-btn-confirm" onclick="_dynImportConfirm()" class="btn btn-primary"
           ${valid.length===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}>
           📥 Importer ${valid.length} ligne(s)
         </button>
@@ -12452,9 +12489,61 @@ function _dynImportParseRows() {
   return { valid, errors };
 }
 
+// Returns count of existing items for a given schema key
+function _dynImportGetCurrentCount(schemaKey) {
+  if (schemaKey === 'risques')    return (state.risks||[]).length;
+  if (schemaKey === 'actions')    return (state.customActions||[]).length;
+  if (schemaKey === 'arbitrages') return (state.customArbitrages||[]).length;
+  if (schemaKey === 'gaps')       return (state.customGaps||[]).length;
+  return 0;
+}
+
+// Visual feedback when switching mode (highlight the selected card)
+function _dynImportModeChange(radio) {
+  const isReplace = radio.value === 'replace';
+  const appendLbl  = document.getElementById('dyn-mode-label-append');
+  const replaceLbl = document.getElementById('dyn-mode-label-replace');
+  if (appendLbl)  { appendLbl.style.borderColor  = isReplace ? '#e2e8f0' : '#86efac';  appendLbl.style.background  = isReplace ? 'white'   : '#f0fdf4'; }
+  if (replaceLbl) { replaceLbl.style.borderColor = isReplace ? '#fca5a5' : '#e2e8f0'; replaceLbl.style.background = isReplace ? '#fef2f2' : 'white'; }
+  // Update confirm button label
+  const btn = document.getElementById('dyn-import-btn-confirm');
+  const { valid } = _dynImportParseRows();
+  if (btn && valid.length > 0) {
+    btn.textContent = isReplace
+      ? '🔄 Remplacer par ' + valid.length + ' ligne(s)'
+      : '📥 Importer ' + valid.length + ' ligne(s)';
+  }
+}
+
 function _dynImportConfirm() {
   const { valid } = _dynImportParseRows();
   if (!valid.length) return;
+
+  // Read chosen mode
+  const modeEl  = document.querySelector('#dyn-import-inner input[name="dyn-import-mode"]:checked');
+  const isReplace = modeEl && modeEl.value === 'replace';
+
+  if (isReplace) {
+    const existing = _dynImportGetCurrentCount(_DYN_IMPORT.schemaKey);
+    if (existing > 0) {
+      const label = _DYN_IMPORT.schema.title.replace('📥 Importer des ','').replace('📥 Importer ','');
+      if (!confirm(`⚠️ Remplacer les ${existing} entrée(s) existantes (${label}) par les ${valid.length} ligne(s) importées ?\n\nCette action est irréversible.`)) return;
+    }
+    // Clear existing data for this section
+    const key = _DYN_IMPORT.schemaKey;
+    if (key === 'risques') {
+      state.risks = [];
+    } else if (key === 'actions') {
+      (state.customActions||[]).forEach(a => { if (state.actions) delete state.actions[a.id]; });
+      state.customActions = [];
+    } else if (key === 'arbitrages') {
+      (state.customArbitrages||[]).forEach(a => { if (state.arbitrages) delete state.arbitrages[a.id]; });
+      state.customArbitrages = [];
+    } else if (key === 'gaps') {
+      state.customGaps = [];
+    }
+  }
+
   _DYN_IMPORT.schema.onImport(valid);
   _closeDynImport();
 }
