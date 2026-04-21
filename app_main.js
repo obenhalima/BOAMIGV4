@@ -11895,211 +11895,480 @@ function deleteRisk(idx) {
   renderDashboard();
 }
 
-// ── Risk Import ───────────────────────────────────────────────────────────────
-let _riskImportParsed = null; // buffer temporaire lignes parsées
+// ═══════════════════════════════════════════════════════════════════════════════
+// GENERIC DYNAMIC IMPORT ENGINE
+// Usage: _openDynImport('risques') | 'actions' | 'arbitrages' | 'gaps'
+// ═══════════════════════════════════════════════════════════════════════════════
 
-function _openRiskImportModal() {
+const _DYN_IMPORT = { schema:null, schemaKey:'', rawRows:[], headers:[], mapping:{}, step:1 };
+
+const _IMPORT_SCHEMAS = {
+  risques: {
+    title: '📥 Importer des Risques',
+    fields: [
+      { key:'desc',    label:'Description',          required:true,  type:'text', hint:'Libellé du risque' },
+      { key:'cat',     label:'Catégorie',             required:false, type:'enum',
+        options:['Arbitrage non décidé','Planning / Délai','Technique / Anomalie','Ressources humaines','Budget','Interface / Intégration','Migration données','Réglementaire / Conformité','Autre'],
+        default:'Autre', hint:'Ex: Technique' },
+      { key:'prob',    label:'Probabilité (1–5)',     required:false, type:'int',  min:1, max:5, default:3, hint:'1=Très faible … 5=Quasi-certain' },
+      { key:'impact',  label:'Impact (1–5)',          required:false, type:'int',  min:1, max:5, default:3, hint:'1=Mineur … 5=Catastrophique' },
+      { key:'owner',   label:'Owner / Responsable',  required:false, type:'text', hint:'Nom ou entité' },
+      { key:'statut',  label:'Statut',               required:false, type:'enum',
+        options:['ouvert','en_cours','surveille','clos','accepte'], default:'ouvert',
+        hint:'ouvert / en_cours / surveille / clos / accepte' },
+      { key:'plan',    label:"Plan d'atténuation",   required:false, type:'text', hint:'Actions de mitigation' },
+    ],
+    onImport(rows) {
+      if (!state.risks) state.risks = [];
+      rows.forEach(r => state.risks.push(Object.assign({}, r, { streams: [] })));
+      saveState('Risques importés', rows.length + ' risque(s)');
+      renderRisques(); renderDashboard();
+      showToast('✅ ' + rows.length + ' risque(s) importé(s)', 3000);
+    }
+  },
+
+  actions: {
+    title: '📥 Importer des Actions',
+    fields: [
+      { key:'action',      label:'Libellé / Action',          required:true,  type:'text', hint:"Description de l'action" },
+      { key:'domain',      label:'Domaine',                   required:false, type:'text', hint:'Ex: Core Banking, Interfaces' },
+      { key:'resp',        label:'Responsable',               required:false, type:'text', hint:'Nom ou entité' },
+      { key:'category',    label:'Catégorie',                 required:false, type:'enum',
+        options:['Pilotage','Technique','Organisationnel','Contractuel','Autre'], default:'Autre', hint:'Ex: Technique' },
+      { key:'side',        label:'Entité',                    required:false, type:'enum',
+        options:['CBS','BOA CI','BOA Groupe','Mixte'], default:'CBS', hint:'CBS / BOA CI / BOA Groupe / Mixte' },
+      { key:'urgence',     label:'Urgence',                   required:false, type:'enum',
+        options:['Critique','Haute','Moyenne','Basse'], default:'Moyenne', hint:'Critique / Haute / Moyenne / Basse' },
+      { key:'dateDebut',   label:'Date début (AAAA-MM-JJ)',   required:false, type:'date', hint:'Ex: 2025-06-01' },
+      { key:'dateFin',     label:'Date fin (AAAA-MM-JJ)',     required:false, type:'date', hint:'Ex: 2025-12-31' },
+      { key:'status',      label:'Statut',                    required:false, type:'enum',
+        options:['todo','in_progress','done','blocked'], default:'todo', hint:'todo / in_progress / done / blocked' },
+      { key:'commentaire', label:'Commentaire',               required:false, type:'text', hint:'Note libre' },
+    ],
+    onImport(rows) {
+      if (!Array.isArray(state.customActions)) state.customActions = [];
+      if (!state.actions) state.actions = {};
+      rows.forEach(r => {
+        const id = 'ACT-' + Date.now().toString(36).toUpperCase().slice(-5) + '-' + Math.random().toString(36).slice(2,5).toUpperCase();
+        const status = r.status || 'todo';
+        const dateDebut = r.dateDebut || ''; const dateFin = r.dateFin || '';
+        const payload = Object.assign({}, r); delete payload.status; delete payload.dateDebut; delete payload.dateFin;
+        const act = Object.assign({ id }, payload, { _custom:true, _dbProjectId: state.currentProjectId||'', _history:[] });
+        _pushHistory(act, 'created');
+        state.customActions.push(act);
+        state.actions[id] = { status, dateDebut, dateFin, pct: status === 'done' ? 100 : 0 };
+      });
+      saveState('Actions importées', rows.length + ' action(s)');
+      renderActions(); renderDashboard();
+      showToast('✅ ' + rows.length + ' action(s) importée(s)', 3000);
+    }
+  },
+
+  arbitrages: {
+    title: '📥 Importer des Arbitrages',
+    fields: [
+      { key:'label',       label:'Libellé',               required:true,  type:'text', hint:"Titre de l'arbitrage" },
+      { key:'source',      label:'Source de la demande',  required:false, type:'text', hint:'Ex: Réunion du 01/01, Document xyz' },
+      { key:'domain',      label:'Domaine',               required:false, type:'text', hint:'Ex: Core Banking' },
+      { key:'prio',        label:'Priorité',              required:false, type:'enum',
+        options:['P1','P2','P3'], default:'P2', hint:'P1 / P2 / P3' },
+      { key:'resp',        label:'Responsable',           required:false, type:'text', hint:'Nom ou entité' },
+      { key:'deadline',    label:'Échéance',              required:false, type:'date', hint:'Ex: 2025-12-31' },
+      { key:'decision',    label:'Décision',              required:false, type:'enum',
+        options:['en_cours','approuve','rejete','reporte'], default:'en_cours',
+        hint:'en_cours / approuve / rejete / reporte' },
+      { key:'commentaire', label:'Commentaire',           required:false, type:'text', hint:'Note libre' },
+    ],
+    onImport(rows) {
+      if (!state.customArbitrages) state.customArbitrages = [];
+      if (!state.arbitrages) state.arbitrages = {};
+      rows.forEach(r => {
+        const id = 'arb_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+        const newArb = { id, label:r.label||'', source:r.source||'', domain:r.domain||'', prio:r.prio||'P2', resp:r.resp||'', deadline:r.deadline||'', _custom:true, _history:[] };
+        _pushHistory(newArb, 'created');
+        state.customArbitrages.push(newArb);
+        state.arbitrages[id] = { source:r.source||'', domain:r.domain||'', prio:r.prio||'P2', resp:r.resp||'', deadline:r.deadline||'', decision:r.decision||'en_cours', commentaire:r.commentaire||'' };
+      });
+      saveState('Arbitrages importés', rows.length + ' arbitrage(s)');
+      renderArbitrages(); renderDashboard();
+      showToast('✅ ' + rows.length + ' arbitrage(s) importé(s)', 3000);
+    }
+  },
+
+  gaps: {
+    title: '📥 Importer des GAPs',
+    fields: [
+      { key:'desc',      label:'Description',          required:true,  type:'text', hint:'Description du GAP' },
+      { key:'ref',       label:'Référence',            required:false, type:'text', hint:'Ex: GAP-CUSTOM-042 (auto si vide)' },
+      { key:'domain',    label:'Domaine',              required:false, type:'text', hint:'Ex: Core Banking' },
+      { key:'processus', label:'Processus',            required:false, type:'text', hint:'Processus métier concerné' },
+      { key:'prio',      label:'Priorité',             required:false, type:'enum',
+        options:['P1','P2','P3'], default:'P2', hint:'P1 / P2 / P3' },
+      { key:'phase',     label:'Phase',                required:false, type:'enum',
+        options:['I','II','III','IV'], default:'II', hint:'I / II / III / IV' },
+      { key:'bm',        label:'Type BM',              required:false, type:'text', default:'BM UEMOA', hint:'Ex: BM UEMOA, Anomalie, Evolution' },
+      { key:'resp',      label:'Responsable',          required:false, type:'text', hint:'Nom ou entité' },
+    ],
+    onImport(rows) {
+      if (!state.customGaps) state.customGaps = [];
+      if (!state.gaps) state.gaps = {};
+      rows.forEach(r => {
+        const n   = ((typeof gaps !== 'undefined' ? gaps : []).length) + state.customGaps.length + 1;
+        const ref = r.ref || ('GAP-IMP-' + String(n).padStart(3,'0'));
+        const newGap = { n, ref, domain:r.domain||'', processus:r.processus||'', desc:r.desc, prio:r.prio||'P2', prio_cbs:r.prio||'P2', phase:r.phase||'II', phase_cbs:r.phase||'II', bm:r.bm||'BM UEMOA', resp:r.resp||'', _custom:true, _history:[] };
+        _pushHistory(newGap, 'created');
+        state.customGaps.push(newGap);
+      });
+      saveState('GAPs importés', rows.length + ' GAP(s)');
+      renderGaps(); renderDashboard();
+      showToast('✅ ' + rows.length + ' GAP(s) importé(s)', 3000);
+    }
+  },
+};
+
+// ── Open / Close ─────────────────────────────────────────────────────────────
+
+function _openDynImport(schemaKey) {
   if (!canEdit()) { alert('Accès refusé.'); return; }
-  _riskImportParsed = null;
-  const fileEl = document.getElementById('risk-import-file');
-  if (fileEl) fileEl.value = '';
-  const prev = document.getElementById('risk-import-preview');
-  const errs = document.getElementById('risk-import-errors');
-  const btn  = document.getElementById('risk-import-btn-confirm');
-  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-  if (errs) { errs.style.display = 'none'; errs.innerHTML = ''; }
-  if (btn)  { btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'; }
-  document.getElementById('risk-import-modal').style.display = 'flex';
+  const schema = _IMPORT_SCHEMAS[schemaKey];
+  if (!schema) { console.error('Unknown import schema:', schemaKey); return; }
+  Object.assign(_DYN_IMPORT, { schema, schemaKey, rawRows:[], headers:[], mapping:{}, step:1 });
+  _dynImportRender();
+  document.getElementById('dyn-import-modal').style.display = 'flex';
 }
 
-function _closeRiskImportModal() {
-  document.getElementById('risk-import-modal').style.display = 'none';
-  _riskImportParsed = null;
+function _closeDynImport() {
+  document.getElementById('dyn-import-modal').style.display = 'none';
+  _DYN_IMPORT.schema = null;
 }
 
-function _downloadRiskTemplate() {
-  const header = ['Catégorie', 'Description', 'Probabilité', 'Impact', 'Owner', 'Statut', "Plan d'atténuation"];
-  const example = ['Technique', 'Risque de retard sur livraison', '3', '4', 'Chef de projet', 'ouvert', 'Mettre en place un suivi hebdomadaire'];
-  const csv = [header, example]
-    .map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','))
-    .join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'template_risques.csv';
+// ── Render (step router) ─────────────────────────────────────────────────────
+
+function _dynImportRender() {
+  const inner = document.getElementById('dyn-import-inner');
+  if (!inner || !_DYN_IMPORT.schema) return;
+  const s = _DYN_IMPORT;
+
+  // Step indicator
+  const stepNames = ['Fichier', 'Mapping', 'Aperçu'];
+  const stepBar = stepNames.map((name, i) => {
+    const n      = i + 1;
+    const active = s.step === n;
+    const done   = s.step > n;
+    const bg     = done ? '#22c55e' : active ? '#4f46e5' : '#e2e8f0';
+    const col    = (done || active) ? 'white' : '#94a3b8';
+    const sep    = i < 2 ? '<div style="flex:1;height:1px;background:#e2e8f0;min-width:16px;max-width:40px;"></div>' : '';
+    return `<div style="display:flex;align-items:center;gap:6px;">
+      <div style="width:22px;height:22px;border-radius:50%;background:${bg};color:${col};font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${done?'✓':n}</div>
+      <span style="font-size:12px;font-weight:${active?700:500};color:${active?'#4f46e5':'#64748b'};">${name}</span>
+    </div>${sep}`;
+  }).join('');
+
+  let body = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h3 style="margin:0;font-size:16px;color:#1e293b;">${s.schema.title}</h3>
+      <button onclick="_closeDynImport()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;line-height:1;">✕</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:4px;padding:10px 12px;background:#f8fafc;border-radius:8px;margin-bottom:18px;">${stepBar}</div>
+  `;
+  if (s.step === 1) body += _dynImportHtmlStep1();
+  if (s.step === 2) body += _dynImportHtmlStep2();
+  if (s.step === 3) body += _dynImportHtmlStep3();
+  inner.innerHTML = body;
+}
+
+// ── Step 1 : File upload ─────────────────────────────────────────────────────
+
+function _dynImportHtmlStep1() {
+  const fields = _DYN_IMPORT.schema.fields;
+  const chips  = fields.map(f =>
+    `<span style="background:${f.required?'#e0e7ff':'#f1f5f9'};color:${f.required?'#3730a3':'#64748b'};border-radius:10px;padding:2px 9px;font-size:10px;font-weight:600;white-space:nowrap;">${f.required?'✱ ':''}${f.label}</span>`
+  ).join('');
+  return `
+    <div style="background:#f0f4ff;border-radius:8px;padding:11px 13px;margin-bottom:14px;font-size:12px;color:#3730a3;line-height:1.7;">
+      <b>Colonnes attendues :</b><br><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;">${chips}</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <button onclick="_dynImportDownloadTemplate()" class="btn btn-secondary btn-sm">📄 Télécharger le template CSV</button>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Fichier à importer (CSV ou Excel)</label>
+      <input type="file" id="dyn-import-file" accept=".csv,.xlsx,.xls"
+             style="width:100%;padding:10px;border:2px dashed #c7d2fe;border-radius:8px;font-size:13px;cursor:pointer;background:#f8faff;box-sizing:border-box;"
+             onchange="_dynImportOnFileChange(this)">
+    </div>
+    <div id="dyn-import-s1-msg" style="display:none;margin-bottom:12px;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;">
+      <button onclick="_closeDynImport()" class="btn btn-cancel">Annuler</button>
+      <button id="dyn-import-btn-next1" onclick="_dynImportGoStep(2)" class="btn btn-primary" disabled style="opacity:.5;cursor:not-allowed;">Mapper les colonnes →</button>
+    </div>`;
+}
+
+// ── Step 2 : Column mapping ──────────────────────────────────────────────────
+
+function _dynImportHtmlStep2() {
+  const s = _DYN_IMPORT;
+  const rows = s.schema.fields.map(f => {
+    const idx  = s.mapping[f.key] !== undefined ? s.mapping[f.key] : -1;
+    const opts = [
+      `<option value="-1"${idx<0?' selected':''}>${f.required ? '(requis — sélectionner)' : '— ignorer —'}</option>`,
+      ...s.headers.map((h, i) => `<option value="${i}"${idx===i?' selected':''}>${h || '(Colonne '+(i+1)+')'}</option>`)
+    ].join('');
+    const mapped = idx >= 0;
+    return `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="padding:8px 10px;font-size:12px;font-weight:600;color:#1e293b;white-space:nowrap;">
+        ${_esc(f.label)}${f.required?'<span style="color:#ef4444;margin-left:3px;">✱</span>':''}
+      </td>
+      <td style="padding:8px 10px;font-size:11px;color:#94a3b8;max-width:110px;overflow:hidden;text-overflow:ellipsis;">${_esc(f.hint||'')}</td>
+      <td style="padding:8px 10px;min-width:160px;">
+        <select data-field="${f.key}" onchange="_dynImportUpdateMapping(this)"
+          style="width:100%;padding:5px 8px;border:1.5px solid ${mapped?'#4f46e5':'#d1d5db'};border-radius:6px;font-size:12px;background:${mapped?'#eef2ff':'white'};color:${mapped?'#4f46e5':'#374151'};box-sizing:border-box;">
+          ${opts}
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const autoMapped = s.schema.fields.filter(f => (s.mapping[f.key]||0) >= 0).length;
+  return `
+    <div style="font-size:12px;color:#64748b;margin-bottom:10px;">
+      <b>${s.rawRows.length-1}</b> ligne(s) · <b>${s.headers.length}</b> colonne(s) source ·
+      <span style="color:#4f46e5;font-weight:600;">${autoMapped} champ(s) auto-mappé(s)</span>
+    </div>
+    <div style="overflow-y:auto;max-height:340px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead style="position:sticky;top:0;background:#f8fafc;z-index:1;">
+          <tr>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;font-weight:700;border-bottom:1px solid #e2e8f0;white-space:nowrap;">Champ cible</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;font-weight:700;border-bottom:1px solid #e2e8f0;">Indice / Format</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;color:#64748b;font-weight:700;border-bottom:1px solid #e2e8f0;">Colonne source</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:8px;">
+      <button onclick="_dynImportGoStep(1)" class="btn btn-secondary btn-sm">← Retour</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="_closeDynImport()" class="btn btn-cancel">Annuler</button>
+        <button onclick="_dynImportCommitMappingAndPreview()" class="btn btn-primary">Aperçu & Confirmer →</button>
+      </div>
+    </div>`;
+}
+
+// ── Step 3 : Preview & confirm ───────────────────────────────────────────────
+
+function _dynImportHtmlStep3() {
+  const s = _DYN_IMPORT;
+  const { valid, errors } = _dynImportParseRows();
+
+  const thCells = s.schema.fields.map(f =>
+    `<th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;background:#f8fafc;white-space:nowrap;border-bottom:1px solid #e2e8f0;">${_esc(f.label)}</th>`
+  ).join('');
+  const previewTbody = valid.slice(0, 5).map(r =>
+    '<tr>' + s.schema.fields.map(f => {
+      const v = r[f.key]; const vs = String(v == null ? '' : v);
+      return `<td style="padding:5px 8px;font-size:11px;border-bottom:1px solid #f1f5f9;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${_esc(vs)}">${_esc(vs||'—')}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+
+  const errBlock = errors.length
+    ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:11px;color:#991b1b;line-height:1.7;">
+         ⚠️ <b>${errors.length}</b> ligne(s) ignorée(s) :<br>${errors.slice(0,5).map(e=>_esc(e)).join('<br>')}
+         ${errors.length>5?`<br><span style="color:#64748b;">… et ${errors.length-5} autre(s)</span>`:''}
+       </div>` : '';
+
+  return `
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#166534;">${valid.length}</div>
+        <div style="font-size:11px;color:#166534;font-weight:600;">Ligne(s) valides</div>
+      </div>
+      ${errors.length?`<div style="flex:1;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;text-align:center;">
+        <div style="font-size:24px;font-weight:800;color:#991b1b;">${errors.length}</div>
+        <div style="font-size:11px;color:#991b1b;font-weight:600;">Ligne(s) ignorées</div>
+      </div>`:''}
+    </div>
+    ${errBlock}
+    ${valid.length > 0
+      ? `<div style="font-size:11px;color:#64748b;margin-bottom:6px;font-weight:600;">Aperçu des ${Math.min(5,valid.length)} première(s) ligne(s) :</div>
+         <div style="overflow:auto;max-height:220px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;">
+           <table style="width:100%;border-collapse:collapse;min-width:400px;">
+             <thead><tr>${thCells}</tr></thead><tbody>${previewTbody}</tbody>
+           </table>
+         </div>`
+      : '<div style="text-align:center;color:#ef4444;padding:20px;font-size:13px;">❌ Aucune ligne valide — vérifiez le mapping.</div>'}
+    <div style="display:flex;justify-content:space-between;gap:8px;">
+      <button onclick="_dynImportGoStep(2)" class="btn btn-secondary btn-sm">← Modifier mapping</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="_closeDynImport()" class="btn btn-cancel">Annuler</button>
+        <button onclick="_dynImportConfirm()" class="btn btn-primary"
+          ${valid.length===0?'disabled style="opacity:.5;cursor:not-allowed;"':''}>
+          📥 Importer ${valid.length} ligne(s)
+        </button>
+      </div>
+    </div>`;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function _dynImportUpdateMapping(sel) {
+  const key = sel.dataset.field, idx = parseInt(sel.value);
+  _DYN_IMPORT.mapping[key] = idx;
+  sel.style.borderColor = idx >= 0 ? '#4f46e5' : '#d1d5db';
+  sel.style.background  = idx >= 0 ? '#eef2ff' : 'white';
+  sel.style.color       = idx >= 0 ? '#4f46e5' : '#374151';
+}
+
+function _dynImportCommitMappingAndPreview() {
+  // Sync selects → mapping before going to step 3
+  document.querySelectorAll('#dyn-import-inner select[data-field]').forEach(sel => {
+    _DYN_IMPORT.mapping[sel.dataset.field] = parseInt(sel.value);
+  });
+  _dynImportGoStep(3);
+}
+
+function _dynImportGoStep(n) {
+  _DYN_IMPORT.step = n;
+  _dynImportRender();
+}
+
+function _dynImportAutoMap() {
+  // Attempt automatic header → field mapping using fuzzy string similarity
+  const s = _DYN_IMPORT;
+  s.schema.fields.forEach(f => { s.mapping[f.key] = -1; });
+
+  const norm = str => String(str||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+
+  s.headers.forEach((h, colIdx) => {
+    const hn = norm(h);
+    if (!hn) return;
+    let bestKey = null, bestScore = 0;
+    s.schema.fields.forEach(f => {
+      if (s.mapping[f.key] >= 0) return; // already claimed
+      const candidates = [norm(f.key), norm(f.label)];
+      let score = 0;
+      candidates.forEach(c => {
+        if (!c) return;
+        if (c === hn) score = Math.max(score, 100);
+        else if (c.includes(hn) || hn.includes(c)) score = Math.max(score, 60);
+        else {
+          const cw = c.split(' ').filter(w => w.length > 2);
+          const hw = hn.split(' ').filter(w => w.length > 2);
+          const overlap = cw.filter(w => hw.includes(w)).length;
+          if (overlap) score = Math.max(score, 30 * overlap);
+        }
+      });
+      if (score > bestScore) { bestScore = score; bestKey = f.key; }
+    });
+    if (bestKey && bestScore >= 30) s.mapping[bestKey] = colIdx;
+  });
+}
+
+function _dynImportOnFileChange(input) {
+  const file  = input.files[0];
+  const msgEl = document.getElementById('dyn-import-s1-msg');
+  const btn   = document.getElementById('dyn-import-btn-next1');
+  if (msgEl) { msgEl.style.display='none'; msgEl.innerHTML=''; }
+  if (btn)   { btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; }
+  _DYN_IMPORT.rawRows = []; _DYN_IMPORT.headers = [];
+  if (!file) return;
+
+  const ext = file.name.split('.').pop().toLowerCase();
+  const _err = msg => { if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">${msg}</div>`; msgEl.style.display=''; } };
+  const _ok  = msg => {
+    if (msgEl) { msgEl.innerHTML=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;">${msg}</div>`; msgEl.style.display=''; }
+    if (btn)   { btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+  };
+  const _onRows = rows => {
+    if (!rows || rows.length < 2) { _err('❌ Fichier vide ou sans données.'); return; }
+    _DYN_IMPORT.rawRows  = rows;
+    _DYN_IMPORT.headers  = rows[0].map(h => String(h||'').trim());
+    _dynImportAutoMap();
+    _ok('✅ Fichier chargé · <b>' + (rows.length-1) + '</b> ligne(s) · <b>' + _DYN_IMPORT.headers.length + '</b> colonne(s) détectée(s)');
+  };
+
+  if (ext === 'csv') {
+    const reader = new FileReader();
+    reader.onload = e => _onRows(_dynParseCSV(e.target.result));
+    reader.readAsText(file, 'UTF-8');
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    if (typeof XLSX === 'undefined') { _err('⚠️ Librairie SheetJS non disponible. Utilisez le format CSV.'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
+        _onRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' }));
+      } catch(err) { _err('❌ Erreur lecture Excel : ' + err.message); }
+    };
+    reader.readAsArrayBuffer(file);
+  } else { _err('❌ Format non supporté. CSV (.csv) ou Excel (.xlsx) uniquement.'); }
+}
+
+function _dynParseCSV(text) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    const res=[]; let inQ=false, cur='';
+    for (let i=0; i<line.length; i++) {
+      const c=line[i];
+      if (c==='"') { if(inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ; }
+      else if ((c===','||c===';')&&!inQ) { res.push(cur.trim()); cur=''; }
+      else cur+=c;
+    }
+    res.push(cur.trim()); return res;
+  });
+}
+
+function _dynImportParseRows() {
+  const s = _DYN_IMPORT;
+  const valid = [], errors = [];
+  for (let ri = 1; ri < s.rawRows.length; ri++) {
+    const row = s.rawRows[ri];
+    if (!row || row.every(c => String(c).trim() === '')) continue;
+    const get = key => { const idx=s.mapping[key]; return (idx!=null&&idx>=0) ? String(row[idx]||'').trim() : ''; };
+    const missing = s.schema.fields.filter(f => f.required && !get(f.key));
+    if (missing.length) { errors.push('Ligne '+(ri+1)+' : champ requis manquant : '+missing.map(f=>f.label).join(', ')); continue; }
+    const obj = {};
+    s.schema.fields.forEach(f => {
+      let v = get(f.key);
+      if (!v && f.default != null) v = String(f.default);
+      if (f.type === 'int') v = Math.min(f.max||99, Math.max(f.min||0, parseInt(v)||parseInt(f.default)||0));
+      obj[f.key] = v;
+    });
+    valid.push(obj);
+  }
+  return { valid, errors };
+}
+
+function _dynImportConfirm() {
+  const { valid } = _dynImportParseRows();
+  if (!valid.length) return;
+  _DYN_IMPORT.schema.onImport(valid);
+  _closeDynImport();
+}
+
+function _dynImportDownloadTemplate() {
+  const schema = _DYN_IMPORT.schema;
+  if (!schema) return;
+  const header  = schema.fields.map(f => f.label);
+  const example = schema.fields.map(f => {
+    if (f.type === 'enum') return f.options ? f.options[0] : (f.default || '');
+    if (f.type === 'int')  return String(f.default || f.min || 1);
+    if (f.type === 'date') return '2025-12-31';
+    if (f.hint)            return f.hint.replace(/^Ex[: ]+/i,'').split(/[,|\/]/)[0].trim();
+    return '';
+  });
+  const csv = [header, example].map(row => row.map(v => '"'+String(v||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href=url; a.download='template_import_'+(_DYN_IMPORT.schemaKey||'data')+'.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-// Correspondances entête → champ interne
-const _RISK_COL_MAP = {
-  'catégorie': 'cat', 'categorie': 'cat', 'category': 'cat', 'cat': 'cat',
-  'description': 'desc', 'risque': 'desc',
-  'probabilité': 'prob', 'probabilite': 'prob', 'probability': 'prob', 'prob': 'prob', 'p': 'prob',
-  'impact': 'impact', 'i': 'impact',
-  'owner': 'owner', 'responsable': 'owner', 'porteur': 'owner',
-  'statut': 'statut', 'status': 'statut', 'état': 'statut', 'etat': 'statut',
-  "plan d'atténuation": 'plan', "plan d'attenuation": 'plan', 'plan': 'plan',
-  "plan d'attenuation / actions": 'plan', "plan d'atténuation / actions": 'plan',
-  'mitigation': 'plan', 'actions': 'plan',
-};
-
-const _RISK_STATUT_MAP = {
-  'ouvert': 'ouvert', 'open': 'ouvert', 'new': 'ouvert',
-  'en_cours': 'en_cours', 'en cours': 'en_cours', 'en cours d\'atténuation': 'en_cours', 'in progress': 'en_cours',
-  'surveille': 'surveille', 'surveillé': 'surveille', 'surveille': 'surveille', 'watched': 'surveille',
-  'clos': 'clos', 'closed': 'clos', 'fermé': 'clos', 'résolu': 'clos', 'clos / résolu': 'clos',
-  'accepte': 'accepte', 'accepté': 'accepte', 'accepted': 'accepte',
-};
-
-function _onRiskImportFileChange(input) {
-  const file = input.files[0];
-  const prev = document.getElementById('risk-import-preview');
-  const errs = document.getElementById('risk-import-errors');
-  const btn  = document.getElementById('risk-import-btn-confirm');
-  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
-  if (errs) { errs.style.display = 'none'; errs.innerHTML = ''; }
-  if (btn)  { btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'; }
-  _riskImportParsed = null;
-  if (!file) return;
-
-  const ext = file.name.split('.').pop().toLowerCase();
-
-  if (ext === 'csv') {
-    const reader = new FileReader();
-    reader.onload = function(e) { _parseRiskCSV(e.target.result); };
-    reader.readAsText(file, 'UTF-8');
-  } else if (ext === 'xlsx' || ext === 'xls') {
-    // SheetJS (xlsx) — CDN ajouté dans le HTML
-    if (typeof XLSX === 'undefined') {
-      if (errs) { errs.innerHTML = '⚠️ La lecture Excel nécessite la librairie SheetJS non chargée. Utilisez le format CSV.'; errs.style.display = ''; }
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-        _parseRiskRows(rows);
-      } catch(err) {
-        if (errs) { errs.innerHTML = '❌ Erreur de lecture Excel : ' + err.message; errs.style.display = ''; }
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  } else {
-    if (errs) { errs.innerHTML = '❌ Format non supporté. Utilisez un fichier CSV ou Excel (.xlsx).'; errs.style.display = ''; }
-  }
-}
-
-function _parseRiskCSV(text) {
-  // Parser CSV minimal (gère les guillemets)
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
-  const rows = lines.map(function(line) {
-    const result = [];
-    let inQ = false, cur = '';
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i];
-      if (c === '"') {
-        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
-        else inQ = !inQ;
-      } else if ((c === ',' || c === ';') && !inQ) {
-        result.push(cur.trim()); cur = '';
-      } else cur += c;
-    }
-    result.push(cur.trim());
-    return result;
-  });
-  _parseRiskRows(rows);
-}
-
-function _parseRiskRows(rows) {
-  const prev = document.getElementById('risk-import-preview');
-  const errs = document.getElementById('risk-import-errors');
-  const btn  = document.getElementById('risk-import-btn-confirm');
-
-  if (!rows || rows.length < 2) {
-    if (errs) { errs.innerHTML = '❌ Fichier vide ou sans données.'; errs.style.display = ''; }
-    return;
-  }
-
-  // Construire la map colonne → index depuis la première ligne
-  const headerRow = rows[0].map(h => String(h || '').trim().toLowerCase());
-  const colIdx = {};
-  headerRow.forEach(function(h, i) {
-    const key = _RISK_COL_MAP[h];
-    if (key && colIdx[key] === undefined) colIdx[key] = i;
-  });
-
-  if (colIdx.desc === undefined) {
-    if (errs) { errs.innerHTML = '❌ Colonne "Description" introuvable.<br>En-têtes détectés : <b>' + headerRow.join(', ') + '</b>'; errs.style.display = ''; }
-    return;
-  }
-
-  const parsed = [];
-  const warnings = [];
-
-  for (let ri = 1; ri < rows.length; ri++) {
-    const row = rows[ri];
-    if (!row || row.every(c => String(c).trim() === '')) continue; // ligne vide
-
-    const get = function(key) {
-      return colIdx[key] !== undefined ? String(row[colIdx[key]] || '').trim() : '';
-    };
-
-    const desc = get('desc');
-    if (!desc) { warnings.push('Ligne ' + (ri + 1) + ' ignorée : Description vide.'); continue; }
-
-    const probRaw   = parseFloat(get('prob'))   || 3;
-    const impactRaw = parseFloat(get('impact')) || 3;
-    const prob   = Math.min(5, Math.max(1, Math.round(probRaw)));
-    const impact = Math.min(5, Math.max(1, Math.round(impactRaw)));
-
-    const statutRaw = get('statut').toLowerCase();
-    const statut = _RISK_STATUT_MAP[statutRaw] || 'ouvert';
-
-    parsed.push({
-      cat:     get('cat')   || 'Autre',
-      desc:    desc,
-      prob:    prob,
-      impact:  impact,
-      owner:   get('owner') || '',
-      statut:  statut,
-      plan:    get('plan')  || '',
-      streams: [],
-    });
-  }
-
-  if (parsed.length === 0) {
-    if (errs) { errs.innerHTML = '❌ Aucun risque valide trouvé. Vérifiez que la colonne Description est remplie.'; errs.style.display = ''; }
-    return;
-  }
-
-  _riskImportParsed = parsed;
-  if (btn)  { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
-
-  let msg = '✅ <b>' + parsed.length + ' risque(s)</b> prêts à importer.';
-  // Aperçu des 3 premiers
-  msg += '<br><br><b>Aperçu :</b><br>';
-  parsed.slice(0, 3).forEach(function(r) {
-    msg += '• ' + r.desc.substring(0, 60) + (r.desc.length > 60 ? '…' : '') + ' <span style="color:#888;">(P=' + r.prob + ' I=' + r.impact + ' — ' + r.statut + ')</span><br>';
-  });
-  if (parsed.length > 3) msg += '<span style="color:#888;">… et ' + (parsed.length - 3) + ' autre(s)</span>';
-  if (warnings.length) msg += '<br><br>⚠️ ' + warnings.length + ' ligne(s) ignorée(s) :<br>' + warnings.slice(0, 5).join('<br>');
-  if (prev) { prev.innerHTML = msg; prev.style.display = ''; }
-  if (errs) errs.style.display = 'none';
-}
-
-function _confirmRiskImport() {
-  if (!_riskImportParsed || !_riskImportParsed.length) return;
-  const count = _riskImportParsed.length;
-  if (!state.risks) state.risks = [];
-  _riskImportParsed.forEach(function(r) { state.risks.push(r); });
-  saveState('Risques importés', count + ' risque(s)');
-  _closeRiskImportModal();
-  renderRisques();
-  renderDashboard();
-  showToast('✅ ' + count + ' risque(s) importé(s) avec succès !', 3000);
-}
+// Legacy shim: old calls redirect to generic engine
+function _openRiskImportModal() { _openDynImport('risques'); }
 

@@ -1344,6 +1344,7 @@ ORDER BY table_name;</div>
       </span>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button id="btn-restore-arb" onclick="restoreAllHiddenArb()" class="btn btn-warning btn-sm perm-add-delete" style="display:none;">↩ Restaurer</button>
+        <button onclick="_openDynImport('arbitrages')" class="btn btn-secondary btn-sm perm-add-delete">📥 Importer</button>
         <button onclick="openAddArbitrage()" class="btn btn-primary btn-sm perm-add-delete">+ Nouvel arbitrage</button>
         <div class="cbs-export-wrap perm-export">
           <button class="cbs-export-btn" onclick="_cbsToggleExportMenu('arbitrages')">⬇️ Export ▾</button>
@@ -1504,6 +1505,7 @@ ORDER BY table_name;</div>
                  style="cursor:pointer;width:14px;height:14px;">
           Tout
         </label>
+        <button onclick="_openDynImport('actions')" class="btn btn-secondary btn-sm perm-add-delete">📥 Importer</button>
         <button onclick="openAddActionModal()" class="btn btn-primary btn-sm perm-add-delete">➕ Ajouter une action</button>
       </div>
       <!-- ── Barre contextuelle (visible dès qu'une action est cochée) ── -->
@@ -1612,6 +1614,7 @@ ORDER BY table_name;</div>
         <span style="background:#E8F0FE;color:#3949AB;border:1px solid #3949AB;border-radius:3px;padding:1px 8px;font-size:10px;font-weight:700;">⚠ Anomalie V4</span>
       </div>
       <div style="padding:8px 16px 4px;display:flex;justify-content:flex-end;">
+        <button onclick="_openDynImport('gaps')" class="btn btn-secondary btn-sm perm-add-delete">📥 Importer</button>
         <button onclick="openAddGapModal()" class="btn btn-primary btn-sm perm-add-delete">➕ Ajouter un GAP</button>
       </div>
       <div id="gaps-list-view" class="table-scroll">
@@ -1660,7 +1663,7 @@ ORDER BY table_name;</div>
           <button id="risks-btn-list"   class="view-toggle-btn active" onclick="setViewMode('risques','list')">📋 Liste</button>
           <button id="risks-btn-kanban" class="view-toggle-btn"        onclick="setViewMode('risques','kanban')">📌 Kanban</button>
         </div>
-        <button onclick="_openRiskImportModal()" class="btn btn-secondary btn-sm">📥 Importer</button>
+        <button onclick="_openDynImport('risques')" class="btn btn-secondary btn-sm">📥 Importer</button>
         <button onclick="openAddRisk()" class="btn btn-primary btn-sm">+ Ajouter un risque</button>
         <div class="cbs-export-wrap perm-export">
           <button class="cbs-export-btn" onclick="_cbsToggleExportMenu('risques')">⬇️ Export ▾</button>
@@ -1778,39 +1781,10 @@ ORDER BY table_name;</div>
   </div>
 </div>
 
-<!-- ═══ RISK IMPORT MODAL ═══ -->
-<div id="risk-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;align-items:center;justify-content:center;">
-  <div style="background:white;border-radius:10px;padding:24px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-      <h3 style="margin:0;font-size:16px;color:#E63329;">📥 Importer des Risques</h3>
-      <button onclick="_closeRiskImportModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;">✕</button>
-    </div>
-    <!-- Instructions -->
-    <div style="background:#f8f9fa;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#54565A;line-height:1.7;">
-      <b>Format attendu :</b> fichier CSV ou Excel (.xlsx) avec les colonnes :<br>
-      <span style="color:#1565C0;font-weight:600;">Catégorie, Description, Probabilité, Impact, Owner, Statut, Plan d'atténuation</span><br>
-      <b>Probabilité / Impact :</b> valeur de 1 à 5 &nbsp;|&nbsp;
-      <b>Statut :</b> ouvert, en_cours, surveille, clos, accepte
-    </div>
-    <!-- Download template -->
-    <div style="margin-bottom:16px;">
-      <button onclick="_downloadRiskTemplate()" class="btn btn-secondary btn-sm">📄 Télécharger le template CSV</button>
-    </div>
-    <!-- File picker -->
-    <div style="margin-bottom:16px;">
-      <label style="font-size:12px;font-weight:600;color:#54565A;display:block;margin-bottom:6px;">Fichier à importer (CSV ou Excel)</label>
-      <input type="file" id="risk-import-file" accept=".csv,.xlsx,.xls"
-             style="width:100%;padding:8px;border:2px dashed #cbd5e1;border-radius:8px;font-size:13px;cursor:pointer;background:#f8faff;box-sizing:border-box;"
-             onchange="_onRiskImportFileChange(this)">
-    </div>
-    <!-- Preview / errors -->
-    <div id="risk-import-preview" style="display:none;margin-bottom:12px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;font-size:12px;color:#166534;line-height:1.6;"></div>
-    <div id="risk-import-errors"  style="display:none;margin-bottom:12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;font-size:12px;color:#991b1b;line-height:1.6;"></div>
-    <!-- Actions -->
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px;">
-      <button onclick="_closeRiskImportModal()" class="btn btn-cancel">Annuler</button>
-      <button id="risk-import-btn-confirm" onclick="_confirmRiskImport()" class="btn btn-primary" disabled style="opacity:.5;cursor:not-allowed;">📥 Importer</button>
-    </div>
+<!-- ═══ GENERIC DYNAMIC IMPORT MODAL (shared by all sections) ═══ -->
+<div id="dyn-import-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3100;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:12px;padding:24px;width:660px;max-width:96vw;max-height:93vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.22);">
+    <div id="dyn-import-inner"></div>
   </div>
 </div>
 
