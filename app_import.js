@@ -1928,6 +1928,16 @@ function _renderProgrammeProjectCards() {
                 onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='none'">📦 Archiver</button>
             </div>
           </div>` : ''}
+          ${isAdmin && archived ? `<div onclick="event.stopPropagation()" style="position:relative;">
+            <button onclick="toggleProjectMenu('${proj.id}')" style="background:#f1f5f9;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;color:#64748b;">⋯</button>
+            <div id="pmenu-${proj.id}" style="display:none;position:absolute;right:0;top:32px;background:white;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.12);min-width:170px;z-index:100;">
+              <button onclick="reactivateProject('${proj.id}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#166534;"
+                onmouseover="this.style.background='#f0fdf4'" onmouseout="this.style.background='none'">↩ Réactiver</button>
+              <div style="height:1px;background:#f1f5f9;margin:2px 0;"></div>
+              <button onclick="deleteProjectPermanently('${proj.id}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#dc2626;"
+                onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='none'">🗑️ Supprimer définitivement</button>
+            </div>
+          </div>` : ''}
         </div>
 
         <!-- Avancement -->
@@ -1954,10 +1964,25 @@ function _renderProgrammeProjectCards() {
         </div>
       </div>
 
-      ${!archived ? `<div style="padding:10px 18px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:11px;color:#94a3b8;">Créé le ${proj.createdAt ? new Date(proj.createdAt).toLocaleDateString('fr-FR') : '—'}</span>
-        <span style="font-size:12px;font-weight:700;color:${proj.color || '#1565C0'};">Ouvrir →</span>
-      </div>` : ''}
+      ${!archived
+        ? `<div style="padding:10px 18px;background:#f8fafc;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+             <span style="font-size:11px;color:#94a3b8;">Créé le ${proj.createdAt ? new Date(proj.createdAt).toLocaleDateString('fr-FR') : '—'}</span>
+             <span style="font-size:12px;font-weight:700;color:${proj.color || '#1565C0'};">Ouvrir →</span>
+           </div>`
+        : isAdmin
+          ? `<div style="padding:10px 18px;background:#fafafa;border-top:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:8px;" onclick="event.stopPropagation()">
+               <span style="font-size:11px;color:#94a3b8;">Archivé · Créé le ${proj.createdAt ? new Date(proj.createdAt).toLocaleDateString('fr-FR') : '—'}</span>
+               <div style="display:flex;gap:6px;">
+                 <button onclick="reactivateProject('${proj.id}')"
+                   style="padding:4px 10px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:6px;color:#166534;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
+                   onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">↩ Réactiver</button>
+                 <button onclick="deleteProjectPermanently('${proj.id}')"
+                   style="padding:4px 10px;background:#fef2f2;border:1.5px solid #fca5a5;border-radius:6px;color:#dc2626;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
+                   onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='#fef2f2'">🗑️ Supprimer</button>
+               </div>
+             </div>`
+          : ''
+      }
     </div>`;
   }).join('');
 }
@@ -1995,6 +2020,48 @@ function archiveProject(projectId) {
   proj.status = 'archived';
   _saveProgrammeData('Archivage projet', proj.name);
   renderProgrammeScreen();
+}
+
+function reactivateProject(projectId) {
+  const proj = (state.programme.projects || []).find(p => p.id === projectId);
+  if (!proj) return;
+  proj.status = 'active';
+  _saveProgrammeData('Réactivation projet', proj.name);
+  // Basculer le filtre sur "Actifs" pour que le projet soit visible
+  setProgrammeProjectFilter('active');
+  renderProgrammeScreen();
+  showToast('✅ Projet « ' + proj.name + ' » réactivé.', 3000);
+}
+
+function deleteProjectPermanently(projectId) {
+  const proj = (state.programme.projects || []).find(p => p.id === projectId);
+  if (!proj) return;
+  const name = proj.name || projectId;
+  if (!confirm(
+    '⚠️ Supprimer définitivement le projet « ' + name + ' » ?\n\n' +
+    'Toutes les données associées (actions, risques, GAPs, arbitrages…) seront perdues.\n\n' +
+    'Cette action est IRRÉVERSIBLE.'
+  )) return;
+  // Double confirmation pour éviter les suppressions accidentelles
+  const typed = prompt('Tapez le nom du projet pour confirmer la suppression :\n"' + name + '"');
+  if (!typed || typed.trim() !== name.trim()) {
+    if (typed !== null) alert('Nom incorrect — suppression annulée.');
+    return;
+  }
+  // Retirer de la liste des projets
+  const idx = (state.programme.projects || []).findIndex(p => p.id === projectId);
+  if (idx >= 0) state.programme.projects.splice(idx, 1);
+  // Supprimer les données du projet
+  if (state.projectData && state.projectData[projectId]) {
+    delete state.projectData[projectId];
+  }
+  // Si c'était le projet courant, revenir à l'écran programme
+  if (state.currentProjectId === projectId) {
+    state.currentProjectId = null;
+  }
+  _saveProgrammeData('Suppression projet', name);
+  renderProgrammeScreen();
+  showToast('🗑️ Projet « ' + name + ' » supprimé définitivement.', 4000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
