@@ -747,14 +747,52 @@ function renderParametrageTab() {
     ''
   );
 
-  // ── Section 3 : Import / Export ───────────────────────────────────────
-  const sec3 = section('📤', 'Import / Export',
-    `<div style="font-size:12px;color:#64748b;margin-bottom:12px;">Gérez les imports de planning Excel et les exports de données projet.</div>
-     <div style="display:flex;flex-wrap:wrap;gap:8px;">
-       <button onclick="_downloadImportTemplate()" class="btn btn-secondary btn-sm">📄 Télécharger le template Excel</button>
-       <button onclick="_openImportDataModal()" class="btn btn-secondary btn-sm">📥 Importer un planning</button>
-       <button onclick="exportGapsCSV()" class="btn btn-secondary btn-sm">📊 Exporter GAPs (CSV)</button>
-       <button onclick="exportPivotCSV()" class="btn btn-secondary btn-sm">📊 Exporter Analyse (CSV)</button>
+  // ── Section 3 : Hub Import / Export ──────────────────────────────────
+  const _importCards = [
+    { key:'risques',    icon:'⚠️',  color:'#E63329', bg:'#FDEEEC', label:'Risques',
+      desc:'Catégorie · Description · Probabilité · Impact · Owner · Statut · Plan d\'atténuation' },
+    { key:'actions',    icon:'✅',  color:'#1565C0', bg:'#E8F0FE', label:'Plan d\'Actions',
+      desc:'Libellé · Domaine · Responsable · Catégorie · Entité · Urgence · Dates · Statut' },
+    { key:'arbitrages', icon:'⚖️', color:'#6d28d9', bg:'#ede9fe', label:'Arbitrages',
+      desc:'Libellé · Source · Domaine · Priorité · Responsable · Échéance · Décision' },
+    { key:'gaps',       icon:'📋', color:'#0f766e', bg:'#ccfbf1', label:'GAPs',
+      desc:'Description · Référence · Domaine · Processus · Priorité · Phase · BM' },
+  ];
+  const importHub = _importCards.map(c => `
+    <div style="background:${c.bg};border:1px solid ${c.color}33;border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">${c.icon}</span>
+        <span style="font-size:13px;font-weight:700;color:${c.color};">${c.label}</span>
+      </div>
+      <div style="font-size:11px;color:#64748b;line-height:1.5;flex:1;">${c.desc}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="_openDynImport('${c.key}')"
+          style="flex:1;padding:6px 10px;background:${c.color};color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+          📥 Importer
+        </button>
+        <button onclick="_dynDownloadTemplateFor('${c.key}')"
+          style="padding:6px 10px;background:white;color:${c.color};border:1.5px solid ${c.color};border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;">
+          📄 Template
+        </button>
+      </div>
+    </div>`).join('');
+
+  const sec3 = section('📥', 'Import des Données',
+    `<div style="font-size:12px;color:#64748b;margin-bottom:14px;">
+       Importez vos données depuis un fichier <b>CSV</b> ou <b>Excel (.xlsx)</b>. L'outil détecte automatiquement
+       les colonnes et vous permet de mapper manuellement les cas ambigus. Les fichiers multi-onglets sont supportés.
+     </div>
+     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+       ${importHub}
+     </div>
+     <div style="margin-top:16px;padding-top:14px;border-top:1px solid #e2e8f0;">
+       <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px;">📤 Exports &amp; Planning</div>
+       <div style="display:flex;flex-wrap:wrap;gap:8px;">
+         <button onclick="_downloadImportTemplate()" class="btn btn-secondary btn-sm">📄 Template Planning Excel</button>
+         <button onclick="_openImportDataModal()" class="btn btn-secondary btn-sm">📥 Importer un planning Gantt</button>
+         <button onclick="exportGapsCSV()" class="btn btn-secondary btn-sm">📊 Export GAPs (CSV)</button>
+         <button onclick="exportPivotCSV()" class="btn btn-secondary btn-sm">📊 Export Analyse (CSV)</button>
+       </div>
      </div>`,
     ''
   );
@@ -11900,7 +11938,12 @@ function deleteRisk(idx) {
 // Usage: _openDynImport('risques') | 'actions' | 'arbitrages' | 'gaps'
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const _DYN_IMPORT = { schema:null, schemaKey:'', rawRows:[], headers:[], mapping:{}, step:1 };
+const _DYN_IMPORT = {
+  schema:null, schemaKey:'', rawRows:[], headers:[], mapping:{}, step:1,
+  workbook:null,      // SheetJS workbook kept for multi-sheet Excel
+  sheetNames:[],      // list of sheet names in the loaded workbook
+  selectedSheet:'',   // currently selected sheet name
+};
 
 const _IMPORT_SCHEMAS = {
   risques: {
@@ -12273,38 +12316,105 @@ function _dynImportOnFileChange(input) {
   const btn   = document.getElementById('dyn-import-btn-next1');
   if (msgEl) { msgEl.style.display='none'; msgEl.innerHTML=''; }
   if (btn)   { btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; }
-  _DYN_IMPORT.rawRows = []; _DYN_IMPORT.headers = [];
+  Object.assign(_DYN_IMPORT, { rawRows:[], headers:[], workbook:null, sheetNames:[], selectedSheet:'' });
   if (!file) return;
 
   const ext = file.name.split('.').pop().toLowerCase();
-  const _err = msg => { if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">${msg}</div>`; msgEl.style.display=''; } };
-  const _ok  = msg => {
-    if (msgEl) { msgEl.innerHTML=`<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;">${msg}</div>`; msgEl.style.display=''; }
-    if (btn)   { btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+  const _err = msg => {
+    if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">${msg}</div>`; msgEl.style.display=''; }
   };
-  const _onRows = rows => {
-    if (!rows || rows.length < 2) { _err('❌ Fichier vide ou sans données.'); return; }
-    _DYN_IMPORT.rawRows  = rows;
-    _DYN_IMPORT.headers  = rows[0].map(h => String(h||'').trim());
+
+  // Shared: load rows from a sheet name (or null = use rawRows already set)
+  const _loadSheet = (wb, sheetName) => {
+    const ws = wb.Sheets[sheetName];
+    if (!ws) { _err('❌ Onglet introuvable : ' + sheetName); return; }
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+    if (!rows || rows.length < 2) { _err('❌ Onglet « ' + sheetName + ' » vide ou sans données.'); return; }
+    _DYN_IMPORT.rawRows      = rows;
+    _DYN_IMPORT.headers      = rows[0].map(h => String(h||'').trim());
+    _DYN_IMPORT.selectedSheet= sheetName;
     _dynImportAutoMap();
-    _ok('✅ Fichier chargé · <b>' + (rows.length-1) + '</b> ligne(s) · <b>' + _DYN_IMPORT.headers.length + '</b> colonne(s) détectée(s)');
+    _dynImportUpdateStep1Status(rows.length - 1, _DYN_IMPORT.headers.length, sheetName, wb.SheetNames);
   };
 
   if (ext === 'csv') {
     const reader = new FileReader();
-    reader.onload = e => _onRows(_dynParseCSV(e.target.result));
+    reader.onload = e => {
+      const rows = _dynParseCSV(e.target.result);
+      if (!rows || rows.length < 2) { _err('❌ Fichier CSV vide ou sans données.'); return; }
+      _DYN_IMPORT.rawRows  = rows;
+      _DYN_IMPORT.headers  = rows[0].map(h => String(h||'').trim());
+      _dynImportAutoMap();
+      _dynImportUpdateStep1Status(rows.length - 1, _DYN_IMPORT.headers.length, null, null);
+    };
     reader.readAsText(file, 'UTF-8');
+
   } else if (ext === 'xlsx' || ext === 'xls') {
     if (typeof XLSX === 'undefined') { _err('⚠️ Librairie SheetJS non disponible. Utilisez le format CSV.'); return; }
     const reader = new FileReader();
     reader.onload = e => {
       try {
         const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
-        _onRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1, defval:'' }));
+        _DYN_IMPORT.workbook   = wb;
+        _DYN_IMPORT.sheetNames = wb.SheetNames;
+        _loadSheet(wb, wb.SheetNames[0]); // default: first sheet
       } catch(err) { _err('❌ Erreur lecture Excel : ' + err.message); }
     };
     reader.readAsArrayBuffer(file);
   } else { _err('❌ Format non supporté. CSV (.csv) ou Excel (.xlsx) uniquement.'); }
+}
+
+// Called from the sheet selector dropdown in step 1
+function _dynImportChangeSheet(sheetName) {
+  const wb = _DYN_IMPORT.workbook;
+  if (!wb) return;
+  const ws = wb.Sheets[sheetName];
+  if (!ws) return;
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+  if (!rows || rows.length < 2) {
+    const msgEl = document.getElementById('dyn-import-s1-msg');
+    if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">❌ Onglet « ${_esc(sheetName)} » vide ou sans données.</div>`; msgEl.style.display=''; }
+    const btn = document.getElementById('dyn-import-btn-next1');
+    if (btn) { btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; }
+    return;
+  }
+  _DYN_IMPORT.rawRows      = rows;
+  _DYN_IMPORT.headers      = rows[0].map(h => String(h||'').trim());
+  _DYN_IMPORT.selectedSheet= sheetName;
+  _DYN_IMPORT.mapping      = {};   // reset mapping for new sheet
+  _dynImportAutoMap();
+  _dynImportUpdateStep1Status(rows.length - 1, _DYN_IMPORT.headers.length, sheetName, _DYN_IMPORT.sheetNames);
+}
+
+// Update the status/sheet-selector block inside step 1 without re-rendering the whole step
+function _dynImportUpdateStep1Status(nbRows, nbCols, sheetName, allSheets) {
+  const msgEl = document.getElementById('dyn-import-s1-msg');
+  const btn   = document.getElementById('dyn-import-btn-next1');
+  if (!msgEl) return;
+
+  let sheetPickerHtml = '';
+  if (allSheets && allSheets.length > 1) {
+    const opts = allSheets.map(n =>
+      `<option value="${_esc(n)}"${n === sheetName ? ' selected' : ''}>${_esc(n)}</option>`
+    ).join('');
+    sheetPickerHtml = `
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:11px;font-weight:700;color:#4f46e5;">📑 Onglet à importer :</span>
+        <select onchange="_dynImportChangeSheet(this.value)"
+          style="padding:4px 8px;border:1.5px solid #4f46e5;border-radius:6px;font-size:12px;background:#eef2ff;color:#4f46e5;cursor:pointer;">
+          ${opts}
+        </select>
+        <span style="font-size:11px;color:#64748b;">(${allSheets.length} onglet(s) détecté(s))</span>
+      </div>`;
+  }
+
+  msgEl.innerHTML = `
+    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;">
+      ✅ Fichier chargé · <b>${nbRows}</b> ligne(s) · <b>${nbCols}</b> colonne(s)${sheetName ? ' · Onglet : <b>' + _esc(sheetName) + '</b>' : ''}
+      ${sheetPickerHtml}
+    </div>`;
+  msgEl.style.display = '';
+  if (btn) { btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
 }
 
 function _dynParseCSV(text) {
@@ -12352,6 +12462,13 @@ function _dynImportConfirm() {
 function _dynImportDownloadTemplate() {
   const schema = _DYN_IMPORT.schema;
   if (!schema) return;
+  _dynDownloadTemplateFor(_DYN_IMPORT.schemaKey);
+}
+
+// Standalone template download — can be called without an open modal
+function _dynDownloadTemplateFor(schemaKey) {
+  const schema = _IMPORT_SCHEMAS[schemaKey];
+  if (!schema) return;
   const header  = schema.fields.map(f => f.label);
   const example = schema.fields.map(f => {
     if (f.type === 'enum') return f.options ? f.options[0] : (f.default || '');
@@ -12364,7 +12481,7 @@ function _dynImportDownloadTemplate() {
   const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href=url; a.download='template_import_'+(_DYN_IMPORT.schemaKey||'data')+'.csv';
+  a.href=url; a.download='template_import_'+schemaKey+'.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
 }
