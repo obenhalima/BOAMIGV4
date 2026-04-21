@@ -3309,20 +3309,26 @@ function renderArbitrages() {
     const dispPrio     = saved.prio     || a.prio     || 'P2';
     const dispResp     = saved.resp     || a.resp     || '';
     const dispDeadline = saved.deadline || a.deadline || '';
+    const dispSource   = saved.source   || a.source   || '';
     const isCustom = !!a._custom;
     const rowStyle = isCustom ? ' style="background:#f0f4ff;"' : '';
     const idCell   = isCustom
       ? `<span style="font-size:10px;color:#3949AB;font-weight:700;">✦</span>`
       : `<span style="font-weight:700;color:var(--red)">${a.id}</span>`;
-    const histBtn = '<button title="Historique" onclick="showArbitrageHistory(\'' + a.id + '\',event)" style="background:none;border:1px solid #334155;border-radius:4px;padding:2px 6px;cursor:pointer;color:#64748b;font-size:11px;margin-left:4px;">🕐</button>';
-    const actionBtns = _canAddDel
-      ? `<button onclick="openEditArbitrage('${a.id}')" title="Modifier" style="background:none;border:none;cursor:pointer;font-size:13px;padding:1px 3px;" class="perm-edit">✏️</button>`
-        + `<button onclick="deleteArbitrage('${a.id}')" title="Supprimer" style="background:none;border:none;cursor:pointer;font-size:13px;padding:1px 3px;color:var(--red);">✕</button>`
-        + histBtn
+    const histBtn = '<button title="Historique" onclick="showArbitrageHistory(\'' + a.id + '\',event)" style="background:none;border:1px solid #cbd5e1;border-radius:4px;padding:2px 5px;cursor:pointer;color:#64748b;font-size:11px;" title="Historique">🕐</button>';
+    // Bouton edit : éditeurs + admins / Supprimer : admins seulement
+    const editBtn  = _canEdit
+      ? `<button onclick="openEditArbitrage('${a.id}')" title="Modifier tous les champs" style="background:none;border:none;cursor:pointer;font-size:13px;padding:1px 3px;">✏️</button>`
+      : '';
+    const delBtn   = _canAddDel
+      ? `<button onclick="deleteArbitrage('${a.id}')" title="Supprimer" style="background:none;border:none;cursor:pointer;font-size:13px;padding:1px 3px;color:var(--red);">✕</button>`
       : '';
     return `<tr${rowStyle}>
       <td>${idCell}</td>
       <td style="font-size:11px;">${escHtml(dispDomain)}</td>
+      <td><input class="comment-input" type="text" placeholder="Source de la demande…" value="${escHtml(dispSource)}"
+        onchange="setArbDecision('${a.id}','source',this.value)" ${_canEdit?'':'disabled'}
+        style="width:100%;font-size:11px;"></td>
       <td>${escHtml(dispLabel)}</td>
       <td class="center"><span class="badge badge-${dispPrio.toLowerCase()}">${dispPrio}</span></td>
       <td>
@@ -3337,7 +3343,7 @@ function renderArbitrages() {
       <td style="font-size:11px;">${escHtml(dispDeadline)}</td>
       <td><input class="comment-input" type="text" placeholder="Commentaire…" value="${escHtml(comment)}"
         onchange="setArbDecision('${a.id}','commentaire',this.value)" ${_canEdit?'':'disabled'}></td>
-      <td class="center perm-add-delete">${actionBtns}${histBtn}</td>
+      <td class="center" style="white-space:nowrap;">${editBtn}${delBtn}${histBtn}</td>
     </tr>`;
   }).join('');
 
@@ -3368,6 +3374,7 @@ function openAddArbitrage() {
   document.getElementById('arb-modal-title').textContent = '➕ Nouvel arbitrage';
   document.getElementById('arb-modal-btn').textContent   = 'Créer';
   document.getElementById('arb-modal-label').value    = '';
+  document.getElementById('arb-modal-source').value   = '';
   document.getElementById('arb-modal-domain').value   = '';
   document.getElementById('arb-modal-prio').value     = 'P2';
   document.getElementById('arb-modal-resp').value     = '';
@@ -3378,7 +3385,7 @@ function openAddArbitrage() {
 }
 
 function openEditArbitrage(id) {
-  if (!canAddDelete()) return;
+  if (!canEdit()) return;  // éditeurs + admins peuvent modifier
   _arbEditId = id;
   const allArbs = [...arbitrages, ...(state.customArbitrages||[])];
   const a = allArbs.find(x => String(x.id) === String(id));
@@ -3387,6 +3394,7 @@ function openEditArbitrage(id) {
   document.getElementById('arb-modal-title').textContent = '✏️ Modifier l\'arbitrage';
   document.getElementById('arb-modal-btn').textContent   = 'Enregistrer';
   document.getElementById('arb-modal-label').value    = saved.label    || (a && a.label)    || '';
+  document.getElementById('arb-modal-source').value   = saved.source   || (a && a.source)   || '';
   document.getElementById('arb-modal-domain').value   = saved.domain   || (a && a.domain)   || '';
   document.getElementById('arb-modal-prio').value     = saved.prio     || (a && a.prio)     || 'P2';
   document.getElementById('arb-modal-resp').value     = saved.resp     || (a && a.resp)     || '';
@@ -3403,6 +3411,7 @@ function closeArbModal() {
 
 function saveArbitrage() {
   const label    = document.getElementById('arb-modal-label').value.trim();
+  const source   = document.getElementById('arb-modal-source').value.trim();
   const domain   = document.getElementById('arb-modal-domain').value.trim();
   const prio     = document.getElementById('arb-modal-prio').value;
   const resp     = document.getElementById('arb-modal-resp').value.trim();
@@ -3411,19 +3420,20 @@ function saveArbitrage() {
   const comment  = document.getElementById('arb-modal-comment').value.trim();
   if (!label) { alert('Le libellé est obligatoire.'); return; }
 
-  const _ARB_FIELDS = { label:'Libellé', domain:'Domaine', prio:'Priorité', resp:'Responsable', deadline:'Échéance', decision:'Décision', commentaire:'Commentaire' };
+  const _ARB_FIELDS = { label:'Libellé', source:'Source', domain:'Domaine', prio:'Priorité', resp:'Responsable', deadline:'Échéance', decision:'Décision', commentaire:'Commentaire' };
   if (_arbEditId !== null) {
     const custom = (state.customArbitrages||[]).find(x => String(x.id) === String(_arbEditId));
     if (custom) {
       const oldItem = { ...custom, decision: (state.arbitrages[_arbEditId]||{}).decision, commentaire: (state.arbitrages[_arbEditId]||{}).commentaire };
-      const newItem = { label, domain, prio, resp, deadline, decision: dec, commentaire: comment };
+      const newItem = { label, source, domain, prio, resp, deadline, decision: dec, commentaire: comment };
       const changes = _diffFields(oldItem, newItem, _ARB_FIELDS);
       if (changes.length > 0) { _pushHistory(custom, 'updated', changes); }
-      custom.label = label; custom.domain = domain; custom.prio = prio;
+      custom.label = label; custom.source = source; custom.domain = domain; custom.prio = prio;
       custom.resp  = resp;  custom.deadline = deadline;
     }
     if (!state.arbitrages[_arbEditId]) state.arbitrages[_arbEditId] = {};
     state.arbitrages[_arbEditId].label       = label;
+    state.arbitrages[_arbEditId].source      = source;
     state.arbitrages[_arbEditId].domain      = domain;
     state.arbitrages[_arbEditId].prio        = prio;
     state.arbitrages[_arbEditId].resp        = resp;
@@ -3435,10 +3445,11 @@ function saveArbitrage() {
   } else {
     const newId = 'arb_' + Date.now();
     if (!state.customArbitrages) state.customArbitrages = [];
-    const newArb = { id: newId, label, domain, prio, resp, deadline, _custom: true, _history: [] };
+    const newArb = { id: newId, label, source, domain, prio, resp, deadline, _custom: true, _history: [] };
     _pushHistory(newArb, 'created');
     state.customArbitrages.push(newArb);
     if (!state.arbitrages[newId]) state.arbitrages[newId] = {};
+    state.arbitrages[newId].source      = source;
     state.arbitrages[newId].decision    = dec;
     state.arbitrages[newId].commentaire = comment;
     _saveAppDefault('arbitrages', [...arbitrages, ...(state.customArbitrages||[])]);
@@ -5749,15 +5760,24 @@ function _cbsGetExportData(tabId) {
 
 /* ── Arbitrages ─────────────────────────────────────────────────────── */
 function _cbsGetArbitragesData() {
-  const decLabels = { 'en_cours':'⏳ En cours', 'maintien_hybride':'🔵 Maintien hybride', 'integration_v4':'🟢 Intégration V4', 'abandon':'🔴 Abandon' };
-  const headers = ['N°','Domaine','Développement Spécifique','Priorité','Deadline','Responsable','Décision','Commentaire'];
-  const rows = arbitrages.map(a => {
+  const decLabels = { 'en_cours':'⏳ En cours', 'maintien':'🔵 Maintien hybride', 'integration':'🟢 Intégration V4', 'abandon':'🔴 Abandon' };
+  const headers = ['N°','Domaine','Source de la demande','Développement Spécifique','Priorité','Deadline','Responsable','Décision','Commentaire'];
+  const allArbs = [...arbitrages, ...(state.customArbitrages||[])];
+  const rows = allArbs.map(a => {
     const s = state.arbitrages[a.id] || {};
-    return [a.id, a.domain, a.label, a.prio, a.deadline, a.resp,
+    return [
+      a.id,
+      s.domain   || a.domain   || '',
+      s.source   || a.source   || '',
+      s.label    || a.label    || '',
+      s.prio     || a.prio     || '',
+      s.deadline || a.deadline || '',
+      s.resp     || a.resp     || '',
       decLabels[s.decision || 'en_cours'] || s.decision || '',
-      s.note || ''];
+      s.commentaire || ''
+    ];
   });
-  const _arbCount = arbitrages.length + (state.customArbitrages||[]).length;
+  const _arbCount = allArbs.length;
   return { title: 'Suivi Arbitrages — ' + _arbCount + ' Développements Spécifiques BOA', headers, rows };
 }
 

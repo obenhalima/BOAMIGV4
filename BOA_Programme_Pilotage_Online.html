@@ -1393,14 +1393,15 @@ ORDER BY table_name;</div>
           <thead>
             <tr>
               <th style="width:35px">#</th>
-              <th style="width:150px">Domaine</th>
+              <th style="width:130px">Domaine</th>
+              <th style="width:160px">Source de la demande</th>
               <th>Développement spécifique</th>
               <th style="width:55px" class="center">Prio.</th>
               <th style="width:170px">Décision</th>
               <th style="width:100px">Responsable</th>
               <th style="width:85px">Deadline</th>
               <th style="width:180px">Commentaire</th>
-              <th style="width:64px" class="center perm-add-delete">Actions</th>
+              <th style="width:64px" class="center">Actions</th>
             </tr>
           </thead>
           <tbody id="arb-tbody"></tbody>
@@ -2211,6 +2212,11 @@ ORDER BY table_name;</div>
       <div>
         <label style="font-size:11px;font-weight:700;color:#54565A;display:block;margin-bottom:4px;">Libellé (développement spécifique) *</label>
         <input id="arb-modal-label" type="text" placeholder="Ex : Gestion des cartes prépayées BOA…"
+          style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:13px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;color:#54565A;display:block;margin-bottom:4px;">Source de la demande</label>
+        <input id="arb-modal-source" type="text" placeholder="ex : Issue du document GAP-015, Réunion COPIL 12/03, Email CBS du 05/04…"
           style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:13px;box-sizing:border-box;">
       </div>
       <div style="display:flex;gap:10px;">
