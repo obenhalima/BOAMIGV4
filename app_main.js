@@ -12134,12 +12134,15 @@ function _dynImportHtmlStep1() {
     <div style="margin-bottom:14px;">
       <button onclick="_dynImportDownloadTemplate()" class="btn btn-secondary btn-sm">📄 Télécharger le template CSV</button>
     </div>
-    <div style="margin-bottom:16px;">
+    <div style="margin-bottom:12px;">
       <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Fichier à importer (CSV ou Excel)</label>
       <input type="file" id="dyn-import-file" accept=".csv,.xlsx,.xls"
              style="width:100%;padding:10px;border:2px dashed #c7d2fe;border-radius:8px;font-size:13px;cursor:pointer;background:#f8faff;box-sizing:border-box;"
              onchange="_dynImportOnFileChange(this)">
     </div>
+    <!-- Sheet picker — affiché uniquement si le fichier Excel contient plusieurs onglets -->
+    <div id="dyn-import-s1-sheet-picker" style="display:none;margin-bottom:12px;"></div>
+    <!-- Statut (succès / erreur) -->
     <div id="dyn-import-s1-msg" style="display:none;margin-bottom:12px;"></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;">
       <button onclick="_closeDynImport()" class="btn btn-cancel">Annuler</button>
@@ -12173,10 +12176,18 @@ function _dynImportHtmlStep2() {
   }).join('');
 
   const autoMapped = s.schema.fields.filter(f => (s.mapping[f.key]||0) >= 0).length;
+  const sheetBadge = s.selectedSheet
+    ? `<span style="background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap;">📑 ${_esc(s.selectedSheet)}</span>`
+    : '';
+  const changeSheetLink = (s.sheetNames && s.sheetNames.length > 1)
+    ? `<button onclick="_dynImportGoStep(1)" style="background:none;border:none;color:#4f46e5;font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">Changer d'onglet</button>`
+    : '';
   return `
-    <div style="font-size:12px;color:#64748b;margin-bottom:10px;">
-      <b>${s.rawRows.length-1}</b> ligne(s) · <b>${s.headers.length}</b> colonne(s) source ·
-      <span style="color:#4f46e5;font-weight:600;">${autoMapped} champ(s) auto-mappé(s)</span>
+    <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;padding:8px 12px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+      ${sheetBadge}
+      <span style="font-size:12px;color:#64748b;"><b>${s.rawRows.length-1}</b> ligne(s) · <b>${s.headers.length}</b> colonne(s)</span>
+      <span style="font-size:12px;color:#4f46e5;font-weight:600;">· ${autoMapped} champ(s) auto-mappé(s)</span>
+      ${changeSheetLink ? '<span style="color:#e2e8f0;">|</span>' + changeSheetLink : ''}
     </div>
     <div style="overflow-y:auto;max-height:340px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:14px;">
       <table style="width:100%;border-collapse:collapse;">
@@ -12406,52 +12417,93 @@ function _dynImportChangeSheet(sheetName) {
   const wb = _DYN_IMPORT.workbook;
   if (!wb) return;
   const ws = wb.Sheets[sheetName];
-  if (!ws) return;
-  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-  if (!rows || rows.length < 2) {
-    const msgEl = document.getElementById('dyn-import-s1-msg');
-    if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">❌ Onglet « ${_esc(sheetName)} » vide ou sans données.</div>`; msgEl.style.display=''; }
-    const btn = document.getElementById('dyn-import-btn-next1');
+  const msgEl = document.getElementById('dyn-import-s1-msg');
+  const btn   = document.getElementById('dyn-import-btn-next1');
+
+  if (!ws) {
+    if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">❌ Onglet introuvable : ${_esc(sheetName)}</div>`; msgEl.style.display=''; }
     if (btn) { btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; }
     return;
   }
-  _DYN_IMPORT.rawRows      = rows;
-  _DYN_IMPORT.headers      = rows[0].map(h => String(h||'').trim());
-  _DYN_IMPORT.selectedSheet= sheetName;
-  _DYN_IMPORT.mapping      = {};   // reset mapping for new sheet
-  _dynImportAutoMap();
-  _dynImportUpdateStep1Status(rows.length - 1, _DYN_IMPORT.headers.length, sheetName, _DYN_IMPORT.sheetNames);
-}
 
-// Update the status/sheet-selector block inside step 1 without re-rendering the whole step
-function _dynImportUpdateStep1Status(nbRows, nbCols, sheetName, allSheets) {
-  const msgEl = document.getElementById('dyn-import-s1-msg');
-  const btn   = document.getElementById('dyn-import-btn-next1');
-  if (!msgEl) return;
-
-  let sheetPickerHtml = '';
-  if (allSheets && allSheets.length > 1) {
-    const opts = allSheets.map(n =>
-      `<option value="${_esc(n)}"${n === sheetName ? ' selected' : ''}>${_esc(n)}</option>`
-    ).join('');
-    sheetPickerHtml = `
-      <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:700;color:#4f46e5;">📑 Onglet à importer :</span>
-        <select onchange="_dynImportChangeSheet(this.value)"
-          style="padding:4px 8px;border:1.5px solid #4f46e5;border-radius:6px;font-size:12px;background:#eef2ff;color:#4f46e5;cursor:pointer;">
-          ${opts}
-        </select>
-        <span style="font-size:11px;color:#64748b;">(${allSheets.length} onglet(s) détecté(s))</span>
-      </div>`;
+  const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+  if (!rows || rows.length < 2) {
+    if (msgEl) { msgEl.innerHTML=`<div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;color:#991b1b;">❌ Onglet « ${_esc(sheetName)} » vide ou sans données.</div>`; msgEl.style.display=''; }
+    if (btn) { btn.disabled=true; btn.style.opacity='.5'; btn.style.cursor='not-allowed'; }
+    return;
   }
 
-  msgEl.innerHTML = `
-    <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;">
-      ✅ Fichier chargé · <b>${nbRows}</b> ligne(s) · <b>${nbCols}</b> colonne(s)${sheetName ? ' · Onglet : <b>' + _esc(sheetName) + '</b>' : ''}
-      ${sheetPickerHtml}
+  // Update state
+  _DYN_IMPORT.rawRows       = rows;
+  _DYN_IMPORT.headers       = rows[0].map(h => String(h||'').trim());
+  _DYN_IMPORT.selectedSheet = sheetName;
+  _DYN_IMPORT.mapping       = {};   // reset mapping — new headers, start fresh
+  _dynImportAutoMap();
+
+  const nbRows = rows.length - 1;
+  const nbCols = _DYN_IMPORT.headers.length;
+
+  // Update info span in place (don't rebuild the picker → avoids dropdown reset)
+  const infoSpan = document.getElementById('dyn-import-sheet-info');
+  if (infoSpan) infoSpan.textContent = nbRows + ' ligne(s) · ' + nbCols + ' colonne(s)';
+
+  // Update the success message
+  if (msgEl) {
+    msgEl.innerHTML = `<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;">
+      ✅ Onglet <b>${_esc(sheetName)}</b> chargé · <b>${nbRows}</b> ligne(s) · <b>${nbCols}</b> colonne(s)
     </div>`;
-  msgEl.style.display = '';
+    msgEl.style.display = '';
+  }
   if (btn) { btn.disabled=false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+}
+
+// Update step-1 status: sheet picker (separate div) + success message
+function _dynImportUpdateStep1Status(nbRows, nbCols, sheetName, allSheets) {
+  const pickerEl = document.getElementById('dyn-import-s1-sheet-picker');
+  const msgEl    = document.getElementById('dyn-import-s1-msg');
+  const btn      = document.getElementById('dyn-import-btn-next1');
+
+  // ── Sheet picker (own div, separate from status message) ──────────────────
+  if (pickerEl) {
+    if (allSheets && allSheets.length > 1) {
+      const opts = allSheets.map(n =>
+        `<option value="${_esc(n)}"${n === sheetName ? ' selected' : ''}>${_esc(n)}</option>`
+      ).join('');
+      pickerEl.innerHTML = `
+        <div style="background:#f0f4ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:12px 14px;">
+          <div style="font-size:12px;font-weight:700;color:#4f46e5;margin-bottom:8px;">
+            📑 Sélectionner l'onglet à importer
+            <span style="font-weight:400;color:#94a3b8;font-size:11px;margin-left:6px;">${allSheets.length} onglet(s) détecté(s)</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <select id="dyn-import-sheet-select" onchange="_dynImportChangeSheet(this.value)"
+              style="flex:1;min-width:180px;padding:7px 10px;border:1.5px solid #4f46e5;border-radius:7px;
+                     font-size:13px;font-weight:600;background:#eef2ff;color:#4f46e5;cursor:pointer;box-sizing:border-box;">
+              ${opts}
+            </select>
+            <span id="dyn-import-sheet-info"
+              style="font-size:11px;color:#64748b;white-space:nowrap;">
+              ${nbRows} ligne(s) · ${nbCols} colonne(s)
+            </span>
+          </div>
+        </div>`;
+      pickerEl.style.display = '';
+    } else {
+      pickerEl.style.display = 'none';
+      pickerEl.innerHTML = '';
+    }
+  }
+
+  // ── Success / file info message ──────────────────────────────────────────
+  if (msgEl) {
+    msgEl.innerHTML = `
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px 12px;font-size:12px;color:#166534;">
+        ✅ Fichier chargé${sheetName ? ' · Onglet : <b>' + _esc(sheetName) + '</b>' : ''} · <b>${nbRows}</b> ligne(s) · <b>${nbCols}</b> colonne(s)
+      </div>`;
+    msgEl.style.display = '';
+  }
+
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
 }
 
 function _dynParseCSV(text) {
