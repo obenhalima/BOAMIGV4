@@ -11895,3 +11895,211 @@ function deleteRisk(idx) {
   renderDashboard();
 }
 
+// ── Risk Import ───────────────────────────────────────────────────────────────
+let _riskImportParsed = null; // buffer temporaire lignes parsées
+
+function _openRiskImportModal() {
+  if (!canEdit()) { alert('Accès refusé.'); return; }
+  _riskImportParsed = null;
+  const fileEl = document.getElementById('risk-import-file');
+  if (fileEl) fileEl.value = '';
+  const prev = document.getElementById('risk-import-preview');
+  const errs = document.getElementById('risk-import-errors');
+  const btn  = document.getElementById('risk-import-btn-confirm');
+  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+  if (errs) { errs.style.display = 'none'; errs.innerHTML = ''; }
+  if (btn)  { btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'; }
+  document.getElementById('risk-import-modal').style.display = 'flex';
+}
+
+function _closeRiskImportModal() {
+  document.getElementById('risk-import-modal').style.display = 'none';
+  _riskImportParsed = null;
+}
+
+function _downloadRiskTemplate() {
+  const header = ['Catégorie', 'Description', 'Probabilité', 'Impact', 'Owner', 'Statut', "Plan d'atténuation"];
+  const example = ['Technique', 'Risque de retard sur livraison', '3', '4', 'Chef de projet', 'ouvert', 'Mettre en place un suivi hebdomadaire'];
+  const csv = [header, example]
+    .map(row => row.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(','))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'template_risques.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+// Correspondances entête → champ interne
+const _RISK_COL_MAP = {
+  'catégorie': 'cat', 'categorie': 'cat', 'category': 'cat', 'cat': 'cat',
+  'description': 'desc', 'risque': 'desc',
+  'probabilité': 'prob', 'probabilite': 'prob', 'probability': 'prob', 'prob': 'prob', 'p': 'prob',
+  'impact': 'impact', 'i': 'impact',
+  'owner': 'owner', 'responsable': 'owner', 'porteur': 'owner',
+  'statut': 'statut', 'status': 'statut', 'état': 'statut', 'etat': 'statut',
+  "plan d'atténuation": 'plan', "plan d'attenuation": 'plan', 'plan': 'plan',
+  "plan d'attenuation / actions": 'plan', "plan d'atténuation / actions": 'plan',
+  'mitigation': 'plan', 'actions': 'plan',
+};
+
+const _RISK_STATUT_MAP = {
+  'ouvert': 'ouvert', 'open': 'ouvert', 'new': 'ouvert',
+  'en_cours': 'en_cours', 'en cours': 'en_cours', 'en cours d\'atténuation': 'en_cours', 'in progress': 'en_cours',
+  'surveille': 'surveille', 'surveillé': 'surveille', 'surveille': 'surveille', 'watched': 'surveille',
+  'clos': 'clos', 'closed': 'clos', 'fermé': 'clos', 'résolu': 'clos', 'clos / résolu': 'clos',
+  'accepte': 'accepte', 'accepté': 'accepte', 'accepted': 'accepte',
+};
+
+function _onRiskImportFileChange(input) {
+  const file = input.files[0];
+  const prev = document.getElementById('risk-import-preview');
+  const errs = document.getElementById('risk-import-errors');
+  const btn  = document.getElementById('risk-import-btn-confirm');
+  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
+  if (errs) { errs.style.display = 'none'; errs.innerHTML = ''; }
+  if (btn)  { btn.disabled = true; btn.style.opacity = '.5'; btn.style.cursor = 'not-allowed'; }
+  _riskImportParsed = null;
+  if (!file) return;
+
+  const ext = file.name.split('.').pop().toLowerCase();
+
+  if (ext === 'csv') {
+    const reader = new FileReader();
+    reader.onload = function(e) { _parseRiskCSV(e.target.result); };
+    reader.readAsText(file, 'UTF-8');
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    // SheetJS (xlsx) — CDN ajouté dans le HTML
+    if (typeof XLSX === 'undefined') {
+      if (errs) { errs.innerHTML = '⚠️ La lecture Excel nécessite la librairie SheetJS non chargée. Utilisez le format CSV.'; errs.style.display = ''; }
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        _parseRiskRows(rows);
+      } catch(err) {
+        if (errs) { errs.innerHTML = '❌ Erreur de lecture Excel : ' + err.message; errs.style.display = ''; }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    if (errs) { errs.innerHTML = '❌ Format non supporté. Utilisez un fichier CSV ou Excel (.xlsx).'; errs.style.display = ''; }
+  }
+}
+
+function _parseRiskCSV(text) {
+  // Parser CSV minimal (gère les guillemets)
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+  const rows = lines.map(function(line) {
+    const result = [];
+    let inQ = false, cur = '';
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if ((c === ',' || c === ';') && !inQ) {
+        result.push(cur.trim()); cur = '';
+      } else cur += c;
+    }
+    result.push(cur.trim());
+    return result;
+  });
+  _parseRiskRows(rows);
+}
+
+function _parseRiskRows(rows) {
+  const prev = document.getElementById('risk-import-preview');
+  const errs = document.getElementById('risk-import-errors');
+  const btn  = document.getElementById('risk-import-btn-confirm');
+
+  if (!rows || rows.length < 2) {
+    if (errs) { errs.innerHTML = '❌ Fichier vide ou sans données.'; errs.style.display = ''; }
+    return;
+  }
+
+  // Construire la map colonne → index depuis la première ligne
+  const headerRow = rows[0].map(h => String(h || '').trim().toLowerCase());
+  const colIdx = {};
+  headerRow.forEach(function(h, i) {
+    const key = _RISK_COL_MAP[h];
+    if (key && colIdx[key] === undefined) colIdx[key] = i;
+  });
+
+  if (colIdx.desc === undefined) {
+    if (errs) { errs.innerHTML = '❌ Colonne "Description" introuvable.<br>En-têtes détectés : <b>' + headerRow.join(', ') + '</b>'; errs.style.display = ''; }
+    return;
+  }
+
+  const parsed = [];
+  const warnings = [];
+
+  for (let ri = 1; ri < rows.length; ri++) {
+    const row = rows[ri];
+    if (!row || row.every(c => String(c).trim() === '')) continue; // ligne vide
+
+    const get = function(key) {
+      return colIdx[key] !== undefined ? String(row[colIdx[key]] || '').trim() : '';
+    };
+
+    const desc = get('desc');
+    if (!desc) { warnings.push('Ligne ' + (ri + 1) + ' ignorée : Description vide.'); continue; }
+
+    const probRaw   = parseFloat(get('prob'))   || 3;
+    const impactRaw = parseFloat(get('impact')) || 3;
+    const prob   = Math.min(5, Math.max(1, Math.round(probRaw)));
+    const impact = Math.min(5, Math.max(1, Math.round(impactRaw)));
+
+    const statutRaw = get('statut').toLowerCase();
+    const statut = _RISK_STATUT_MAP[statutRaw] || 'ouvert';
+
+    parsed.push({
+      cat:     get('cat')   || 'Autre',
+      desc:    desc,
+      prob:    prob,
+      impact:  impact,
+      owner:   get('owner') || '',
+      statut:  statut,
+      plan:    get('plan')  || '',
+      streams: [],
+    });
+  }
+
+  if (parsed.length === 0) {
+    if (errs) { errs.innerHTML = '❌ Aucun risque valide trouvé. Vérifiez que la colonne Description est remplie.'; errs.style.display = ''; }
+    return;
+  }
+
+  _riskImportParsed = parsed;
+  if (btn)  { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+
+  let msg = '✅ <b>' + parsed.length + ' risque(s)</b> prêts à importer.';
+  // Aperçu des 3 premiers
+  msg += '<br><br><b>Aperçu :</b><br>';
+  parsed.slice(0, 3).forEach(function(r) {
+    msg += '• ' + r.desc.substring(0, 60) + (r.desc.length > 60 ? '…' : '') + ' <span style="color:#888;">(P=' + r.prob + ' I=' + r.impact + ' — ' + r.statut + ')</span><br>';
+  });
+  if (parsed.length > 3) msg += '<span style="color:#888;">… et ' + (parsed.length - 3) + ' autre(s)</span>';
+  if (warnings.length) msg += '<br><br>⚠️ ' + warnings.length + ' ligne(s) ignorée(s) :<br>' + warnings.slice(0, 5).join('<br>');
+  if (prev) { prev.innerHTML = msg; prev.style.display = ''; }
+  if (errs) errs.style.display = 'none';
+}
+
+function _confirmRiskImport() {
+  if (!_riskImportParsed || !_riskImportParsed.length) return;
+  const count = _riskImportParsed.length;
+  if (!state.risks) state.risks = [];
+  _riskImportParsed.forEach(function(r) { state.risks.push(r); });
+  saveState('Risques importés', count + ' risque(s)');
+  _closeRiskImportModal();
+  renderRisques();
+  renderDashboard();
+  showToast('✅ ' + count + ' risque(s) importé(s) avec succès !', 3000);
+}
+
