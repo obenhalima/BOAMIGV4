@@ -7940,6 +7940,20 @@ document.addEventListener('keydown', function(e) {
 let _chatHistory    = [];   // [{role:'user'|'model', parts:[{text}]}]
 let _chatIsOpen     = false;
 let _chatTyping     = false;
+let _chatMinimized  = false;
+
+// ── Minimiser / restaurer le panneau ─────────────────────────────────────
+function _chatToggleMinimize() {
+  const panel = document.getElementById('chatbot-panel');
+  const btn   = document.getElementById('chatbot-minimize-btn');
+  if (!panel) return;
+  _chatMinimized = !_chatMinimized;
+  panel.classList.toggle('chatbot-minimized', _chatMinimized);
+  if (btn) btn.textContent = _chatMinimized ? '▲' : '▼';
+  if (!_chatMinimized) {
+    setTimeout(() => document.getElementById('chatbot-input')?.focus(), 150);
+  }
+}
 
 // ── Ouvrir / fermer le panneau ────────────────────────────────────────────
 function _canUseAI() {
@@ -7955,6 +7969,14 @@ function toggleChatbot() {
   if (!panel) return;
   _chatIsOpen = !_chatIsOpen;
   panel.classList.toggle('open', _chatIsOpen);
+
+  // Toujours restaurer si on ré-ouvre depuis l'état minimisé
+  if (_chatIsOpen && _chatMinimized) {
+    _chatMinimized = false;
+    panel.classList.remove('chatbot-minimized');
+    const btn = document.getElementById('chatbot-minimize-btn');
+    if (btn) btn.textContent = '▼';
+  }
 
   const badge = document.getElementById('chatbot-badge');
   if (badge) badge.style.display = 'none';
