@@ -1811,7 +1811,7 @@ function renderProgrammeKPIs() {
     const risks = pd.risks || [];
     totalRisks += risks.length;
     criticalRisks += risks.filter(r => {
-      const sev = (r.probability || 1) * (r.impact || 1);
+      const sev = (r.prob || r.probability || 1) * (r.impact || 1);
       return sev >= 12;
     }).length;
 
@@ -1830,19 +1830,24 @@ function renderProgrammeKPIs() {
     ? Math.round((greenActions / totalActionsCount) * 100) : 0;
 
   const kpis = [
-    { icon:'📁', label:'Projets actifs',        value: projects.length,                              color:'#1565C0', bg:'#e3f2fd' },
-    { icon:'✅', label:'Actions terminées',      value: greenActions + ' / ' + totalActionsCount,    color:'#2E7D52', bg:'#e8f5e9' },
-    { icon:'🔴', label:'Actions en retard',      value: redActions,                                   color:'#C62828', bg:'#ffebee' },
-    { icon:'⚠️', label:'Risques critiques',      value: criticalRisks + ' / ' + totalRisks,          color:'#E65100', bg:'#fff3e0' },
-    { icon:'⚖️', label:'Arbitrages en attente',  value: pendingArbitrages + ' / ' + totalArbitragesCount, color:'#6B21A8', bg:'#f3e8ff' },
-    { icon:'📈', label:'Avancement global',      value: avgProgress + '%',                            color:'#0891B2', bg:'#e0f7fa' },
+    { icon:'📁', label:'Projets actifs',        value: projects.length,                              color:'#1565C0', bg:'#e3f2fd',  border:'#93c5fd', bar:null },
+    { icon:'✅', label:'Actions terminées',      value: greenActions + ' / ' + totalActionsCount,    color:'#2E7D52', bg:'#e8f5e9',  border:'#86efac', bar: totalActionsCount>0?Math.round(greenActions/totalActionsCount*100):0 },
+    { icon:'🔴', label:'Actions en retard',      value: redActions,                                   color:'#C62828', bg:'#ffebee',  border:'#fca5a5', bar:null, alert: redActions > 0 },
+    { icon:'⚠️', label:'Risques critiques',      value: criticalRisks + ' / ' + totalRisks,          color:'#E65100', bg:'#fff3e0',  border:'#fdba74', bar:null, alert: criticalRisks > 0 },
+    { icon:'⚖️', label:'Arbitrages en attente',  value: pendingArbitrages + ' / ' + totalArbitragesCount, color:'#6B21A8', bg:'#f3e8ff', border:'#d8b4fe', bar:null, alert: pendingArbitrages > 0 },
+    { icon:'📈', label:'Avancement global',      value: avgProgress + '%',                            color: avgProgress>=70?'#2E7D52':avgProgress>=40?'#D97706':'#C62828', bg:'#f8fafc', border:'#e2e8f0', bar: avgProgress },
   ];
 
   grid.innerHTML = kpis.map(k => `
-    <div style="background:${k.bg};border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:4px;">
-      <div style="font-size:22px;">${k.icon}</div>
-      <div style="font-size:22px;font-weight:800;color:${k.color};">${k.value}</div>
-      <div style="font-size:12px;color:#64748b;font-weight:500;">${k.label}</div>
+    <div style="background:${k.bg};border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;
+        border:1.5px solid ${k.border};position:relative;overflow:hidden;">
+      ${k.alert ? '<div style="position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%;background:currentColor;animation:pulse 1.5s infinite;"></div>' : ''}
+      <div style="font-size:26px;line-height:1;">${k.icon}</div>
+      <div style="font-size:24px;font-weight:800;color:${k.color};line-height:1;">${k.value}</div>
+      <div style="font-size:11px;color:#64748b;font-weight:600;">${k.label}</div>
+      ${k.bar !== null ? `<div style="background:rgba(0,0,0,.08);border-radius:3px;height:4px;overflow:hidden;margin-top:2px;">
+        <div style="background:${k.color};height:100%;width:${k.bar}%;transition:width .5s;border-radius:3px;"></div>
+      </div>` : ''}
     </div>
   `).join('');
 }
@@ -1886,7 +1891,7 @@ function _renderProgrammeProjectCards() {
     const total   = Math.max(actions.length + customActs.length, actVals.length);
     const pct     = total > 0 ? Math.round((green / total) * 100) : 0;
     const risks   = pd.risks || [];
-    const critRisks = risks.filter(r => (r.probability||1)*(r.impact||1) >= 12).length;
+    const critRisks = risks.filter(r => (r.prob||r.probability||1)*(r.impact||1) >= 12).length;
 
     // Arbitrages en attente de décision
     const arbStatuses = pd.arbitrages || {};
@@ -2397,75 +2402,135 @@ function renderProgrammeRiskHeatmap() {
   });
 
   if (allRisks.length === 0) {
-    container.innerHTML = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px;">Aucun risque enregistré dans les projets actifs.</p>';
+    container.innerHTML = `
+      <div style="text-align:center;padding:32px 20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🛡️</div>
+        <p style="color:#94a3b8;font-size:13px;margin:0;">Aucun risque enregistré dans les projets actifs.</p>
+      </div>`;
     return;
   }
 
-  // Matrice 5x5
+  // Matrice 5x5 — FIX : r.prob (et non r.probability)
   const matrix = {};
   for (let p = 1; p <= 5; p++) for (let i = 1; i <= 5; i++) matrix[p + '_' + i] = [];
   allRisks.forEach(r => {
-    const p = Math.min(5, Math.max(1, parseInt(r.probability) || 1));
+    const p  = Math.min(5, Math.max(1, parseInt(r.prob || r.probability) || 1));
     const im = Math.min(5, Math.max(1, parseInt(r.impact) || 1));
     if (matrix[p + '_' + im]) matrix[p + '_' + im].push(r);
   });
 
-  const cellBg = (p, i) => {
+  // Compte par zone de criticité
+  const countCrit   = allRisks.filter(r => (parseInt(r.prob||r.probability)||1)*(parseInt(r.impact)||1) >= 15).length;
+  const countHigh   = allRisks.filter(r => { const s=(parseInt(r.prob||r.probability)||1)*(parseInt(r.impact)||1); return s>=9&&s<15; }).length;
+  const countMed    = allRisks.filter(r => { const s=(parseInt(r.prob||r.probability)||1)*(parseInt(r.impact)||1); return s>=4&&s<9; }).length;
+  const countLow    = allRisks.filter(r => (parseInt(r.prob||r.probability)||1)*(parseInt(r.impact)||1) < 4).length;
+
+  // Couleurs de zone
+  const cellStyle = (p, i) => {
     const s = p * i;
-    if (s >= 15) return '#ffebee';
-    if (s >= 9)  return '#fff3e0';
-    if (s >= 4)  return '#fffde7';
-    return '#f1f8e9';
-  };
-  const cellBorder = (p, i) => {
-    const s = p * i;
-    if (s >= 15) return '#ef9a9a';
-    if (s >= 9)  return '#ffcc80';
-    if (s >= 4)  return '#fff176';
-    return '#c5e1a5';
+    if (s >= 15) return { bg:'#fde8e8', border:'#f87171', text:'#991b1b', badge:'#dc2626' };
+    if (s >= 9)  return { bg:'#fef3c7', border:'#fbbf24', text:'#92400e', badge:'#d97706' };
+    if (s >= 4)  return { bg:'#fefce8', border:'#fde047', text:'#713f12', badge:'#ca8a04' };
+    return           { bg:'#f0fdf4', border:'#86efac', text:'#166534', badge:'#16a34a' };
   };
 
   const labels = ['','Très faible','Faible','Modéré','Élevé','Très élevé'];
+  const shortL  = ['','1','2','3','4','5'];
 
-  let html = '<div style="overflow-x:auto;">';
-  html += '<table style="width:100%;border-collapse:collapse;font-size:11px;">';
-  html += '<tr><th style="width:60px;font-size:10px;color:#94a3b8;text-align:right;padding:2px 4px;">Prob ↑ / Impact →</th>';
-  for (let i = 1; i <= 5; i++) html += `<th style="text-align:center;padding:3px 2px;font-size:9px;color:#64748b;">${labels[i]}</th>`;
+  // ── Barre de synthèse ──
+  let html = `
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:6px;background:#fde8e8;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;color:#991b1b;">${countCrit} Critique${countCrit>1?'s':''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:6px 12px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:#d97706;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;color:#92400e;">${countHigh} Élevé${countHigh>1?'s':''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:6px 12px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:#ca8a04;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;color:#713f12;">${countMed} Modéré${countMed>1?'s':''}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:6px 12px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:#16a34a;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;color:#166534;">${countLow} Faible${countLow>1?'s':''}</span>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;">
+        <span style="font-size:11px;color:#94a3b8;">Total : <strong style="color:#475569;">${allRisks.length}</strong> risque${allRisks.length>1?'s':''}</span>
+      </div>
+    </div>`;
+
+  // ── Grille heatmap ──
+  html += '<div style="overflow-x:auto;">';
+  html += '<table style="width:100%;border-collapse:separate;border-spacing:4px;font-size:12px;">';
+
+  // En-tête Impact
+  html += `<tr>
+    <td colspan="2" style="text-align:center;"></td>
+    <td colspan="5" style="text-align:center;padding:4px 0;font-size:11px;font-weight:700;color:#64748b;letter-spacing:.5px;">IMPACT →</td>
+  </tr>`;
+  html += '<tr><th style="width:22px;"></th><th style="width:72px;font-size:10px;color:#94a3b8;text-align:right;padding:2px 6px 2px 0;font-weight:500;">Prob ↑</th>';
+  for (let i = 1; i <= 5; i++) html += `<th style="text-align:center;padding:4px 2px;font-size:10px;color:#475569;font-weight:600;min-width:54px;">${labels[i]}<br><span style="font-size:9px;color:#94a3b8;">(${shortL[i]})</span></th>`;
   html += '</tr>';
 
   for (let p = 5; p >= 1; p--) {
-    html += `<tr><td style="text-align:right;padding:2px 4px;font-size:9px;color:#64748b;white-space:nowrap;">${labels[p]}</td>`;
+    // Libellé probabilité — première cellule de la ligne
+    const rowLabel = p === 5
+      ? `<td rowspan="1" style="writing-mode:horizontal-tb;text-align:right;padding:2px 6px 2px 0;font-size:10px;color:#475569;font-weight:600;white-space:nowrap;vertical-align:middle;">${labels[p]}<br><span style="font-size:9px;color:#94a3b8;">(${p})</span></td>`
+      : `<td style="text-align:right;padding:2px 6px 2px 0;font-size:10px;color:#475569;font-weight:600;white-space:nowrap;vertical-align:middle;">${labels[p]}<br><span style="font-size:9px;color:#94a3b8;">(${p})</span></td>`;
+
+    // Flèche PROBABILITÉ sur la première ligne seulement
+    const arrowCell = p === 5
+      ? `<td rowspan="5" style="writing-mode:vertical-rl;text-align:center;font-size:10px;font-weight:700;color:#64748b;letter-spacing:.5px;padding:0 2px;transform:rotate(180deg);">PROBABILITÉ ↑</td>`
+      : '';
+
+    html += `<tr>${arrowCell}${rowLabel}`;
     for (let i = 1; i <= 5; i++) {
-      const key   = p + '_' + i;
-      const risks = matrix[key] || [];
-      const count = risks.length;
-      const bg    = cellBg(p, i);
-      const br    = cellBorder(p, i);
-      // Bulle par projet
+      const key    = p + '_' + i;
+      const risks  = matrix[key] || [];
+      const count  = risks.length;
+      const cs     = cellStyle(p, i);
+      // Bulle colorée par projet avec tooltip (FIX : r.desc)
       const bubbles = risks.map(r =>
-        `<span title="${_esc(r._projName)}: ${_esc(r.title||r.description||'Risque')}"
-          style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${r._projColor};margin:1px;"></span>`
+        `<span title="${_esc(r._projName)} ▸ ${_esc(r.desc || r.title || r.description || 'Risque')}"
+          style="display:inline-block;width:12px;height:12px;border-radius:50%;
+                 background:${r._projColor};border:1.5px solid rgba(0,0,0,.15);
+                 margin:1px;cursor:help;flex-shrink:0;"></span>`
       ).join('');
-      html += `<td style="background:${bg};border:1px solid ${br};text-align:center;
-        padding:4px 2px;min-height:32px;vertical-align:middle;cursor:${count > 0 ? 'pointer' : 'default'};"
-        title="${count > 0 ? count + ' risque(s) — ' + risks.map(r=>r._projName).join(', ') : ''}">
-        ${count > 0 ? `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:1px;">${bubbles}</div>
-          <div style="font-size:9px;font-weight:700;color:#374151;">${count}</div>` : ''}
-      </td>`;
+      html += `
+        <td style="background:${cs.bg};border:2px solid ${cs.border};border-radius:6px;
+            text-align:center;padding:6px 4px;vertical-align:middle;
+            min-width:54px;height:48px;transition:filter .15s;
+            cursor:${count > 0 ? 'default' : 'default'};"
+            title="${count > 0 ? count + ' risque(s) — Prob×Impact=' + (p*i) + '\n' + risks.map(r=>'• '+r._projName+': '+(r.desc||r.title||r.description||'?')).join('\n') : 'Score '+p*i+' — Aucun risque'}">
+          ${count > 0
+            ? `<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:1px;margin-bottom:3px;">${bubbles}</div>
+               <div style="font-size:11px;font-weight:800;color:${cs.badge};line-height:1;">${count}</div>`
+            : `<div style="font-size:10px;color:${cs.border};opacity:.5;line-height:1;">${p*i}</div>`
+          }
+        </td>`;
     }
     html += '</tr>';
   }
-  html += '</table>';
+  html += '</table></div>';
 
-  // Légende
-  html += '<div style="margin-top:10px;display:flex;gap:12px;flex-wrap:wrap;">';
-  projects.forEach(p => {
-    html += `<div style="display:flex;align-items:center;gap:4px;">
-      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color || '#1565C0'};"></span>
-      <span style="font-size:10px;color:#64748b;">${_esc(p.name)}</span>
-    </div>`;
-  });
-  html += '</div></div>';
+  // ── Légende projets ──
+  if (projects.length > 0) {
+    html += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">';
+    html += '<div style="font-size:10px;color:#94a3b8;font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Projets</div>';
+    html += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
+    projects.forEach(p => {
+      const pd = (state.projectData || {})[p.id] || {};
+      const nb = (pd.risks || []).length;
+      html += `<div style="display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${p.color || '#1565C0'};border:1.5px solid rgba(0,0,0,.15);flex-shrink:0;"></span>
+        <span style="font-size:11px;color:#475569;font-weight:500;">${_esc(p.name)}</span>
+        <span style="font-size:10px;color:#94a3b8;">(${nb})</span>
+      </div>`;
+    });
+    html += '</div></div>';
+  }
 
   container.innerHTML = html;
 }
@@ -2486,8 +2551,8 @@ function renderProgrammeAlerts() {
     const pd = (state.projectData || {})[proj.id] || {};
 
     // ── Risques critiques ────────────────────────────────────────────────
-    (pd.risks || []).filter(r => (r.probability||1)*(r.impact||1) >= 15).forEach(r => {
-      alerts.push({ type:'risk', level:'critical', text: r.title || r.description || 'Risque critique',
+    (pd.risks || []).filter(r => (r.prob||r.probability||1)*(r.impact||1) >= 15).forEach(r => {
+      alerts.push({ type:'risk', level:'critical', text: '🚨 Risque critique : ' + (r.desc || r.title || r.description || 'Risque sans libellé'),
         proj: proj.name, color: proj.color || '#1565C0', projId: proj.id });
     });
 

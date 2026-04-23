@@ -2123,6 +2123,7 @@ function resetGanttFilters() {
 }
 
 function renderGantt() {
+  console.log('[GANTT-DBG v3] renderGantt called — CBS=' + _projUsesCBS() + ' ganttTasks=' + ganttTasks.length + ' customTasks=' + (state.ganttCustom||[]).length + ' collapsed=' + JSON.stringify(state.ganttCollapsed));
   // Recalculer la plage pour inclure les tâches importées hors plage de base
   _refreshGanttRange();
   const todayPct = ganttPct(TODAY.toISOString().split('T')[0]);
@@ -2208,6 +2209,41 @@ function renderGantt() {
     if (t.type === 'phase') { _lastPhaseId = t.id; }
     else if (_lastPhaseId)  { _phaseMap[t.id] = _lastPhaseId; }
   });
+
+  // ── 1c. Map complète phaseId → enfants (TOUTES tâches, même repliées) ──
+  // Construit une liste plate ordonnée SANS filtrer par collapse, puis en déduit les phases.
+  const _allPhaseTasks = {}; // phaseId → [taskObjects]
+  {
+    const _flatAll    = [];
+    const _flatSeen   = new Set();
+
+    function _pushFlat(task) {
+      if (_flatSeen.has(task.id)) return;
+      _flatSeen.add(task.id);
+      if (!_hiddenSet.has(task.id)) _flatAll.push(task);
+      // Toujours descendre dans les enfants ancrés, quel que soit le collapse
+      (customAfter[task.id] || []).forEach(function(child) { _pushFlat(child); });
+    }
+
+    if (_projUsesCBS()) {
+      ganttTasks.forEach(function(task) { _pushFlat(task); });
+    }
+    customOrphan.forEach(function(ct) {
+      if (!_flatSeen.has(ct.id)) _pushFlat(ct);
+    });
+
+    // Dériver _allPhaseTasks depuis la liste plate complète
+    let _aptLastPhase = null;
+    _flatAll.forEach(function(t) {
+      if (t.type === 'phase') { _aptLastPhase = t.id; }
+      else if (_aptLastPhase) {
+        if (!_allPhaseTasks[_aptLastPhase]) _allPhaseTasks[_aptLastPhase] = [];
+        _allPhaseTasks[_aptLastPhase].push(t);
+      }
+    });
+    console.log('[GANTT-DBG v3] _flatAll=' + _flatAll.length + ' _allPhaseTasks keys=' + Object.keys(_allPhaseTasks).length
+      + ' detail=' + JSON.stringify(Object.entries(_allPhaseTasks).map(function(e){return {ph:e[0], n:e[1].length, s0:e[1][0]&&getTaskDates(e[1][0]).start};})));
+  }
 
   // Alimenter le <select id="gf-phase"> avec les phases disponibles
   const _phaseSelect = document.getElementById('gf-phase');
@@ -2352,19 +2388,19 @@ function renderGantt() {
     const isPhase  = task.type === 'phase';
     const isJalon  = task.type === 'jalon';
 
-    // ── Phase : si pas de dates propres → enveloppe des enfants ──────────
+    // ── Phase : dates = enveloppe min/max des tâches enfants (toutes, même repliées) ──
     if (isPhase) {
-      const _hasDate = start && start.length === 10 && end && end.length === 10 && start !== end;
-      if (!_hasDate) {
-        let _minS = null, _maxE = null;
-        allTasksRendered.forEach(function(ct) {
-          if (_phaseMap[ct.id] !== task.id) return;
-          const td = getTaskDates(ct);
-          if (td.start && (!_minS || td.start < _minS)) _minS = td.start;
-          if (td.end   && (!_maxE || td.end   > _maxE)) _maxE = td.end;
-        });
-        if (_minS) { start = _minS; end = _maxE || _minS; }
+      let _minS = null, _maxE = null;
+      (_allPhaseTasks[task.id] || []).forEach(function(ct) {
+        const td = getTaskDates(ct);
+        if (td.start && (!_minS || td.start < _minS)) _minS = td.start;
+        if (td.end   && (!_maxE || td.end   > _maxE)) _maxE = td.end;
+      });
+      if (_minS) {
+        start = _minS;
+        end   = _maxE || _minS;
       }
+      // fallback : si aucune tâche enfant n'a de dates → garder les dates propres de la phase
     }
 
     // Roll up pct from subtasks if any (must be after isPhase/isJalon)
@@ -11964,9 +12000,8 @@ const _IMPORT_SCHEMAS = {
     onImport(rows) {
       if (!state.risks) state.risks = [];
       rows.forEach(r => state.risks.push(Object.assign({}, r, { streams: [] })));
+      _saveCurrentProjectData();
       saveState('Risques importés', rows.length + ' risque(s)');
-      renderRisques(); renderDashboard();
-      showToast('✅ ' + rows.length + ' risque(s) importé(s)', 3000);
     }
   },
 
@@ -12001,9 +12036,8 @@ const _IMPORT_SCHEMAS = {
         state.customActions.push(act);
         state.actions[id] = { status, dateDebut, dateFin, pct: status === 'done' ? 100 : 0 };
       });
+      _saveCurrentProjectData();
       saveState('Actions importées', rows.length + ' action(s)');
-      renderActions(); renderDashboard();
-      showToast('✅ ' + rows.length + ' action(s) importée(s)', 3000);
     }
   },
 
@@ -12025,16 +12059,26 @@ const _IMPORT_SCHEMAS = {
     onImport(rows) {
       if (!state.customArbitrages) state.customArbitrages = [];
       if (!state.arbitrages) state.arbitrages = {};
+      const newArbs = [];
       rows.forEach(r => {
         const id = 'arb_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
-        const newArb = { id, label:r.label||'', source:r.source||'', domain:r.domain||'', prio:r.prio||'P2', resp:r.resp||'', deadline:r.deadline||'', _custom:true, _history:[] };
+        const dec = r.decision || 'en_cours';
+        const newArb = { id, label:r.label||'', source:r.source||'', domain:r.domain||'', prio:r.prio||'P2',
+                         resp:r.resp||'', deadline:r.deadline||'', decision:dec,
+                         commentaire:r.commentaire||'', _custom:true, _history:[] };
         _pushHistory(newArb, 'created');
         state.customArbitrages.push(newArb);
-        state.arbitrages[id] = { source:r.source||'', domain:r.domain||'', prio:r.prio||'P2', resp:r.resp||'', deadline:r.deadline||'', decision:r.decision||'en_cours', commentaire:r.commentaire||'' };
+        state.arbitrages[id] = { source:r.source||'', domain:r.domain||'', prio:r.prio||'P2',
+                                  resp:r.resp||'', deadline:r.deadline||'',
+                                  decision:dec, commentaire:r.commentaire||'' };
+        newArbs.push(newArb);
       });
+      _saveCurrentProjectData();
       saveState('Arbitrages importés', rows.length + ' arbitrage(s)');
-      renderArbitrages(); renderDashboard();
-      showToast('✅ ' + rows.length + ' arbitrage(s) importé(s)', 3000);
+      // Persistance DB duale (comme l'ajout manuel) — fire-and-forget
+      if (typeof DB !== 'undefined' && typeof DB.saveArbitrage === 'function') {
+        newArbs.forEach(a => DB.saveArbitrage(a).catch(e => console.warn('[import arb] DB save:', e.message)));
+      }
     }
   },
 
@@ -12055,16 +12099,24 @@ const _IMPORT_SCHEMAS = {
     onImport(rows) {
       if (!state.customGaps) state.customGaps = [];
       if (!state.gaps) state.gaps = {};
+      const newGaps = [];
       rows.forEach(r => {
         const n   = ((typeof gaps !== 'undefined' ? gaps : []).length) + state.customGaps.length + 1;
         const ref = r.ref || ('GAP-IMP-' + String(n).padStart(3,'0'));
-        const newGap = { n, ref, domain:r.domain||'', processus:r.processus||'', desc:r.desc, prio:r.prio||'P2', prio_cbs:r.prio||'P2', phase:r.phase||'II', phase_cbs:r.phase||'II', bm:r.bm||'BM UEMOA', resp:r.resp||'', _custom:true, _history:[] };
+        const newGap = { n, ref, domain:r.domain||'', processus:r.processus||'', desc:r.desc,
+                         prio:r.prio||'P2', prio_cbs:r.prio||'P2', phase:r.phase||'II',
+                         phase_cbs:r.phase||'II', bm:r.bm||'BM UEMOA', resp:r.resp||'',
+                         _custom:true, _history:[] };
         _pushHistory(newGap, 'created');
         state.customGaps.push(newGap);
+        newGaps.push(newGap);
       });
+      _saveCurrentProjectData();
       saveState('GAPs importés', rows.length + ' GAP(s)');
-      renderGaps(); renderDashboard();
-      showToast('✅ ' + rows.length + ' GAP(s) importé(s)', 3000);
+      // Persistance DB duale — fire-and-forget
+      if (typeof DB !== 'undefined' && typeof DB.saveGap === 'function') {
+        newGaps.forEach(g => DB.saveGap(g).catch(e => console.warn('[import gap] DB save:', e.message)));
+      }
     }
   },
 };
@@ -12572,17 +12624,17 @@ function _dynImportConfirm() {
   if (!valid.length) return;
 
   // Read chosen mode
-  const modeEl  = document.querySelector('#dyn-import-inner input[name="dyn-import-mode"]:checked');
+  const modeEl    = document.querySelector('#dyn-import-inner input[name="dyn-import-mode"]:checked');
   const isReplace = modeEl && modeEl.value === 'replace';
+  const key       = _DYN_IMPORT.schemaKey;
 
   if (isReplace) {
-    const existing = _dynImportGetCurrentCount(_DYN_IMPORT.schemaKey);
+    const existing = _dynImportGetCurrentCount(key);
     if (existing > 0) {
       const label = _DYN_IMPORT.schema.title.replace('📥 Importer des ','').replace('📥 Importer ','');
       if (!confirm(`⚠️ Remplacer les ${existing} entrée(s) existantes (${label}) par les ${valid.length} ligne(s) importées ?\n\nCette action est irréversible.`)) return;
     }
-    // Clear existing data for this section
-    const key = _DYN_IMPORT.schemaKey;
+    // Vider les données existantes de cette section
     if (key === 'risques') {
       state.risks = [];
     } else if (key === 'actions') {
@@ -12596,8 +12648,30 @@ function _dynImportConfirm() {
     }
   }
 
-  _DYN_IMPORT.schema.onImport(valid);
+  // Exécuter l'import + fermer la modal (dans tous les cas, même si une erreur survient)
+  let importedCount = 0;
+  try {
+    _DYN_IMPORT.schema.onImport(valid);
+    importedCount = valid.length;
+  } catch(err) {
+    console.error('[import] Erreur lors de onImport :', err);
+    showToast('⚠️ Import partiel — vérifiez la console.', 4000);
+  }
   _closeDynImport();
+
+  // Synchronisation projet + re-render après fermeture du modal
+  if (importedCount > 0) {
+    try { _saveCurrentProjectData(); } catch(e) {}
+    try { saveState('Import confirmé', importedCount + ' ligne(s)'); } catch(e) {}
+    try {
+      if (key === 'risques')    { renderRisques(); renderDashboard(); }
+      else if (key === 'actions')    { renderActions(); renderDashboard(); }
+      else if (key === 'arbitrages') { renderArbitrages(); renderDashboard(); }
+      else if (key === 'gaps')       { renderGaps(); renderDashboard(); }
+    } catch(e) { console.warn('[import] re-render:', e.message); }
+    const labels = { risques:'risque(s)', actions:'action(s)', arbitrages:'arbitrage(s)', gaps:'GAP(s)' };
+    showToast('✅ ' + importedCount + ' ' + (labels[key]||'élément(s)') + ' importé(s)', 3000);
+  }
 }
 
 function _dynImportDownloadTemplate() {
