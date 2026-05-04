@@ -1207,6 +1207,13 @@ ORDER BY table_name;</div>
       <!-- Contrôles secondaires -->
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
 
+        <!-- Groupe Vue Master / Détaillé -->
+        <div style="display:flex;align-items:center;gap:2px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px 4px;margin-right:4px;">
+          <span style="font-size:10px;color:rgba(255,255,255,.55);padding:0 5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Vue</span>
+          <button id="btn-gantt-master" onclick="toggleGanttView('master')" class="gantt-zoom-btn" title="Vue Master — phases uniquement">🗺️ Master</button>
+          <button id="btn-gantt-detail" onclick="toggleGanttView('detail')" class="gantt-zoom-btn active" title="Vue Détaillée — toutes les tâches">🔍 Détaillé</button>
+        </div>
+
         <!-- Groupe Zoom période -->
         <div style="display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px 4px;">
           <span style="font-size:10px;color:rgba(255,255,255,.55);padding:0 4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Période</span>
@@ -2270,7 +2277,7 @@ ORDER BY table_name;</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 130px;gap:10px;">
         <div>
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Phase de rattachement</label>
-          <select id="new-task-phase" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <select id="new-task-phase" onchange="_onGanttPhaseChange()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
             <!-- options peuplées dynamiquement par _populateGanttPhaseSelect() -->
           </select>
         </div>
@@ -2289,6 +2296,14 @@ ORDER BY table_name;</div>
             <option value="Externe">Externe</option>
           </select>
         </div>
+      </div>
+
+      <!-- Ligne 2b : Sous-phase (visible seulement si la phase sélectionnée a des sous-phases) -->
+      <div id="new-task-subphase-row" style="display:none;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">⊞ Sous-phase de rattachement <span style="font-weight:400;color:#7c3aed;">(optionnel)</span></label>
+        <select id="new-task-subphase" style="width:100%;padding:6px 8px;border:1.5px solid #c4b5fd;border-radius:4px;font-size:12px;background:#faf5ff;color:#5b21b6;">
+          <option value="">— Aucune sous-phase —</option>
+        </select>
       </div>
 
       <!-- Ligne 3 : Début + Fin + Durée (liés dynamiquement) -->
@@ -3207,6 +3222,31 @@ ORDER BY table_name;</div>
     <div id="session-timeout-countdown">2:00</div>
     <div class="session-timeout-note">en raison d'inactivité (30 min)</div>
     <button class="session-timeout-btn" onclick="_sessionKeepAlive()">✅ Rester connecté</button>
+  </div>
+</div>
+
+<!-- ── Modale Sous-phase ──────────────────────────────────────────────────── -->
+<div id="subphase-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3100;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:28px 32px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h3 id="subphase-modal-title" style="margin:0;font-size:16px;color:#5b21b6;font-weight:700;">⊞ Sous-phase</h3>
+      <button onclick="closeSubphaseModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1;" title="Fermer">✕</button>
+    </div>
+    <input type="hidden" id="subphase-phase-id">
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;color:#64748b;">Phase parente</label>
+      <div id="subphase-phase-label" style="padding:7px 10px;background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:6px;font-size:13px;color:#5b21b6;font-weight:600;">—</div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Libellé de la sous-phase *</label>
+      <input id="subphase-label" type="text" placeholder="Ex : Recette, Intégration, Pilote…"
+        style="width:100%;padding:8px 10px;border:1.5px solid #c4b5fd;border-radius:6px;font-size:13px;box-sizing:border-box;background:#faf5ff;"
+        onkeydown="if(event.key==='Enter') saveSubphase()">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button onclick="closeSubphaseModal()" style="padding:8px 18px;border:1.5px solid #e2e8f0;border-radius:7px;background:#f8fafc;color:#334155;font-size:13px;cursor:pointer;font-weight:600;">Annuler</button>
+      <button onclick="saveSubphase()" style="padding:8px 22px;border:none;border-radius:7px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(124,58,237,.35);">💾 Enregistrer</button>
+    </div>
   </div>
 </div>
 
