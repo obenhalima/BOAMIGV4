@@ -23,6 +23,7 @@ const _PROJ_MODULES = [
   { id:'gantt',       tab:'gantt',            icon:'📅', label:'Planning',      desc:'Gantt & jalons', always:false },
   { id:'actions',     tab:'actions',          icon:'✅', label:'Actions',       desc:'Plan d\'Actions', always:false },
   { id:'risques',     tab:'risques',          icon:'⚠️', label:'Risques',       desc:'Registre',       always:false },
+  { id:'impacts',     tab:'impacts',          icon:'💥', label:'Impacts',       desc:'Dérive planning & budget', always:false },
   { id:'arbitrages',  tab:'arbitrages',       icon:'⚖️', label:'Arbitrages',    desc:'Décisions',      always:false },
   { id:'gaps',        tab:'gaps',             icon:'🔍', label:'GAPs CBS',      desc:'Écarts CBS',     always:false },
   { id:'perimetre',   tab:'perimetremodules', icon:'🗂️', label:'Périmètre',     desc:'Modules CBS',    always:false },
@@ -33,13 +34,13 @@ const _PROJ_MODULES = [
 const _PROJ_TEMPLATES = [
   { id:'cbs_full', icon:'🏛', label:'CBS Complet',  color:'#1565C0',
     desc:'Tous les modules CBS activés',
-    modules:['dashboard','gantt','actions','risques','arbitrages','gaps','perimetre','technique','analyse'] },
+    modules:['dashboard','gantt','actions','risques','impacts','arbitrages','gaps','perimetre','technique','analyse'] },
   { id:'generic',  icon:'📋', label:'Générique',    color:'#2E7D52',
     desc:'Gestion de projet standard',
-    modules:['dashboard','gantt','actions','risques'] },
+    modules:['dashboard','gantt','actions','risques','impacts'] },
   { id:'light',    icon:'⚡', label:'Light',        color:'#E8702A',
     desc:'Dashboard + Actions + Risques',
-    modules:['dashboard','actions','risques'] },
+    modules:['dashboard','actions','risques','impacts'] },
   { id:'custom',   icon:'🎛️', label:'Personnalisé', color:'#6B21A8',
     desc:'Choisissez vos modules',
     modules:[] },
@@ -2078,9 +2079,10 @@ function openEditProjectModal(projectId) {
   const isAdmin = !currentSession || currentSession.role === 'admin';
   if (!isAdmin) { showToast('⛔ Seul un administrateur peut modifier un projet.', 3000); return; }
 
-  const proj = (state.programme.projects || []).find(p => p.id === projectId);
+  const resolvedId = projectId || state.currentProjectId;
+  const proj = (state.programme.projects || []).find(p => p.id === resolvedId);
   if (!proj) return;
-  _epProjectId = projectId;
+  _epProjectId = resolvedId;
 
   // Pré-remplir les champs
   document.getElementById('ep-name').value  = proj.name         || '';
@@ -2118,6 +2120,9 @@ function openEditProjectModal(projectId) {
 
   // Modules
   _epRenderModules(proj.enabledModules || null);
+
+  // Impacts
+  _epRenderImpacts();
 
   document.getElementById('edit-project-modal').classList.remove('hidden');
   setTimeout(() => document.getElementById('ep-name').focus(), 100);
@@ -2159,6 +2164,133 @@ function _epRenderModules(enabledModules) {
       </div>
     </label>`;
   }).join('');
+}
+
+// ── Mini-liste Impacts dans la modale projet ────────────────────────────────
+function _epGetImpacts() {
+  if (_epProjectId === state.currentProjectId) return state.impacts || [];
+  return (state.projectData && state.projectData[_epProjectId] && state.projectData[_epProjectId].impacts) || [];
+}
+
+function _epRenderImpacts() {
+  const container = document.getElementById('ep-impacts-list');
+  if (!container) return;
+  const list = _epGetImpacts();
+
+  const _IT = {
+    planning:  { label:'Planning',  color:'#1565C0', bg:'#E3F0FF', icon:'📅' },
+    budget:    { label:'Budget',    color:'#2E7D52', bg:'#E8F5ED', icon:'💰' },
+    perimetre: { label:'Périmètre', color:'#7B1FA2', bg:'#F3E5F5', icon:'🗂️' },
+    ressource: { label:'Ressource', color:'#E8702A', bg:'#FEF3E2', icon:'👤' },
+    technique: { label:'Technique', color:'#0277BD', bg:'#E1F5FE', icon:'🔧' },
+    autre:     { label:'Autre',     color:'#546E7A', bg:'#ECEFF1', icon:'📌' },
+  };
+  const _IS = {
+    ouvert:   { label:'Ouvert',   color:'#E63329' },
+    en_cours: { label:'En cours', color:'#E8702A' },
+    resolu:   { label:'Résolu',   color:'#2E7D52' },
+    accepte:  { label:'Accepté',  color:'#546E7A' },
+  };
+
+  const dp = list.reduce((s, i) => s + (parseFloat(i.impact_planning) || 0), 0);
+  const db = list.reduce((s, i) => s + (parseFloat(i.impact_budget)   || 0), 0);
+  const nbOpen = list.filter(i => i.statut === 'ouvert' || i.statut === 'en_cours').length;
+  const planColor = dp > 0 ? '#E63329' : dp < 0 ? '#2E7D52' : '#888';
+  const budgColor = db > 0 ? '#E63329' : db < 0 ? '#2E7D52' : '#888';
+
+  const sorted = [...list].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
+
+  const rows = sorted.length === 0
+    ? `<div style="text-align:center;padding:18px;color:#bbb;font-size:12px;">Aucun impact enregistré pour ce projet</div>`
+    : sorted.map((imp, i) => {
+        const realIdx = list.indexOf(imp);
+        const t = _IT[imp.type] || _IT.autre;
+        const s = _IS[imp.statut] || _IS.ouvert;
+        const dPlan = parseFloat(imp.impact_planning) || 0;
+        const dBudg = parseFloat(imp.impact_budget)   || 0;
+        const planHtml = dPlan === 0 ? '<span style="color:#ccc">—</span>'
+          : `<span style="font-weight:700;color:${dPlan>0?'#E63329':'#2E7D52'}">${dPlan>0?'+':''}${dPlan}j</span>`;
+        const budgHtml = dBudg === 0 ? '<span style="color:#ccc">—</span>'
+          : `<span style="font-weight:700;color:${dBudg>0?'#E63329':'#2E7D52'}">${dBudg>0?'+':''}${dBudg}j</span>`;
+        const bg = i % 2 === 0 ? '#fff' : '#fafbff';
+        const isCurrentProj = _epProjectId === state.currentProjectId;
+        const editBtn = isCurrentProj
+          ? `<button onclick="openEditImpactFromProject(${realIdx})" title="Modifier" style="background:none;border:none;color:#1565C0;cursor:pointer;font-size:13px;padding:0 4px;">✏️</button>`
+          : '';
+        const delBtn = isCurrentProj
+          ? `<button onclick="deleteImpactFromProject(${realIdx})" title="Supprimer" style="background:none;border:none;color:#E63329;cursor:pointer;font-size:13px;padding:0 4px;">🗑️</button>`
+          : '';
+        return `<tr style="background:${bg};border-bottom:1px solid #f0f2f7;">
+          <td style="padding:6px 8px;font-size:11px;white-space:nowrap;">
+            <span style="background:${t.bg};color:${t.color};border-radius:8px;padding:1px 6px;font-size:10px;font-weight:700;">${t.icon} ${t.label}</span>
+          </td>
+          <td style="padding:6px 8px;font-size:12px;font-weight:600;color:#1a2640;max-width:180px;">${escHtml(imp.titre||'—')}</td>
+          <td style="padding:6px 8px;font-size:11px;color:#555;max-width:140px;">${escHtml((imp.cause||'').substring(0,50))}</td>
+          <td style="padding:6px 8px;text-align:center;">${planHtml}</td>
+          <td style="padding:6px 8px;text-align:center;">${budgHtml}</td>
+          <td style="padding:6px 8px;white-space:nowrap;">
+            <span style="color:${s.color};font-size:10px;font-weight:700;">${s.label}</span>
+          </td>
+          <td style="padding:6px 8px;white-space:nowrap;">${editBtn}${delBtn}</td>
+        </tr>`;
+      }).join('');
+
+  const moreLink = list.length > 5
+    ? `<div style="text-align:center;padding:6px;font-size:11px;color:#1565C0;cursor:pointer;"
+        onclick="switchTab('impacts',null);document.getElementById('edit-project-modal').classList.add('hidden')">
+        Voir tous les impacts (${list.length}) →
+       </div>`
+    : '';
+
+  container.innerHTML = `
+    <div style="display:flex;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;flex:1;min-width:110px;">
+        <span style="font-size:18px;">📅</span>
+        <div><div style="font-size:18px;font-weight:800;color:${planColor}">${dp>=0?'+':''}${dp}j</div><div style="font-size:9px;color:#888;">Δ Planning</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;flex:1;min-width:110px;">
+        <span style="font-size:18px;">💰</span>
+        <div><div style="font-size:18px;font-weight:800;color:${budgColor}">${db>=0?'+':''}${db}j</div><div style="font-size:9px;color:#888;">Δ Budget</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px;flex:1;min-width:110px;">
+        <span style="font-size:18px;">${nbOpen > 0 ? '🔴' : '🟢'}</span>
+        <div><div style="font-size:18px;font-weight:800;color:${nbOpen>0?'#E63329':'#2E7D52'}">${nbOpen}</div><div style="font-size:9px;color:#888;">Ouverts</div></div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="background:#f0f2f5;">
+            <th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;text-align:left;border-bottom:1.5px solid #1565C0;">Type</th>
+            <th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;text-align:left;border-bottom:1.5px solid #1565C0;">Titre</th>
+            <th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;text-align:left;border-bottom:1.5px solid #1565C0;">Cause</th>
+            <th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;text-align:center;border-bottom:1.5px solid #1565C0;">Δ Plan.</th>
+            <th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;text-align:center;border-bottom:1.5px solid #1565C0;">Δ Budg.</th>
+            <th style="padding:6px 8px;font-size:10px;font-weight:700;color:#64748b;text-align:left;border-bottom:1.5px solid #1565C0;">Statut</th>
+            <th style="padding:6px 8px;border-bottom:1.5px solid #1565C0;"></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    ${moreLink}`;
+}
+
+let _impactFromProjectModal = false;
+
+function openAddImpactFromProject() {
+  _impactFromProjectModal = true;
+  if (typeof openAddImpact === 'function') openAddImpact();
+}
+
+function openEditImpactFromProject(idx) {
+  _impactFromProjectModal = true;
+  if (typeof openEditImpact === 'function') openEditImpact(idx);
+}
+
+function deleteImpactFromProject(idx) {
+  if (typeof deleteImpact === 'function') deleteImpact(idx);
+  _epRenderImpacts();
 }
 
 function saveEditProject() {

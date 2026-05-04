@@ -605,6 +605,18 @@ ORDER BY table_name;</div>
         </div>
       </div>
 
+      <!-- Impacts -->
+      <div>
+        <div style="font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#1565C0;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;">
+          <span>④ Impacts du Projet</span>
+          <button onclick="openAddImpactFromProject()" class="btn btn-primary btn-sm perm-edit"
+            style="text-transform:none;letter-spacing:0;font-size:11px;">+ Ajouter un impact</button>
+        </div>
+        <div id="ep-impacts-list" style="border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;background:#fafcff;min-height:60px;">
+          <!-- Injecté par JS -->
+        </div>
+      </div>
+
     </div>
 
     <!-- Footer -->
@@ -747,6 +759,9 @@ ORDER BY table_name;</div>
   <button class="tab-btn" data-tab="risques" onclick="switchTab('risques', this)">
     <span class="tab-icon">⚠️</span>Risques <span id="tab-risk-badge" style="background:#E63329;color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;"></span>
   </button>
+  <button class="tab-btn" data-tab="impacts" onclick="switchTab('impacts', this)">
+    <span class="tab-icon">💥</span>Impacts <span id="tab-impacts-badge" style="background:#E63329;color:white;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;"></span>
+  </button>
   <button class="tab-btn" data-tab="technique" onclick="switchTab('technique', this)">
     <span class="tab-icon">🔧</span>Technique
   </button>
@@ -799,6 +814,9 @@ ORDER BY table_name;</div>
   </button>
   <button class="tab-btn" data-tab="risques" onclick="switchTab('risques', this)">
     <span class="tab-icon">⚠️</span><span>Risques <span id="sidebar-risk-badge" style="background:#E63329;color:white;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:3px;"></span></span>
+  </button>
+  <button class="tab-btn" data-tab="impacts" onclick="switchTab('impacts', this)">
+    <span class="tab-icon">💥</span><span>Impacts <span id="sidebar-impacts-badge" style="background:#E63329;color:white;border-radius:10px;padding:1px 5px;font-size:10px;margin-left:3px;"></span></span>
   </button>
   <button class="tab-btn" data-tab="technique" onclick="switchTab('technique', this)">
     <span class="tab-icon">🔧</span><span>Technique</span>
@@ -1790,6 +1808,150 @@ ORDER BY table_name;</div>
     <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;">
       <button onclick="closeRiskModal()" class="btn btn-cancel">Annuler</button>
       <button onclick="saveRisk()" class="btn btn-primary">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     ONGLET IMPACTS & SUIVI
+══════════════════════════════════════════════════════════════════ -->
+<div id="tab-impacts" class="tab-content">
+
+  <div class="section-card" style="margin:12px 16px 0;">
+    <div class="section-header">💥 Impacts du Projet — Vue d'ensemble
+      <span style="font-size:10px;font-weight:400;margin-left:8px;opacity:.7;">dérives cumulées planning & budget</span>
+    </div>
+    <div id="impacts-kpi" style="display:flex;flex-wrap:wrap;gap:12px;padding:14px 16px 10px;"></div>
+  </div>
+
+  <div class="section-card" style="margin:12px 16px;">
+    <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <span>📋 Registre des Impacts <span id="impacts-count-badge" style="background:#1565C0;color:white;border-radius:10px;padding:1px 8px;font-size:11px;margin-left:6px;"></span></span>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <select id="impact-filter-type" onchange="renderImpacts()" style="padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;">
+          <option value="">Tous les types</option>
+          <option value="planning">📅 Planning</option>
+          <option value="budget">💰 Budget</option>
+          <option value="perimetre">🗂️ Périmètre</option>
+          <option value="ressource">👤 Ressource</option>
+          <option value="technique">🔧 Technique</option>
+          <option value="autre">📌 Autre</option>
+        </select>
+        <select id="impact-filter-statut" onchange="renderImpacts()" style="padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:11px;">
+          <option value="">Tous statuts</option>
+          <option value="ouvert">🔴 Ouvert</option>
+          <option value="en_cours">🟠 En cours</option>
+          <option value="resolu">🟢 Résolu</option>
+          <option value="accepte">⚪ Accepté</option>
+        </select>
+        <input id="impact-filter-search" type="text" placeholder="🔍 Rechercher…" oninput="renderImpacts()" style="padding:5px 10px;border:1px solid #ccc;border-radius:4px;font-size:11px;width:140px;">
+        <button onclick="exportImpactsCSV()" class="btn btn-secondary btn-sm">⬇️ CSV</button>
+        <button onclick="openAddImpact()" class="btn btn-primary btn-sm perm-edit">+ Ajouter un impact</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;" id="impacts-table">
+        <thead>
+          <tr style="background:#f0f2f5;">
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Date</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;">Titre</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Type</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;">Cause / Raison</th>
+            <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Δ Planning</th>
+            <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Δ Budget</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Statut</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Responsable</th>
+            <th style="padding:8px 10px;text-align:left;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;">Actions correctives</th>
+            <th style="padding:8px 10px;text-align:center;font-size:11px;font-weight:700;color:#54565A;border-bottom:2px solid #1565C0;white-space:nowrap;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="impacts-tbody"></tbody>
+      </table>
+      <div id="impacts-empty" style="padding:32px;text-align:center;color:#aaa;font-size:13px;display:none;">
+        Aucun impact enregistré — cliquez sur <strong>« + Ajouter un impact »</strong> pour commencer le suivi.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ IMPACT MODAL ═══ -->
+<div id="impact-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:10px;padding:24px;width:660px;max-width:96vw;max-height:92vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <h3 id="impact-modal-title" style="margin:0;font-size:16px;color:#1565C0;">📌 Nouvel Impact</h3>
+      <button onclick="closeImpactModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Titre de l'impact *</label>
+        <input id="impact-titre" type="text" placeholder="Ex : Retard livraison module X, dépassement budget phase 2…"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Date de constatation</label>
+        <input id="impact-date" type="date" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Type d'impact</label>
+        <select id="impact-type" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <option value="planning">📅 Planning</option>
+          <option value="budget">💰 Budget</option>
+          <option value="perimetre">🗂️ Périmètre</option>
+          <option value="ressource">👤 Ressource</option>
+          <option value="technique">🔧 Technique</option>
+          <option value="autre">📌 Autre</option>
+        </select>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Cause / Raison *</label>
+        <textarea id="impact-cause" rows="2" placeholder="Décrivez la raison de cet impact…"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Description détaillée</label>
+        <textarea id="impact-description" rows="2" placeholder="Contexte, conséquences, décisions associées…"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Δ Planning (jours)</label>
+        <input id="impact-planning" type="number" step="0.5" placeholder="0" value="0"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <div style="font-size:10px;color:#888;margin-top:3px;">Positif = retard, négatif = gain</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Δ Budget (jours)</label>
+        <input id="impact-budget" type="number" step="0.5" placeholder="0" value="0"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <div style="font-size:10px;color:#888;margin-top:3px;">Jours supplémentaires (+) ou économisés (−)</div>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Statut</label>
+        <select id="impact-statut" style="width:100%;padding:7px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <option value="ouvert">🔴 Ouvert</option>
+          <option value="en_cours">🟠 En cours de traitement</option>
+          <option value="resolu">🟢 Résolu</option>
+          <option value="accepte">⚪ Accepté / Assumé</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Responsable</label>
+        <input id="impact-responsable" type="text" list="dl-owners" placeholder="Nom ou entité responsable"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Actions correctives / Plan de réponse</label>
+        <textarea id="impact-actions" rows="2" placeholder="Mesures prises ou à prendre pour absorber cet impact…"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;resize:vertical;"></textarea>
+      </div>
+      <div style="grid-column:1/-1;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Tâche Gantt liée <span style="font-weight:400;color:#888;">(optionnel)</span></label>
+        <input id="impact-tache" type="text" placeholder="ID ou libellé de la tâche concernée dans le Gantt"
+          style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+      <button onclick="closeImpactModal()" class="btn btn-cancel">Annuler</button>
+      <button onclick="saveImpact()" class="btn btn-primary">Enregistrer</button>
     </div>
   </div>
 </div>

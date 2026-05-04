@@ -156,6 +156,7 @@ let state = {
   ganttZoom:     'month',
   owners:        [],   // référentiel responsables (paramétrable)
   risks:         [],   // registre risques custom
+  impacts:       [],   // registre impacts projet (planning, budget, périmètre…)
   perimetre:     { data: {} }, // données éditables périmètre modules (par index)
   ganttReference:{ isSet: false, setAt: null, dates: {} }, // planning de référence
   technique: {
@@ -185,7 +186,7 @@ const _PROJECT_STATE_KEYS = [
   'actions','gantt','gaps','ganttCustom','ganttHidden',
   'customActions','customGaps','ganttChain','ganttCollapsed',
   'ganttSubsCollapsed','ganttSubtasks','ganttZoom',
-  'risks','perimetre','ganttReference','technique',
+  'risks','impacts','perimetre','ganttReference','technique',
   'auditLog','loginLogs','savedTcds',
 ];
 
@@ -203,7 +204,7 @@ function _defaultProjectState() {
     actions:{}, gantt:{}, gaps:{}, ganttCustom:[], ganttHidden:[],
     customActions:[], customGaps:[], ganttChain:false, ganttCollapsed:{},
     ganttSubsCollapsed:{}, ganttSubtasks:{}, ganttZoom:'month',
-    risks:[], perimetre:{data:{}},
+    risks:[], impacts:[], perimetre:{data:{}},
     ganttReference:{isSet:false, setAt:null, dates:{}},
     technique:{interfaces:null, archi:[]},
     auditLog:[], loginLogs:[], savedTcds:[],
@@ -229,6 +230,7 @@ function applyParsedState(parsed) {
     ganttZoom:      parsed.ganttZoom      || 'month',
     owners:         parsed.owners         || [],
     risks:          parsed.risks          || [],
+    impacts:        parsed.impacts        || [],
     perimetre: (() => {
       const p = parsed.perimetre || {};
       // Migrate old comments structure to new data structure
@@ -629,6 +631,7 @@ function switchTab(name, btn) {
   if (name === 'arbitrages')       renderArbitrages();
   if (name === 'actions')          renderActions();
   if (name === 'risques')          renderRisques();
+  if (name === 'impacts')          renderImpacts();
   if (name === 'technique')        renderTechnique();
   if (name === 'perimetremodules') renderPerimetre();
   if (name === 'analyse')          renderAnalyse();
@@ -12725,4 +12728,238 @@ function _dynDownloadTemplateFor(schemaKey) {
 
 // Legacy shim: old calls redirect to generic engine
 function _openRiskImportModal() { _openDynImport('risques'); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODULE IMPACTS & SUIVI
+// Trace les événements qui affectent le planning, le budget ou le périmètre
+// ════════════════════════════════════════════════════════════════════════════
+
+let _impactEditId = null;
+
+const _IMPACT_TYPES = {
+  planning:  { label: 'Planning',   color: '#1565C0', bg: '#E3F0FF', icon: '📅' },
+  budget:    { label: 'Budget',     color: '#2E7D52', bg: '#E8F5ED', icon: '💰' },
+  perimetre: { label: 'Périmètre',  color: '#7B1FA2', bg: '#F3E5F5', icon: '🗂️' },
+  ressource: { label: 'Ressource',  color: '#E8702A', bg: '#FEF3E2', icon: '👤' },
+  technique: { label: 'Technique',  color: '#0277BD', bg: '#E1F5FE', icon: '🔧' },
+  autre:     { label: 'Autre',      color: '#546E7A', bg: '#ECEFF1', icon: '📌' },
+};
+
+const _IMPACT_STATUTS = {
+  ouvert:    { label: 'Ouvert',      color: '#E63329', bg: '#FDEEEC' },
+  en_cours:  { label: 'En cours',    color: '#E8702A', bg: '#FEF3E2' },
+  resolu:    { label: 'Résolu',      color: '#2E7D52', bg: '#E8F5ED' },
+  accepte:   { label: 'Accepté',     color: '#546E7A', bg: '#ECEFF1' },
+};
+
+function renderImpacts() {
+  const list = state.impacts || [];
+  const fType   = (document.getElementById('impact-filter-type')?.value   || '');
+  const fStatut = (document.getElementById('impact-filter-statut')?.value || '');
+  const fSearch = (document.getElementById('impact-filter-search')?.value || '').toLowerCase().trim();
+
+  const filtered = list.filter(imp => {
+    if (fType   && imp.type   !== fType)   return false;
+    if (fStatut && imp.statut !== fStatut) return false;
+    if (fSearch && !(
+      (imp.titre||'').toLowerCase().includes(fSearch) ||
+      (imp.cause||'').toLowerCase().includes(fSearch) ||
+      (imp.description||'').toLowerCase().includes(fSearch)
+    )) return false;
+    return true;
+  });
+
+  const totalPlanning = list.reduce((s, i) => s + (parseFloat(i.impact_planning) || 0), 0);
+  const totalBudget   = list.reduce((s, i) => s + (parseFloat(i.impact_budget)   || 0), 0);
+  const nbOuverts     = list.filter(i => i.statut === 'ouvert' || i.statut === 'en_cours').length;
+  const nbTotal       = list.length;
+
+  const kpiEl = document.getElementById('impacts-kpi');
+  if (kpiEl) {
+    const planColor = totalPlanning > 0 ? '#E63329' : totalPlanning < 0 ? '#2E7D52' : '#546E7A';
+    const budgColor = totalBudget   > 0 ? '#E63329' : totalBudget   < 0 ? '#2E7D52' : '#546E7A';
+    kpiEl.innerHTML = `
+      <div class="impact-kpi-card">
+        <div class="impact-kpi-icon">📅</div>
+        <div class="impact-kpi-body">
+          <div class="impact-kpi-val" style="color:${planColor}">${totalPlanning >= 0 ? '+' : ''}${totalPlanning}j</div>
+          <div class="impact-kpi-lbl">Dérive planning cumulée</div>
+        </div>
+      </div>
+      <div class="impact-kpi-card">
+        <div class="impact-kpi-icon">💰</div>
+        <div class="impact-kpi-body">
+          <div class="impact-kpi-val" style="color:${budgColor}">${totalBudget >= 0 ? '+' : ''}${totalBudget}j</div>
+          <div class="impact-kpi-lbl">Dérive budget cumulée</div>
+        </div>
+      </div>
+      <div class="impact-kpi-card">
+        <div class="impact-kpi-icon">🔴</div>
+        <div class="impact-kpi-body">
+          <div class="impact-kpi-val" style="color:${nbOuverts > 0 ? '#E63329' : '#2E7D52'}">${nbOuverts}</div>
+          <div class="impact-kpi-lbl">Impact(s) ouverts / en cours</div>
+        </div>
+      </div>
+      <div class="impact-kpi-card">
+        <div class="impact-kpi-icon">📋</div>
+        <div class="impact-kpi-body">
+          <div class="impact-kpi-val" style="color:#1565C0">${nbTotal}</div>
+          <div class="impact-kpi-lbl">Total enregistrés</div>
+        </div>
+      </div>`;
+  }
+
+  const badge = document.getElementById('tab-impacts-badge');
+  if (badge) badge.textContent = nbOuverts > 0 ? nbOuverts : '';
+
+  const tbody   = document.getElementById('impacts-tbody');
+  const emptyEl = document.getElementById('impacts-empty');
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  const sorted = [...filtered].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+  tbody.innerHTML = sorted.map((imp, i) => {
+    const realIdx = list.indexOf(imp);
+    const t = _IMPACT_TYPES[imp.type]    || _IMPACT_TYPES.autre;
+    const s = _IMPACT_STATUTS[imp.statut] || _IMPACT_STATUTS.ouvert;
+    const dp = parseFloat(imp.impact_planning) || 0;
+    const db = parseFloat(imp.impact_budget)   || 0;
+    const planHtml = dp === 0 ? '<span style="color:#bbb;">—</span>'
+      : `<span style="font-weight:700;color:${dp > 0 ? '#E63329' : '#2E7D52'}">${dp > 0 ? '+' : ''}${dp}j</span>`;
+    const budgHtml = db === 0 ? '<span style="color:#bbb;">—</span>'
+      : `<span style="font-weight:700;color:${db > 0 ? '#E63329' : '#2E7D52'}">${db > 0 ? '+' : ''}${db}j</span>`;
+    const rowBg = i % 2 === 0 ? '#fff' : '#fafbff';
+    const dateStr = imp.date ? new Date(imp.date + 'T00:00:00').toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' }) : '—';
+    const canE = typeof canEdit === 'function' ? canEdit() : true;
+    const editBtn = canE ? `<button onclick="openEditImpact(${realIdx})" style="background:none;border:1px solid #1565C0;color:#1565C0;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">✏️</button>` : '';
+    const delBtn  = canE ? `<button onclick="deleteImpact(${realIdx})" style="background:none;border:1px solid #E63329;color:#E63329;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">🗑️</button>` : '';
+    return `<tr style="background:${rowBg};border-bottom:1px solid #f0f2f7;">
+      <td style="padding:8px 10px;white-space:nowrap;color:#666;font-size:11px;">${escHtml(dateStr)}</td>
+      <td style="padding:8px 10px;font-weight:600;color:#1a2640;font-size:12px;max-width:220px;">${escHtml(imp.titre||'—')}</td>
+      <td style="padding:8px 10px;white-space:nowrap;">
+        <span style="background:${t.bg};color:${t.color};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:700;">${t.icon} ${t.label}</span>
+      </td>
+      <td style="padding:8px 10px;color:#555;font-size:11px;max-width:200px;">${escHtml((imp.cause||'').substring(0,80))}</td>
+      <td style="padding:8px 10px;text-align:center;">${planHtml}</td>
+      <td style="padding:8px 10px;text-align:center;">${budgHtml}</td>
+      <td style="padding:8px 10px;white-space:nowrap;">
+        <span style="background:${s.bg};color:${s.color};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:700;">${s.label}</span>
+      </td>
+      <td style="padding:8px 10px;color:#555;font-size:11px;white-space:nowrap;">${escHtml(imp.responsable||'—')}</td>
+      <td style="padding:8px 10px;color:#555;font-size:11px;max-width:160px;">${escHtml((imp.actions_correctives||'').substring(0,60))}</td>
+      <td style="padding:8px 10px;white-space:nowrap;display:flex;gap:4px;">${editBtn}${delBtn}</td>
+    </tr>`;
+  }).join('');
+}
+
+function openAddImpact() {
+  _impactEditId = null;
+  document.getElementById('impact-modal-title').textContent = '📌 Nouvel Impact';
+  document.getElementById('impact-date').value        = new Date().toISOString().slice(0,10);
+  document.getElementById('impact-titre').value       = '';
+  document.getElementById('impact-type').value        = 'planning';
+  document.getElementById('impact-cause').value       = '';
+  document.getElementById('impact-description').value = '';
+  document.getElementById('impact-planning').value    = '0';
+  document.getElementById('impact-budget').value      = '0';
+  document.getElementById('impact-statut').value      = 'ouvert';
+  document.getElementById('impact-responsable').value = '';
+  document.getElementById('impact-actions').value     = '';
+  document.getElementById('impact-tache').value       = '';
+  document.getElementById('impact-modal').style.display = 'flex';
+}
+
+function openEditImpact(idx) {
+  _impactEditId = idx;
+  const imp = (state.impacts||[])[idx];
+  if (!imp) return;
+  document.getElementById('impact-modal-title').textContent = '✏️ Modifier Impact';
+  document.getElementById('impact-date').value        = imp.date        || '';
+  document.getElementById('impact-titre').value       = imp.titre       || '';
+  document.getElementById('impact-type').value        = imp.type        || 'planning';
+  document.getElementById('impact-cause').value       = imp.cause       || '';
+  document.getElementById('impact-description').value = imp.description || '';
+  document.getElementById('impact-planning').value    = imp.impact_planning != null ? imp.impact_planning : '0';
+  document.getElementById('impact-budget').value      = imp.impact_budget   != null ? imp.impact_budget   : '0';
+  document.getElementById('impact-statut').value      = imp.statut      || 'ouvert';
+  document.getElementById('impact-responsable').value = imp.responsable  || '';
+  document.getElementById('impact-actions').value     = imp.actions_correctives || '';
+  document.getElementById('impact-tache').value       = imp.tache_liee  || '';
+  document.getElementById('impact-modal').style.display = 'flex';
+}
+
+function closeImpactModal() {
+  document.getElementById('impact-modal').style.display = 'none';
+}
+
+function saveImpact() {
+  const titre = (document.getElementById('impact-titre').value||'').trim();
+  if (!titre) { alert('Veuillez saisir un titre pour cet impact.'); return; }
+  const dp = parseFloat(document.getElementById('impact-planning').value) || 0;
+  const db = parseFloat(document.getElementById('impact-budget').value)   || 0;
+  const imp = {
+    date:               document.getElementById('impact-date').value,
+    titre,
+    type:               document.getElementById('impact-type').value,
+    cause:              document.getElementById('impact-cause').value.trim(),
+    description:        document.getElementById('impact-description').value.trim(),
+    impact_planning:    dp,
+    impact_budget:      db,
+    statut:             document.getElementById('impact-statut').value,
+    responsable:        document.getElementById('impact-responsable').value.trim(),
+    actions_correctives:document.getElementById('impact-actions').value.trim(),
+    tache_liee:         document.getElementById('impact-tache').value.trim(),
+    createdAt:          _impactEditId !== null
+                          ? ((state.impacts||[])[_impactEditId]?.createdAt || new Date().toISOString())
+                          : new Date().toISOString(),
+  };
+  if (!state.impacts) state.impacts = [];
+  if (_impactEditId !== null) state.impacts[_impactEditId] = imp;
+  else state.impacts.push(imp);
+  const action = _impactEditId !== null ? 'Impact modifié' : 'Impact créé';
+  saveState(action, titre.substring(0, 80));
+  closeImpactModal();
+  if (typeof _impactFromProjectModal !== 'undefined' && _impactFromProjectModal) {
+    _impactFromProjectModal = false;
+    if (typeof _epRenderImpacts === 'function') _epRenderImpacts();
+  }
+  renderImpacts();
+}
+
+function deleteImpact(idx) {
+  if (!canEdit()) return;
+  if (!confirm('Supprimer cet impact ?')) return;
+  const del = (state.impacts||[])[idx];
+  (state.impacts||[]).splice(idx, 1);
+  saveState('Impact supprimé', del ? (del.titre||'').substring(0,80) : '');
+  renderImpacts();
+}
+
+function exportImpactsCSV() {
+  const list = state.impacts || [];
+  if (!list.length) { alert('Aucun impact à exporter.'); return; }
+  const headers = ['Date','Titre','Type','Cause','Description','Impact planning (j)','Impact budget (j)','Statut','Responsable','Actions correctives','Tâche liée'];
+  const rows = list.map(imp => [
+    imp.date||'', imp.titre||'', (_IMPACT_TYPES[imp.type]||{}).label||imp.type||'',
+    imp.cause||'', imp.description||'',
+    imp.impact_planning != null ? imp.impact_planning : '',
+    imp.impact_budget   != null ? imp.impact_budget   : '',
+    (_IMPACT_STATUTS[imp.statut]||{}).label||imp.statut||'',
+    imp.responsable||'', imp.actions_correctives||'', imp.tache_liee||''
+  ].map(v => '"' + String(v).replace(/"/g,'""') + '"').join(';'));
+  const csv  = '﻿' + headers.join(';') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'impacts_projet_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
