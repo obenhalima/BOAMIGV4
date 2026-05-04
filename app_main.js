@@ -19,7 +19,6 @@ const TODAY = new Date();
 // ─── GANTT TASKS (43 tâches – source: BOA_MIGV4_RetroPlanning_V1.0.xlsx) ────
 // ─── GANTT — chargé depuis Supabase (app_defaults) au démarrage ─────────────
 let ganttTasks = []; // Peuplé par loadGanttFromSupabase() — voir table app_defaults
-let _ganttViewMode = 'detail'; // 'detail' | 'master'
 let ganttSubtasksDefault = {}; // Sous-tâches par défaut {taskId:[{id,label,owner,start,end,pct}]}
 
 // ─── ARBITRAGES — chargés depuis Supabase (app_defaults) au démarrage ─────────
@@ -154,8 +153,6 @@ let state = {
   ganttCollapsed:{},
   ganttSubsCollapsed:{},
   ganttSubtasks: {},   // {parentId: [{id,label,start,end,pct,owner}]}
-  ganttSubphases: [],          // [{id, label, phaseId}]
-  ganttSubphasesCollapsed: {}, // {subphaseId: bool}
   ganttZoom:     'month',
   owners:        [],   // référentiel responsables (paramétrable)
   risks:         [],   // registre risques custom
@@ -188,7 +185,7 @@ const _PROJECT_STATE_KEYS = [
   'arbitrages','customArbitrages','arbitragesHidden',
   'actions','gantt','gaps','ganttCustom','ganttHidden',
   'customActions','customGaps','ganttChain','ganttCollapsed',
-  'ganttSubsCollapsed','ganttSubtasks','ganttSubphases','ganttSubphasesCollapsed','ganttZoom',
+  'ganttSubsCollapsed','ganttSubtasks','ganttZoom',
   'risks','impacts','perimetre','ganttReference','technique',
   'auditLog','loginLogs','savedTcds',
 ];
@@ -206,7 +203,7 @@ function _defaultProjectState() {
     arbitrages:{}, customArbitrages:[], arbitragesHidden:[],
     actions:{}, gantt:{}, gaps:{}, ganttCustom:[], ganttHidden:[],
     customActions:[], customGaps:[], ganttChain:false, ganttCollapsed:{},
-    ganttSubsCollapsed:{}, ganttSubtasks:{}, ganttSubphases:[], ganttSubphasesCollapsed:{}, ganttZoom:'month',
+    ganttSubsCollapsed:{}, ganttSubtasks:{}, ganttZoom:'month',
     risks:[], impacts:[], perimetre:{data:{}},
     ganttReference:{isSet:false, setAt:null, dates:{}},
     technique:{interfaces:null, archi:[]},
@@ -230,8 +227,6 @@ function applyParsedState(parsed) {
     ganttCollapsed:    parsed.ganttCollapsed    || {},
     ganttSubsCollapsed: parsed.ganttSubsCollapsed || {},
     ganttSubtasks:      parsed.ganttSubtasks      || {},
-    ganttSubphases:     parsed.ganttSubphases     || [],
-    ganttSubphasesCollapsed: parsed.ganttSubphasesCollapsed || {},
     ganttZoom:      parsed.ganttZoom      || 'month',
     owners:         parsed.owners         || [],
     risks:          parsed.risks          || [],
@@ -1530,7 +1525,6 @@ function _resetGanttModal() {
   document.getElementById('new-task-type').value          = 'task';
   document.getElementById('new-task-label').value         = '';
   _populateGanttPhaseSelect();  // peuple dynamiquement depuis les phases du Gantt
-  _populateSubphaseSelect(null, null); // peuple le dropdown sous-phase
   document.getElementById('new-task-resp').value          = '';
   document.getElementById('new-task-side').value          = '';
   document.getElementById('new-task-start').value         = '';
@@ -1730,11 +1724,6 @@ function openEditGanttTask(id) {
   document.getElementById('new-task-type').value             = task.type  || 'task';
   document.getElementById('new-task-label').value            = label;
   _populateGanttPhaseSelect(task.phase || '');  // sélectionne la phase actuelle de la tâche
-  // Récupère la phaseId réelle pour peupler les sous-phases
-  const _phSel2 = document.getElementById('new-task-phase');
-  const _phOpt2 = _phSel2 ? _phSel2.options[_phSel2.selectedIndex] : null;
-  const _phaseIdForSub = (_phOpt2 && _phOpt2.dataset.phaseId) ? _phOpt2.dataset.phaseId : null;
-  _populateSubphaseSelect(_phaseIdForSub, task.subphaseId || null);
   document.getElementById('new-task-resp').value             = owner;
   document.getElementById('new-task-side').value             = side;
   document.getElementById('new-task-start').value            = start;
@@ -1752,12 +1741,6 @@ function openEditGanttTask(id) {
   if (_ragEl) _ragEl.value = isCustom ? (task.rag || '') : (ov._rag || task.rag || '');
   const _commEl = document.getElementById('new-task-commentaire');
   if (_commEl) _commEl.value = isCustom ? (task.commentaire || '') : (ov._commentaire || task.commentaire || '');
-  // Sous-phase
-  const _taskSubphaseId = isCustom ? (task.subphaseId || null) : (ov._subphaseId || task.subphaseId || null);
-  const _phSel3 = document.getElementById('new-task-phase');
-  const _phOpt3 = _phSel3 ? _phSel3.options[_phSel3.selectedIndex] : null;
-  const _phaseIdForSub2 = (_phOpt3 && _phOpt3.dataset.phaseId) ? _phOpt3.dataset.phaseId : null;
-  _populateSubphaseSelect(_phaseIdForSub2, _taskSubphaseId);
   document.getElementById('add-task-modal').style.display    = 'flex';
 }
 
@@ -1812,7 +1795,6 @@ async function submitAddTask() {
   const participants  = _partsRaw ? _partsRaw.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : [];
   const rag           = (document.getElementById('new-task-rag')?.value || '').trim();
   const commentaire   = (document.getElementById('new-task-commentaire')?.value || '').trim();
-  const subphaseId    = (document.getElementById('new-task-subphase')?.value || '') || null;
 
   if (!label) { alert('Veuillez renseigner le libellé.'); return; }
   if (!start) { alert('Veuillez renseigner la date de début.'); return; }
@@ -1857,7 +1839,6 @@ async function submitAddTask() {
       ct.participants = participants;
       ct.rag = rag || null;
       ct.commentaire = commentaire;
-      ct.subphaseId = subphaseId || null;
       if (!state.gantt[editId]) state.gantt[editId] = {};
       state.gantt[editId].start = start;
       state.gantt[editId].end   = end;
@@ -1875,10 +1856,6 @@ async function submitAddTask() {
       state.gantt[editId]._participants = participants;
       state.gantt[editId]._rag          = rag || null;
       state.gantt[editId]._commentaire  = commentaire;
-      state.gantt[editId]._subphaseId   = subphaseId || null;
-      // Also update in ganttTasks if static
-      const _st = ganttTasks.find(t => t.id === editId);
-      if (_st) _st.subphaseId = subphaseId || null;
     }
   } else {
     // ── Ajout ──
@@ -1888,7 +1865,6 @@ async function submitAddTask() {
       id, type, label, phase, domains, start, end, pred, pct,
       owner: resp || '—', resp: resp || '—', side: side || '',
       participants, rag: rag || null, commentaire,
-      subphaseId: subphaseId || null,
       insertAfterId: insertAfterId || _phaseAnchorId || null,
       _custom: true
     });
@@ -2157,8 +2133,6 @@ function renderGantt() {
   const toggle = document.getElementById('gantt-chain-toggle');
   if (toggle) toggle.checked = !!state.ganttChain;
   if (!state.ganttCollapsed) state.ganttCollapsed = {};
-  // ── Route vers la vue master si sélectionnée ──────────────────────────────
-  if (_ganttViewMode === 'master') { renderGanttMaster(); return; }
 
   // Bouton "Restaurer tâches" : visible seulement si des tâches sont cachées
   const _btnRestore = document.getElementById('btn-restore-gantt');
@@ -2231,35 +2205,6 @@ function renderGantt() {
     if (!_renderedIds.has(ct.id)) _pushWithAnchoredChildren(ct, false);
   });
 
-  // ── 1d. Injecter les sous-phases après leur phase parente ─────────────────
-  if ((state.ganttSubphases || []).length > 0) {
-    const _spList = state.ganttSubphases || [];
-    const _newList = [];
-    allTasksRendered.forEach(function(t) {
-      _newList.push(t);
-      if (t.type === 'phase') {
-        const _phCollapsed = !!state.ganttCollapsed[t.id];
-        if (!_phCollapsed) {
-          _spList.filter(sp => sp.phaseId === t.id).forEach(sp => _newList.push(sp));
-        }
-      }
-    });
-    allTasksRendered.length = 0;
-    _newList.forEach(function(t) { allTasksRendered.push(t); });
-  }
-
-  // ── 1e. Masquer les tâches sous une sous-phase repliée ────────────────────
-  const _spCollapsed = state.ganttSubphasesCollapsed || {};
-  if (Object.keys(_spCollapsed).length > 0) {
-    const _filtered2 = allTasksRendered.filter(function(t) {
-      if (t.type === 'phase' || t.type === 'subphase') return true;
-      const spId = t.subphaseId || (state.gantt[t.id] && state.gantt[t.id]._subphaseId) || null;
-      return !spId || !_spCollapsed[spId];
-    });
-    allTasksRendered.length = 0;
-    _filtered2.forEach(function(t) { allTasksRendered.push(t); });
-  }
-
   // ── 1b. Construire la map phase → tâches + alimenter le sélecteur ────────
   const _phaseMap = {}; // taskId -> phaseId (pour la phase parente)
   let   _lastPhaseId = null;
@@ -2303,24 +2248,6 @@ function renderGantt() {
       + ' detail=' + JSON.stringify(Object.entries(_allPhaseTasks).map(function(e){return {ph:e[0], n:e[1].length, s0:e[1][0]&&getTaskDates(e[1][0]).start};})));
   }
 
-  // ── 1c-bis. Map sous-phase → toutes tâches enfants (pour calcul des barres) ─
-  const _allSubphaseTasks = {}; // subphaseId → [taskObjects]
-  (state.ganttCustom || []).forEach(function(t) {
-    const spId = t.subphaseId || null;
-    if (spId && t.type !== 'subphase' && t.type !== 'phase') {
-      if (!_allSubphaseTasks[spId]) _allSubphaseTasks[spId] = [];
-      _allSubphaseTasks[spId].push(t);
-    }
-  });
-  ganttTasks.forEach(function(t) {
-    const ov2 = state.gantt[t.id] || {};
-    const spId = (ov2._subphaseId || t.subphaseId) || null;
-    if (spId && t.type !== 'phase') {
-      if (!_allSubphaseTasks[spId]) _allSubphaseTasks[spId] = [];
-      _allSubphaseTasks[spId].push(t);
-    }
-  });
-
   // Alimenter le <select id="gf-phase"> avec les phases disponibles
   const _phaseSelect = document.getElementById('gf-phase');
   if (_phaseSelect) {
@@ -2349,7 +2276,7 @@ function renderGantt() {
     const _matchedPhIds = new Set();
 
     allTasksRendered.forEach(function(t) {
-      if (t.type === 'phase' || t.type === 'subphase') return; // Skip subphases in match logic
+      if (t.type === 'phase') return;
       const isCustom = !!t._custom;
       const ov   = (!isCustom && state.gantt[t.id]) ? state.gantt[t.id] : {};
       const lbl  = (ov._label || t.label || '').toLowerCase();
@@ -2389,11 +2316,6 @@ function renderGantt() {
         const otherFilters = _fText || _fType || _fSide || _fRag || _fStat;
         if (otherFilters) return _matchedPhIds.has(t.id);
         return true; // si seul le filtre phase est actif, garder la phase
-      }
-      if (t.type === 'subphase') {
-        // Garder la sous-phase si au moins une tâche enfant matche
-        const _spChildren = _allSubphaseTasks[t.id] || [];
-        return _spChildren.some(function(c) { return _matchSet.has(c.id); });
       }
       return _matchSet.has(t.id);
     });
@@ -2468,7 +2390,6 @@ function renderGantt() {
     let {start, end} = getTaskDates(task);
     const isPhase  = task.type === 'phase';
     const isJalon  = task.type === 'jalon';
-    const isSubphase = task.type === 'subphase';
 
     // ── Phase : dates = enveloppe min/max des tâches enfants (toutes, même repliées) ──
     if (isPhase) {
@@ -2485,19 +2406,8 @@ function renderGantt() {
       // fallback : si aucune tâche enfant n'a de dates → garder les dates propres de la phase
     }
 
-    // ── Sous-phase : dates = enveloppe min/max des tâches enfants ──
-    if (isSubphase) {
-      let _spMinS = null, _spMaxE = null;
-      (_allSubphaseTasks[task.id] || []).forEach(function(ct) {
-        const td = getTaskDates(ct);
-        if (td.start && (!_spMinS || td.start < _spMinS)) _spMinS = td.start;
-        if (td.end   && (!_spMaxE || td.end   > _spMaxE)) _spMaxE = td.end;
-      });
-      if (_spMinS) { start = _spMinS; end = _spMaxE || _spMinS; }
-    }
-
     // Roll up pct from subtasks if any (must be after isPhase/isJalon)
-    const _taskSubs  = (!isPhase && !isJalon && !isSubphase) ? ((state.ganttSubtasks||{})[task.id]||[]) : [];
+    const _taskSubs  = (!isPhase && !isJalon) ? ((state.ganttSubtasks||{})[task.id]||[]) : [];
     const dispPct    = _taskSubs.length > 0
       ? Math.round(_taskSubs.reduce((s,sb) => s + (sb.pct||0), 0) / _taskSubs.length)
       : dispPct0;
@@ -2530,11 +2440,10 @@ function renderGantt() {
       return '<span class="g-rag-X" title="Non défini">?</span>';
     }
 
-    const _isInteractive = (!isPhase && !isJalon && !isSubphase);
-    const ownerCell = _isInteractive
+    const ownerCell = (!isPhase && !isJalon)
       ? '<input type="text" list="dl-owners" value="' + escAttr(dispOwner === '—' ? '' : dispOwner) + '" onchange="updateGanttOwner(\'' + task.id + '\',this.value)" style="width:100%;min-width:88px;padding:4px 7px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:10.5px;box-sizing:border-box;background:#f8fafc;transition:border-color .15s;" onfocus="this.style.borderColor=\'#3b82f6\'" onblur="this.style.borderColor=\'#e2e8f0\'">'
       : '<span style="font-size:10.5px;color:#64748b;font-style:italic;">' + escHtml(dispOwner) + '</span>';
-    const sideCell = _isInteractive
+    const sideCell = (!isPhase && !isJalon)
       ? '<select onchange="updateGanttSide(\'' + task.id + '\',this.value)" style="width:100%;min-width:72px;padding:4px 6px;border:1.5px solid #e2e8f0;border-radius:6px;font-size:10.5px;box-sizing:border-box;background:#f8fafc;cursor:pointer;">'
           + '<option value=""' + (dispSide ? '' : ' selected') + '>—</option>'
           + '<option value="BOA"'     + (dispSide === 'BOA'     ? ' selected' : '') + '>BOA</option>'
@@ -2543,10 +2452,10 @@ function renderGantt() {
           + '<option value="Externe"' + (dispSide === 'Externe' ? ' selected' : '') + '>Externe</option>'
         + '</select>'
       : _sideBadge(dispSide);
-    const predCell = _isInteractive
+    const predCell = (!isPhase && !isJalon)
       ? '<button type="button" onclick="openGanttDependenciesEditor(\'' + task.id + '\')" style="width:100%;padding:3px 6px;border:1.5px solid #e2e8f0;border-radius:6px;background:#f8fafc;font-size:10px;color:#334155;cursor:pointer;transition:all .15s;" onmouseover="this.style.background=\'#eff6ff\';this.style.borderColor=\'#93c5fd\'" onmouseout="this.style.background=\'#f8fafc\';this.style.borderColor=\'#e2e8f0\'" title="' + escAttr(predTitle || 'Aucune dépendance') + '">' + (predNums.length ? '🔗 ' + escHtml(predStr) : '<span style="color:#94a3b8">—</span>') + '</button>'
       : '<span style="font-size:10px;color:#6366f1;font-weight:600;" title="' + predTitle + '">' + predStr + '</span>';
-    const pctCell = _isInteractive
+    const pctCell = (!isPhase && !isJalon)
       ? '<div style="display:flex;align-items:center;gap:4px;">'
         + '<div style="flex:1;height:6px;background:#e2e8f0;border-radius:3px;overflow:hidden;min-width:32px;">'
         + '<div style="height:100%;width:' + dispPct + '%;background:' + (dispPct>=100?'#22c55e':dispPct>=60?'#3b82f6':'#f59e0b') + ';border-radius:3px;transition:width .3s;"></div>'
@@ -2559,18 +2468,7 @@ function renderGantt() {
     let typeBadge, rowClass, barHtml, datesCells;
     const dashed = isCustom ? 'border:2px dashed rgba(255,255,255,.5);' : '';
 
-    if (isSubphase) {
-      rowClass  = 'gantt-subphase-row';
-      typeBadge = '<span class="type-badge type-subphase">Ss-Phase</span>';
-      barHtml   = start
-        ? '<div class="gantt-bar gantt-subphase-bar" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;background:#7c3aed;opacity:.82;" title="' + escHtml(dispLabel) + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">'
-          + '<span class="g-bar-label">' + (width > 1.5 ? dispLabel.substring(0, 26) : '') + '</span>'
-          + '</div>'
-        : '';
-      datesCells = start
-        ? '<td style="font-size:11px;color:#7c3aed;font-weight:600;">' + start + '</td><td style="font-size:11px;color:#7c3aed;font-weight:600;">' + end + '</td><td class="center" style="font-size:11px;color:#64748b;">' + dur + 'j</td>'
-        : '<td colspan="3" style="font-size:10px;color:#94a3b8;text-align:center;font-style:italic;">aucune t\u00e2che li\u00e9e</td>';
-    } else if (isPhase) {
+    if (isPhase) {
       rowClass  = 'gantt-phase-row';
       typeBadge = '<span class="type-badge type-phase">Phase</span>';
       barHtml   = '<div class="gantt-bar ph-' + (task.phase||'p0') + '" style="left:' + left.toFixed(1) + '%;width:' + barWidth + '%;' + dashed + '" title="' + dispLabel + ': ' + start + ' \u2192 ' + end + ' (' + dur + 'j)">'
@@ -2617,55 +2515,43 @@ function renderGantt() {
         + '<td class="center"><input type="number" min="0" max="400" value="' + dur + '" onchange="updateGanttDuration(\'' + task.id + '\',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>';
     }
 
-    const isCollapsed   = isPhase && !!state.ganttCollapsed[task.id];
-    const isSpCollapsed = isSubphase && !!(state.ganttSubphasesCollapsed||{})[task.id];
+    const isCollapsed = isPhase && !!state.ganttCollapsed[task.id];
     const collapseBtn = isPhase
-      ? '<button onclick="togglePhaseCollapse(\'' + task.id + '\')'  + '" class="phase-toggle-btn" title="' + (isCollapsed?'D\u00e9ployer':'R\u00e9duire') + '">' + (isCollapsed?'\u25B6':'\u25BC') + '</button>'
-      : isSubphase
-        ? '<button onclick="toggleSubphaseCollapse(\'' + task.id + '\')'  + '" class="phase-toggle-btn" style="color:#7c3aed;" title="' + (isSpCollapsed?'D\u00e9ployer':'R\u00e9duire') + '">' + (isSpCollapsed?'\u25B6':'\u25BC') + '</button>'
-        : '';
+      ? '<button onclick="togglePhaseCollapse(\'' + task.id + '\')" class="phase-toggle-btn" title="' + (isCollapsed?'D\u00e9ployer':'R\u00e9duire') + '">' + (isCollapsed?'\u25B6':'\u25BC') + '</button>'
+      : '';
     const labelStyle = isCustom ? ' style="color:#4f46e5;font-style:italic;"' : '';
     const _subsColl  = !!(state.ganttSubsCollapsed||{})[task.id];
-    const _subsToggle = (_isInteractive && _taskSubs.length > 0)
-      ? ' <button class="subs-toggle-btn" onclick="toggleSubtasksCollapse(\'' + task.id + '\')'  + '" title="' + (_subsColl?'Afficher':'Masquer') + ' les sous-t\u00e2ches">' + (_subsColl?'\u25B6':'\u25BC') + '\u202f<small>(' + _taskSubs.length + ')</small></button>'
+    const _subsToggle = (!isPhase && !isJalon && _taskSubs.length > 0)
+      ? ' <button class="subs-toggle-btn" onclick="toggleSubtasksCollapse(\'' + task.id + '\')" title="' + (_subsColl?'Afficher':'Masquer') + ' les sous-t\u00e2ches">' + (_subsColl?'▶':'▼') + '\u202f<small>(' + _taskSubs.length + ')</small></button>'
       : '';
     // RAG badge (nouveau style)
-    const _ragDot = (_isInteractive && dispRag) ? _ragBadge(dispRag) : '';
+    const _ragDot = (!isPhase && !isJalon && dispRag) ? _ragBadge(dispRag) : '';
     // Participants badge
-    const _partsBadge = (_isInteractive && dispParticipants.length)
+    const _partsBadge = (!isPhase && !isJalon && dispParticipants.length)
       ? ' <span title="Participants: ' + escAttr(dispParticipants.join(', ')) + '" style="font-size:9px;background:#ecfeff;color:#0f766e;border:1px solid #99f6e4;border-radius:20px;padding:1px 6px;margin-left:4px;cursor:default;font-weight:700;">+' + dispParticipants.length + '</span>'
       : '';
     // Commentaire indicator
-    const _commBadge = (_isInteractive && dispCommentaire)
+    const _commBadge = (!isPhase && !isJalon && dispCommentaire)
       ? ' <span title="' + escAttr(dispCommentaire.substring(0, 80)) + '" style="font-size:11px;opacity:.5;margin-left:3px;cursor:default;">💬</span>'
       : '';
-    // Badge sous-phase sur les taches
-    const _taskSubphaseId = _isInteractive ? (task.subphaseId || (state.gantt[task.id] && state.gantt[task.id]._subphaseId) || null) : null;
-    const _spInfo = _taskSubphaseId ? (state.ganttSubphases||[]).find(function(sp){return sp.id === _taskSubphaseId;}) : null;
-    const _spBadge = _spInfo ? ' <span title="Sous-phase: ' + escAttr(_spInfo.label||'') + '" style="font-size:9px;background:#ede9fe;color:#6d28d9;border:1px solid #c4b5fd;border-radius:10px;padding:1px 5px;margin-left:3px;cursor:default;">⊞ ' + escHtml((_spInfo.label||'').substring(0,18)) + '</span>' : '';
-    const _taskIndent = _taskSubphaseId ? '24px' : '12px';
-    const labelCell  = isSubphase
-      ? collapseBtn + '<span style="padding-left:10px;font-weight:700;color:#6d28d9;letter-spacing:.2px;">' + escHtml(dispLabel) + '</span>'
-      : isPhase
-        ? collapseBtn + '<span style="font-weight:700;color:#1a2e55;letter-spacing:.2px;">' + escHtml(dispLabel) + '</span>'
-        : '<span style="padding-left:' + _taskIndent + ';display:inline-block;"><span' + labelStyle + '>' + escHtml(dispLabel) + '</span>' + _subsToggle + _ragDot + _partsBadge + _commBadge + _spBadge + '</span>';
+    const labelCell  = isPhase
+      ? collapseBtn + '<span style="font-weight:700;color:#1a2e55;letter-spacing:.2px;">' + escHtml(dispLabel) + '</span>'
+      : '<span style="padding-left:12px;display:inline-block;"><span' + labelStyle + '>' + escHtml(dispLabel) + '</span>' + _subsToggle + _ragDot + _partsBadge + _commBadge + '</span>';
 
-    // ── Action buttons ────────────────────────────────────────────────────────────────────
+    // ── Action buttons ─────────────────────────────────────────────────────
     const _isActTask   = task.type === 'task';
-    const _alreadyLinked = _isActTask && !!(state.customActions || []).find(function(a){return a._ganttTaskId === task.id;});
+    const _alreadyLinked = _isActTask && !!(state.customActions || []).find(a => a._ganttTaskId === task.id);
     const _btnStyle    = 'background:none;border:none;cursor:pointer;padding:2px 3px;border-radius:4px;transition:background .12s;';
-    const editBtns = isSubphase
-      ? '<button onclick="openEditSubphase(\'' + task.id + '\')'  + '" style="' + _btnStyle + 'font-size:13px;" title="Modifier la sous-phase" onmouseover="this.style.background=\'#ede9fe\'" onmouseout="this.style.background=\'none\'">✏️</button>'
-        + (canAddDelete() ? '<button onclick="deleteSubphase(\'' + task.id + '\')'  + '" style="' + _btnStyle + 'font-size:12px;color:#ef4444;" title="Supprimer la sous-phase" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'none\'">✕</button>' : '')
-      : '<button onclick="openEditGanttTask(\'' + task.id + '\')'  + '" style="' + _btnStyle + 'font-size:13px;" title="Modifier" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'none\'">✏️</button>'
-        + (canAddDelete() ? '<button onclick="deleteGanttTask(\'' + task.id + '\')'  + '" style="' + _btnStyle + 'font-size:12px;color:#ef4444;" title="Supprimer" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'none\'">✕</button>' : '')
-        + (_isInteractive && canEdit() ? '<button onclick="openAddSubtask(\'' + task.id + '\')'  + '" class="subtask-add-btn" title="Ajouter une sous-t\u00e2che">⊕</button>' : '')
-        + (isPhase && canAddDelete() ? '<button onclick="openAddSubphase(\'' + task.id + '\')'  + '" style="' + _btnStyle + 'font-size:11px;color:#7c3aed;opacity:.75;" title="Ajouter une sous-phase" onmouseover="this.style.background=\'#ede9fe\';this.style.opacity=1" onmouseout="this.style.background=\'none\';this.style.opacity=.75">⊞</button>' : '')
-        + (_isActTask && canEdit() && !_alreadyLinked
-            ? '<button onclick="_addTaskToActionPlan(\'' + task.id + '\')'  + '" style="' + _btnStyle + 'font-size:11px;opacity:.65;" title="Lier au plan d\'action" onmouseover="this.style.background=\'#f0fdf4\';this.style.opacity=1" onmouseout="this.style.background=\'none\';this.style.opacity=.65">📋</button>'
-            : (_isActTask && _alreadyLinked
-                ? '<span style="font-size:10px;color:#16a34a;padding:2px 3px;" title="Li\u00e9 au plan d\'action">✓📋</span>'
-                : ''))
+    const editBtns =
+        '<button onclick="openEditGanttTask(\'' + task.id + '\')" style="' + _btnStyle + 'font-size:13px;" title="Modifier" onmouseover="this.style.background=\'#eff6ff\'" onmouseout="this.style.background=\'none\'">✏️</button>'
+      + (canAddDelete() ? '<button onclick="deleteGanttTask(\'' + task.id + '\')" style="' + _btnStyle + 'font-size:12px;color:#ef4444;" title="Supprimer" onmouseover="this.style.background=\'#fee2e2\'" onmouseout="this.style.background=\'none\'">✕</button>' : '')
+      + (!isPhase && !isJalon && canEdit() ? '<button onclick="openAddSubtask(\'' + task.id + '\')" class="subtask-add-btn" title="Ajouter une sous-t\u00e2che">⊕</button>' : '')
+      + (_isActTask && canEdit() && !_alreadyLinked
+          ? '<button onclick="_addTaskToActionPlan(\'' + task.id + '\')" style="' + _btnStyle + 'font-size:11px;opacity:.65;" title="Lier au plan d\'action" onmouseover="this.style.background=\'#f0fdf4\';this.style.opacity=1" onmouseout="this.style.background=\'none\';this.style.opacity=.65">📋</button>'
+          : (_isActTask && _alreadyLinked
+              ? '<span style="font-size:10px;color:#16a34a;padding:2px 3px;" title="Li\u00e9 au plan d\'action">✓📋</span>'
+              : ''));
+
     // Colonne N° : affiche le numéro par défaut, + au survol de la ligne
     const numCell = '<td class="gantt-num-cell">'
       + '<span class="g-num-label">' + rowNum + '</span>'
@@ -13077,218 +12963,3 @@ function exportImpactsCSV() {
   URL.revokeObjectURL(url);
 }
 
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ── PLANNING MASTER + SOUS-PHASES ──────────────────────────────────────────
-// ═══════════════════════════════════════════════════════════════════════════
-
-function toggleGanttView(mode) {
-  _ganttViewMode = mode || 'detail';
-  const btnMaster = document.getElementById('btn-gantt-master');
-  const btnDetail = document.getElementById('btn-gantt-detail');
-  if (btnMaster) btnMaster.classList.toggle('active', _ganttViewMode === 'master');
-  if (btnDetail) btnDetail.classList.toggle('active', _ganttViewMode === 'detail');
-  renderGantt();
-}
-
-function renderGanttMaster() {
-  _refreshGanttRange();
-  const todayPct = ganttPct(TODAY.toISOString().split('T')[0]);
-  const curZoom = state.ganttZoom || 'month';
-  const cols = buildGanttCols(curZoom);
-  const hiddenSet = new Set(state.ganttHidden || []);
-  const allPhases = [...ganttTasks, ...(state.ganttCustom || [])]
-    .filter(function(t) { return t.type === 'phase' && !hiddenSet.has(t.id); });
-  const customAfter = {};
-  (state.ganttCustom || []).forEach(function(ct) {
-    const anchor = ct.insertAfterId || null;
-    if (anchor) { if (!customAfter[anchor]) customAfter[anchor] = []; customAfter[anchor].push(ct); }
-  });
-  const _flatAll2 = [];
-  function _pf2(task) {
-    if (_flatAll2.some(function(t){return t.id===task.id;})) return;
-    _flatAll2.push(task);
-    (customAfter[task.id]||[]).forEach(_pf2);
-  }
-  if (_projUsesCBS()) ganttTasks.forEach(_pf2);
-  (state.ganttCustom||[]).filter(function(ct){return !ct.insertAfterId;}).forEach(function(ct){
-    if (!_flatAll2.some(function(t){return t.id===ct.id;})) _pf2(ct);
-  });
-  const _allTasksByPhase = {};
-  let _lastPh = null;
-  _flatAll2.forEach(function(t) {
-    if (t.type === 'phase') { _lastPh = t.id; }
-    else if (_lastPh && t.type !== 'subphase') {
-      if (!_allTasksByPhase[_lastPh]) _allTasksByPhase[_lastPh] = [];
-      _allTasksByPhase[_lastPh].push(t);
-    }
-  });
-  let rows = '';
-  allPhases.forEach(function(phase, idx) {
-    const ov = state.gantt[phase.id] || {};
-    const dispLabel = ov._label || phase.label || phase.id;
-    let minS = null, maxE = null;
-    (_allTasksByPhase[phase.id]||[]).forEach(function(t) {
-      const td = getTaskDates(t);
-      if (td.start && (!minS || td.start < minS)) minS = td.start;
-      if (td.end   && (!maxE || td.end   > maxE)) maxE = td.end;
-    });
-    const start = minS || getTaskDates(phase).start || '';
-    const end   = maxE || getTaskDates(phase).end   || start;
-    const durMs = start && end ? new Date(end) - new Date(start) : 0;
-    const dur   = Math.max(0, Math.round(durMs / 86400000));
-    const left  = start ? (isNaN(ganttPct(start)) ? 0 : ganttPct(start)) : 0;
-    const width = start ? Math.max(0.5, isNaN(ganttWidthPct(start,end)) ? 0 : ganttWidthPct(start,end)) : 0;
-    const nbTasks = (_allTasksByPhase[phase.id]||[]).filter(function(t){return t.type!=='jalon';}).length;
-    const nbDone  = (_allTasksByPhase[phase.id]||[]).filter(function(t){
-      if (t.type==='jalon') return false;
-      const ov2 = state.gantt[t.id]||{};
-      const pct = ov2._pct!=null ? ov2._pct : Math.round((t.pct||0)*100);
-      return pct >= 100;
-    }).length;
-    const phPct = nbTasks > 0 ? Math.round(nbDone / nbTasks * 100) : 0;
-    const barHtml = start
-      ? '<div class="gantt-bar ph-' + (phase.phase||'p'+idx) + '" style="left:' + left.toFixed(1) + '%;width:' + width.toFixed(1) + '%;" title="' + escHtml(dispLabel) + ': ' + start + ' → ' + end + ' (' + dur + 'j)">'
-        + '<span class="g-bar-label">' + (width>1.5 ? escHtml(dispLabel.substring(0,32)) : '') + '</span>'
-        + '</div>'
-      : '<span style="font-size:10px;color:#94a3b8;font-style:italic;">Aucune tâche datée</span>';
-    rows += '<tr class="gantt-phase-row" style="height:38px;">'
-      + '<td style="text-align:center;font-size:11px;font-weight:700;color:#64748b;">' + (idx+1) + '</td>'
-      + '<td style="font-weight:700;color:#1a2e55;padding:0 10px;font-size:13px;">' + escHtml(dispLabel) + '</td>'
-      + '<td style="text-align:center;font-size:11px;color:#334155;font-weight:600;">' + (start||'—') + '</td>'
-      + '<td style="text-align:center;font-size:11px;color:#334155;font-weight:600;">' + (end||'—') + '</td>'
-      + '<td style="text-align:center;font-size:11px;color:#64748b;">' + (dur?dur+'j':'—') + '</td>'
-      + '<td style="text-align:center;"><div style="display:flex;align-items:center;gap:5px;">'
-      + '<div style="flex:1;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;min-width:48px;">'
-      + '<div style="height:100%;width:' + phPct + '%;background:' + (phPct>=100?'#22c55e':phPct>=60?'#3b82f6':'#f59e0b') + ';border-radius:4px;"></div></div>'
-      + '<span style="font-size:11px;font-weight:700;color:' + (phPct>=100?'#16a34a':phPct>0?'#2563eb':'#94a3b8') + ';">' + phPct + '%</span></div></td>'
-      + '<td style="text-align:center;font-size:10px;color:#64748b;">' + nbTasks + ' tâche' + (nbTasks!==1?'s':'') + '</td>'
-      + '<td style="padding:0;position:relative;"><div class="gantt-bar-cell" style="min-width:' + cols.minWidth + ';">'
-      + '<div class="gantt-months-bg">' + cols.bgHtml + '</div>'
-      + '<div class="today-line" style="left:' + todayPct.toFixed(1) + '%"></div>'
-      + barHtml + '</div></td></tr>';
-  });
-  const header = '<table class="gantt-table"><thead><tr>'
-    + '<th style="width:36px;text-align:center;">N°</th>'
-    + '<th class="col-name">Phase</th>'
-    + '<th style="width:100px;text-align:center;">📅 Début</th>'
-    + '<th style="width:100px;text-align:center;">📅 Fin</th>'
-    + '<th style="width:60px;text-align:center;">Durée</th>'
-    + '<th style="width:120px;text-align:center;">Avancement</th>'
-    + '<th style="width:80px;text-align:center;">Tâches</th>'
-    + '<th class="col-bar" style="padding:0;overflow:visible;position:relative;">'
-    + '<div style="position:relative;display:flex;height:28px;min-width:' + cols.minWidth + ';">'
-    + cols.headerHtml
-    + (todayPct >= 0 && todayPct <= 100
-        ? '<div style="position:absolute;top:0;bottom:0;left:' + todayPct.toFixed(1) + '%;width:2px;background:#ef4444;z-index:5;pointer-events:none;">'
-          + '<span style="position:absolute;top:50%;left:4px;transform:translateY(-50%);background:#ef4444;color:#fff;font-size:8px;font-weight:800;padding:2px 6px;border-radius:4px;white-space:nowrap;">▼ Aujourd'hui</span>'
-          + '</div>'
-        : '')
-    + '</div></th></tr></thead>';
-  const ganttRender = document.getElementById('gantt-render');
-  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:70vh;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);">'
-    + header + '<tbody>' + rows + '</tbody></table></div>';
-  ganttRender.querySelectorAll('thead th').forEach(function(th) {
-    th.style.position = 'sticky'; th.style.top = '0'; th.style.zIndex = '4';
-    th.style.background = '#f5f6f8'; th.style.boxShadow = 'inset 0 -1px 0 #d1d5db';
-  });
-}
-
-function toggleSubphaseCollapse(subphaseId) {
-  if (!state.ganttSubphasesCollapsed) state.ganttSubphasesCollapsed = {};
-  state.ganttSubphasesCollapsed[subphaseId] = !state.ganttSubphasesCollapsed[subphaseId];
-  saveState();
-  renderGantt();
-}
-
-var _editSubphaseId = null;
-
-function openAddSubphase(phaseId) {
-  _editSubphaseId = null;
-  document.getElementById('subphase-modal-title').textContent = '⊞ Ajouter une sous-phase';
-  document.getElementById('subphase-label').value = '';
-  document.getElementById('subphase-phase-id').value = phaseId || '';
-  var allP = [...ganttTasks, ...(state.ganttCustom||[])];
-  var ph = allP.find(function(t){return t.id === phaseId;});
-  document.getElementById('subphase-phase-label').textContent = ph ? (ph.label||phaseId) : (phaseId||'—');
-  document.getElementById('subphase-modal').style.display = 'flex';
-  setTimeout(function(){var el=document.getElementById('subphase-label');if(el)el.focus();},100);
-}
-
-function openEditSubphase(subphaseId) {
-  var sp = (state.ganttSubphases||[]).find(function(s){return s.id===subphaseId;});
-  if (!sp) return;
-  _editSubphaseId = subphaseId;
-  document.getElementById('subphase-modal-title').textContent = '✏️ Modifier la sous-phase';
-  document.getElementById('subphase-label').value = sp.label || '';
-  document.getElementById('subphase-phase-id').value = sp.phaseId || '';
-  var allP = [...ganttTasks, ...(state.ganttCustom||[])];
-  var ph = allP.find(function(t){return t.id === sp.phaseId;});
-  document.getElementById('subphase-phase-label').textContent = ph ? (ph.label||sp.phaseId) : (sp.phaseId||'—');
-  document.getElementById('subphase-modal').style.display = 'flex';
-}
-
-function closeSubphaseModal() {
-  document.getElementById('subphase-modal').style.display = 'none';
-  _editSubphaseId = null;
-}
-
-function saveSubphase() {
-  var label = (document.getElementById('subphase-label').value||'').trim();
-  var phaseId = (document.getElementById('subphase-phase-id').value||'').trim();
-  if (!label) { showToast('⚠️ Veuillez renseigner le libellé.', 2000); return; }
-  if (!state.ganttSubphases) state.ganttSubphases = [];
-  if (_editSubphaseId) {
-    var sp = state.ganttSubphases.find(function(s){return s.id===_editSubphaseId;});
-    if (sp) { sp.label = label; sp.phaseId = phaseId; }
-  } else {
-    state.ganttSubphases.push({ id: 'sp_' + Date.now(), label: label, phaseId: phaseId });
-  }
-  saveState();
-  closeSubphaseModal();
-  renderGantt();
-  showToast('✅ Sous-phase enregistrée', 1800);
-}
-
-function deleteSubphase(subphaseId) {
-  if (!confirm('Supprimer cette sous-phase ? Les tâches rattachées perdront leur rattachement.')) return;
-  if (!state.ganttSubphases) return;
-  state.ganttSubphases = state.ganttSubphases.filter(function(s){return s.id !== subphaseId;});
-  (state.ganttCustom||[]).forEach(function(t){
-    if (t.subphaseId === subphaseId) t.subphaseId = null;
-  });
-  Object.keys(state.gantt||{}).forEach(function(tid){
-    if (state.gantt[tid] && state.gantt[tid]._subphaseId === subphaseId) state.gantt[tid]._subphaseId = null;
-  });
-  if (state.ganttSubphasesCollapsed) delete state.ganttSubphasesCollapsed[subphaseId];
-  saveState();
-  renderGantt();
-  showToast('🗑️ Sous-phase supprimée', 1800);
-}
-
-function _populateSubphaseSelect(phaseId, selectedId) {
-  var sel = document.getElementById('new-task-subphase');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">— Aucune sous-phase —</option>';
-  var hasSubphases = false;
-  if (phaseId) {
-    (state.ganttSubphases||[]).filter(function(sp){return sp.phaseId === phaseId;}).forEach(function(sp) {
-      var opt = document.createElement('option');
-      opt.value = sp.id;
-      opt.textContent = sp.label;
-      if (sp.id === selectedId) opt.selected = true;
-      sel.appendChild(opt);
-      hasSubphases = true;
-    });
-  }
-  var wrapper = document.getElementById('new-task-subphase-row');
-  if (wrapper) wrapper.style.display = hasSubphases ? '' : 'none';
-}
-
-function _onGanttPhaseChange() {
-  var _phSel = document.getElementById('new-task-phase');
-  var _phOpt = _phSel ? _phSel.options[_phSel.selectedIndex] : null;
-  var _phaseId = (_phOpt && _phOpt.dataset.phaseId) ? _phOpt.dataset.phaseId : null;
-  _populateSubphaseSelect(_phaseId, null);
-}

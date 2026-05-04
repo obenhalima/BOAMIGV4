@@ -2131,27 +2131,3 @@ body.dark-mode #audit-modal > div {
 .impact-kpi-icon { font-size: 26px; flex-shrink: 0; }
 .impact-kpi-val  { font-size: 24px; font-weight: 800; line-height: 1; }
 .impact-kpi-lbl  { font-size: 10px; color: #888; margin-top: 3px; }
-
-/* ── Sous-phases Gantt ────────────────────────────────────────────────────── */
-.gantt-subphase-row {
-  background: #f5f3ff !important;
-  border-left: 3px solid #7c3aed;
-}
-.gantt-subphase-row:hover { background: #ede9fe !important; }
-.type-subphase {
-  background: #ede9fe;
-  color: #5b21b6;
-  border: 1px solid #c4b5fd;
-  font-size: 9px;
-  font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-.gantt-subphase-bar { border-radius: 4px !important; opacity: 0.82 !important; }
-#btn-gantt-master.active,
-#btn-gantt-detail.active {
-  background: rgba(255,255,255,.28) !important;
-  color: #fff !important;
-  font-weight: 700;
-}
