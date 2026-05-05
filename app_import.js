@@ -1083,7 +1083,7 @@ function _confirmImportData() {
         const label = _cellStr(r['libelle']||r['Libellé']||r['label']||r['Label']||r['nom']||r['Nom']||r['Tâche']||r['tâche']||r['tache']||'');
         if (!label) return;
         const rawType = _cellStr(r['type']||r['Type']||'tâche').toLowerCase().trim();
-        const type = rawType.startsWith('pha') ? 'phase'
+        const type = (rawType.startsWith('pha') || rawType.startsWith('cha')) ? 'phase'
                    : rawType.startsWith('jal') ? 'jalon'
                    : (rawType.includes('sous') || rawType.includes('sub') || rawType.includes('st')) ? 'subtask'
                    : 'task';
@@ -1119,11 +1119,20 @@ function _confirmImportData() {
       const CSS_PHASE_KEYS = ['p0','p1','p2','p3','p4','p5'];
       let cssKeyIdx = 0;
       const phaseIdToCssKey = {}; // ex: { 'PH_01': 'p0', 'PH_02': 'p1' }
-      importedTasks.filter(t => t.type === 'phase').forEach(t => {
+      // D'abord les phases maîtres (phaseRef vide)
+      importedTasks.filter(t => t.type === 'phase' && !t.phaseRef).forEach(t => {
         const key = CSS_PHASE_KEYS[cssKeyIdx % CSS_PHASE_KEYS.length];
         phaseIdToCssKey[t.id] = key;
         phaseIdToCssKey[t.label.toLowerCase()] = key;
         cssKeyIdx++;
+      });
+      // Puis les sous-phases (phaseRef non vide) : héritent la clé CSS de leur maître
+      importedTasks.filter(t => t.type === 'phase' && t.phaseRef).forEach(t => {
+        const masterKey = phaseIdToCssKey[t.phaseRef]
+          || phaseIdToCssKey[t.phaseRef.toLowerCase()]
+          || 'p1';
+        phaseIdToCssKey[t.id] = masterKey;
+        phaseIdToCssKey[t.label.toLowerCase()] = masterKey;
       });
 
       // ── Passe 3 : insérer dans ganttCustom (phases/tâches/jalons)
@@ -1144,7 +1153,13 @@ function _confirmImportData() {
       if (state.ganttCustom && state.ganttCustom.length > 0) {
         prevId = state.ganttCustom[state.ganttCustom.length - 1].id;
       }
-      let lastTaskId = null; // dernière tâche (parent des sous-tâches suivantes)
+      let lastTaskId       = null; // dernière tâche (parent des sous-tâches suivantes)
+      let currentSubphaseId = null; // sous-phase active (null = pas de sous-phase)
+
+      // Ensemble des IDs de sous-phases déclarées dans ce fichier
+      const _importedSubphaseIds = new Set(
+        importedTasks.filter(t => t.type === 'phase' && t.phaseRef).map(t => t.id)
+      );
 
       importedTasks.forEach(t => {
         const resolvedResp  = _resolveOwnerName(t.resp);
@@ -1152,7 +1167,7 @@ function _confirmImportData() {
 
         // ── Sous-tâche : va dans ganttSubtasks[lastTaskId] ──────────────────
         if (t.type === 'subtask') {
-          if (!lastTaskId) return; // pas de parent → ignorer
+          if (!lastTaskId) return;
           if (!state.ganttSubtasks) state.ganttSubtasks = {};
           if (!state.ganttSubtasks[lastTaskId]) state.ganttSubtasks[lastTaskId] = [];
           state.ganttSubtasks[lastTaskId].push({
@@ -1164,17 +1179,37 @@ function _confirmImportData() {
             commentaire:  t.commentaire || '',
             start: t.start,
             end:   t.end,
-            pct:   Math.round(t.pct * 100)  // ganttSubtasks stocke pct en 0–100
+            pct:   Math.round(t.pct * 100)
           });
           importedGantt++;
-          return; // ne pas ajouter à ganttCustom
+          return;
         }
 
-        // ── Tâche / Phase / Jalon : va dans ganttCustom ─────────────────────
+        // ── Sous-phase déclaration : phase avec colonne "phase" non vide ────
+        // → crée une entrée dans ganttSubphases (groupe de tâches)
+        // → ne va PAS dans ganttCustom en tant que ligne de phase
+        if (t.type === 'phase' && t.phaseRef) {
+          if (!state.ganttSubphases) state.ganttSubphases = [];
+          // Éviter les doublons si l'ID existe déjà
+          if (!state.ganttSubphases.find(s => s.id === t.id)) {
+            state.ganttSubphases.push({ id: t.id, label: t.label, phaseId: t.phaseRef, type: 'subphase' });
+          }
+          currentSubphaseId = t.id; // les tâches suivantes appartiennent à cette sous-phase
+          importedGantt++;
+          return; // pas de ligne ganttCustom pour les sous-phases
+        }
+
+        // ── Phase maître (phaseRef vide) : réinitialise la sous-phase active ─
+        if (t.type === 'phase' && !t.phaseRef) {
+          currentSubphaseId = null;
+        }
+
+        // ── Tâche / Phase maître / Jalon : va dans ganttCustom ───────────────
         let phaseCssKey = null;
         if (t.type === 'phase') {
           phaseCssKey = phaseIdToCssKey[t.id] || 'p0';
         } else if (t.phaseRef) {
+          // phaseRef peut pointer sur une sous-phase ou une phase maître
           phaseCssKey = phaseIdToCssKey[t.phaseRef]
             || phaseIdToCssKey[t.phaseRef.toLowerCase()]
             || null;
@@ -1184,13 +1219,20 @@ function _confirmImportData() {
           }
         }
 
-        state.ganttCustom.push({
+        // Détecter la sous-phase effective pour cette tâche :
+        // 1. Si sa phaseRef est une sous-phase déclarée → utiliser cette sous-phase
+        // 2. Sinon → hériter de currentSubphaseId (tâche sous la sous-phase active)
+        const effectiveSubphaseId = (t.phaseRef && _importedSubphaseIds.has(t.phaseRef))
+          ? t.phaseRef
+          : (currentSubphaseId || null);
+
+        const ganttEntry = {
           id: t.id, type: t.type, label: t.label,
           phase: phaseCssKey || 'p1',
           start: t.start, end: t.end, dur: t.dur,
           owner:        resolvedResp,
           resp:         resolvedResp,
-          side:         t.side || '',       // ← entité lue depuis la colonne "entite"
+          side:         t.side || '',
           participants: resolvedParts,
           rag:          t.rag  || null,
           commentaire:  t.commentaire || '',
@@ -1198,10 +1240,16 @@ function _confirmImportData() {
           domains: t.domaine ? [t.domaine] : [],
           insertAfterId: prevId,
           _custom: true
-        });
+        };
+
+        // Assigner subphaseId si la tâche appartient à une sous-phase
+        if (effectiveSubphaseId && t.type !== 'phase') {
+          ganttEntry.subphaseId = effectiveSubphaseId;
+        }
+
+        state.ganttCustom.push(ganttEntry);
         importedGantt++;
         prevId = t.id;
-        // Mémoriser le dernier ID de tâche/jalon (pas les phases) comme parent potentiel
         if (t.type === 'task' || t.type === 'jalon') lastTaskId = t.id;
       });
       return;

@@ -1181,6 +1181,12 @@ ORDER BY table_name;</div>
             onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'">
             📥 Importer
           </button>
+          <button onclick="exportGanttPlanning()"
+            style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;backdrop-filter:blur(4px);"
+            onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.15)'"
+            title="Exporter le planning au format Excel (re-importable)">
+            📤 Exporter
+          </button>
           <button onclick="_syncAllTasksToActions()" class="perm-add-delete"
             style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.15);color:white;border:1px solid rgba(255,255,255,.3);border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;"
             title="Créer des actions pour toutes les tâches Gantt qui n'en ont pas encore"
@@ -1206,6 +1212,18 @@ ORDER BY table_name;</div>
 
       <!-- Contrôles secondaires -->
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+
+        <!-- Vue Master / Détaillé -->
+        <div style="display:flex;align-items:center;gap:2px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px 4px;margin-right:4px;">
+          <span style="font-size:10px;color:rgba(255,255,255,.55);padding:0 5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;">Vue</span>
+          <button id="btn-gantt-master" onclick="toggleGanttView('master')" class="gantt-zoom-btn" title="Vue Master — phases uniquement">🗺️ Master</button>
+          <button id="btn-gantt-detail" onclick="toggleGanttView('detail')" class="gantt-zoom-btn active" title="Vue Détaillée — toutes les tâches">🔍 Détaillé</button>
+        </div>
+
+        <!-- Regrouper des phases -->
+        <button id="btn-group-phases" onclick="openGroupPhasesModal()" class="gantt-zoom-btn"
+          style="background:rgba(5,150,105,.25);border:1px solid rgba(5,150,105,.5);color:#6ee7b7;font-weight:700;"
+          title="Regrouper plusieurs phases en sous-phases d'une phase maître">&#x2295; Regrouper</button>
 
         <!-- Groupe Zoom période -->
         <div style="display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.2);border-radius:8px;padding:3px 4px;">
@@ -1377,6 +1395,8 @@ ORDER BY table_name;</div>
         <button id="btn-restore-arb" onclick="restoreAllHiddenArb()" class="btn btn-warning btn-sm perm-add-delete" style="display:none;">↩ Restaurer</button>
         <button onclick="_openDynImport('arbitrages')" class="btn btn-secondary btn-sm perm-add-delete">📥 Importer</button>
         <button onclick="openAddArbitrage()" class="btn btn-primary btn-sm perm-add-delete">+ Nouvel arbitrage</button>
+        <button onclick="openArbDecisionsSettings()" class="btn btn-sm perm-edit" title="Paramétrer les statuts de décision"
+          style="background:rgba(57,73,171,.1);color:#3949AB;border:1px solid rgba(57,73,171,.3);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;">⚙️ Statuts</button>
         <div class="cbs-export-wrap perm-export">
           <button class="cbs-export-btn" onclick="_cbsToggleExportMenu('arbitrages')">⬇️ Export ▾</button>
           <div id="cbs-export-menu-arbitrages" class="cbs-export-menu" style="display:none;">
@@ -1387,7 +1407,7 @@ ORDER BY table_name;</div>
         </div>
       </div>
     </div>
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:10px;"><span style="font-weight:700;color:#54565A;font-size:10px;white-space:nowrap;">Légende :</span><span style="display:inline-flex;align-items:center;gap:4px;background:#FEF3E2;border:1px solid #E8702A;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#E8702A;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#E8702A;display:inline-block;flex-shrink:0;"></span>⏳ En cours<span style="font-weight:400;opacity:.8;margin-left:2px;">— arbitrage non finalisé</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#EEF0F8;border:1px solid #3949AB;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#3949AB;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#3949AB;display:inline-block;flex-shrink:0;"></span>🔵 Maintien hybride<span style="font-weight:400;opacity:.8;margin-left:2px;">— spécifique conservé avec adaptation</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#E8F5ED;border:1px solid #2E7D52;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#2E7D52;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#2E7D52;display:inline-block;flex-shrink:0;"></span>🟢 Intégration V4<span style="font-weight:400;opacity:.8;margin-left:2px;">— remplacé par le standard V4</span></span><span style="display:inline-flex;align-items:center;gap:4px;background:#FDEEEC;border:1px solid #E63329;border-radius:4px;padding:2px 8px;font-size:10px;font-weight:700;color:#E63329;white-space:nowrap;"><span style="width:8px;height:8px;border-radius:50%;background:#E63329;display:inline-block;flex-shrink:0;"></span>🔴 Abandon<span style="font-weight:400;opacity:.8;margin-left:2px;">— développement spécifique abandonné</span></span></div>
+    <div id="arb-legend-bar" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 16px;background:#fafafa;border-bottom:1px solid #eee;font-size:10px;"></div>
     <div class="section-body">
 
       <!-- Progress global -->
@@ -1408,10 +1428,6 @@ ORDER BY table_name;</div>
         <label>Décision :</label>
         <select id="arb-filter-dec" onchange="renderArbitrages()">
           <option value="">Toutes décisions</option>
-          <option value="en_cours">En cours d'arbitrage</option>
-          <option value="maintien">Maintien hybride</option>
-          <option value="integration">Intégration V4</option>
-          <option value="abandon">Abandon</option>
         </select>
         <button class="btn-reset" onclick="document.getElementById('arb-filter-domain').value='';document.getElementById('arb-filter-dec').value='';renderArbitrages()">✕ Effacer</button>
         <div style="margin-left:auto;">
@@ -2270,7 +2286,7 @@ ORDER BY table_name;</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 130px;gap:10px;">
         <div>
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Phase de rattachement</label>
-          <select id="new-task-phase" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <select id="new-task-phase" onchange="_onGanttPhaseChange()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
             <!-- options peuplées dynamiquement par _populateGanttPhaseSelect() -->
           </select>
         </div>
@@ -2289,6 +2305,14 @@ ORDER BY table_name;</div>
             <option value="Externe">Externe</option>
           </select>
         </div>
+      </div>
+
+      <!-- Sous-phase (visible seulement si la phase a des sous-phases) -->
+      <div id="new-task-subphase-row" style="display:none;">
+        <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">⊞ Sous-phase de rattachement <span style="font-weight:400;color:#7c3aed;">(optionnel)</span></label>
+        <select id="new-task-subphase" style="width:100%;padding:6px 8px;border:1.5px solid #c4b5fd;border-radius:4px;font-size:12px;background:#faf5ff;color:#5b21b6;">
+          <option value="">— Aucune sous-phase —</option>
+        </select>
       </div>
 
       <!-- Ligne 3 : Début + Fin + Durée (liés dynamiquement) -->
@@ -2389,6 +2413,41 @@ ORDER BY table_name;</div>
 
 </div><!-- /app-content -->
 
+<!-- ══ MODAL : Paramétrage décisions arbitrage ════════════════════════════════ -->
+<div id="arb-dec-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:12px;padding:28px 28px 22px;width:680px;max-width:97vw;box-shadow:0 10px 40px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;border-bottom:3px solid #3949AB;padding-bottom:10px;">
+      <h3 style="margin:0;font-size:15px;font-weight:800;color:#3949AB;">⚙️ Paramétrer les Statuts de Décision</h3>
+      <button onclick="closeArbDecisionsSettings()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;line-height:1;">✕</button>
+    </div>
+    <p style="font-size:11px;color:#64748b;margin:6px 0 16px;">Configurez les statuts affichés dans la colonne <strong>Décision</strong>. Le statut marqué <strong>Défaut</strong> (●) est attribué aux arbitrages non encore traités et compte dans le badge de l'onglet.</p>
+
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+          <th style="padding:6px 8px;text-align:center;font-weight:700;color:#64748b;width:52px;">Défaut</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#64748b;width:56px;">Icône</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#64748b;">Libellé</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:700;color:#64748b;width:52px;">Texte</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:700;color:#64748b;width:52px;">Fond</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#64748b;">Aperçu</th>
+          <th style="padding:6px 8px;width:38px;"></th>
+        </tr>
+      </thead>
+      <tbody id="arb-dec-settings-list"></tbody>
+    </table>
+
+    <div style="margin-top:12px;">
+      <button onclick="addArbDecisionRow()" style="background:#f0f4ff;color:#3949AB;border:1px dashed #3949AB;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">+ Ajouter un statut</button>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;border-top:1px solid #f0f0f0;padding-top:14px;">
+      <button onclick="closeArbDecisionsSettings()" class="btn btn-cancel">Annuler</button>
+      <button onclick="saveArbDecisionsSettings()" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════ MODAL SOUS-TÂCHE GANTT ════ -->
 <!-- ══ MODAL : Arbitrage créer / modifier ══════════════════════════════ -->
 <div id="arb-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center;">
@@ -2446,9 +2505,6 @@ ORDER BY table_name;</div>
         <label style="font-size:11px;font-weight:700;color:#54565A;display:block;margin-bottom:4px;">Décision</label>
         <select id="arb-modal-dec" style="width:100%;padding:7px 10px;border:1px solid #ddd;border-radius:5px;font-size:13px;">
           <option value="en_cours">⏳ En cours d'arbitrage</option>
-          <option value="maintien">🔵 Maintien hybride</option>
-          <option value="integration">🟢 Intégration V4</option>
-          <option value="abandon">🔴 Abandon</option>
         </select>
       </div>
       <div>
@@ -3207,6 +3263,127 @@ ORDER BY table_name;</div>
     <div id="session-timeout-countdown">2:00</div>
     <div class="session-timeout-note">en raison d'inactivité (30 min)</div>
     <button class="session-timeout-btn" onclick="_sessionKeepAlive()">✅ Rester connecté</button>
+  </div>
+</div>
+
+<!-- Modale Sous-phase -->
+<div id="subphase-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:3100;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;padding:28px 32px;width:440px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <h3 id="subphase-modal-title" style="margin:0;font-size:16px;color:#5b21b6;font-weight:700;">⊞ Sous-phase</h3>
+      <button onclick="closeSubphaseModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1;">✕</button>
+    </div>
+    <input type="hidden" id="subphase-phase-id">
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;color:#64748b;">Phase parente</label>
+      <div id="subphase-phase-label" style="padding:7px 10px;background:#f5f3ff;border:1.5px solid #c4b5fd;border-radius:6px;font-size:13px;color:#5b21b6;font-weight:600;">—</div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Libellé *</label>
+      <input id="subphase-label" type="text" placeholder="Ex : Recette, Intégration, Pilote…"
+        style="width:100%;padding:8px 10px;border:1.5px solid #c4b5fd;border-radius:6px;font-size:13px;box-sizing:border-box;background:#faf5ff;"
+        onkeydown="if(event.key==='Enter') saveSubphase()">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button onclick="closeSubphaseModal()" style="padding:8px 18px;border:1.5px solid #e2e8f0;border-radius:7px;background:#f8fafc;color:#334155;font-size:13px;cursor:pointer;font-weight:600;">Annuler</button>
+      <button onclick="saveSubphase()" style="padding:8px 22px;border:none;border-radius:7px;background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;font-size:13px;font-weight:700;cursor:pointer;">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Modal : Convertir Phase en Sous-phase -->
+<div id="convert-phase-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3200;align-items:center;justify-content:center;">
+  <div class="modal-box" style="max-width:460px;width:90%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#059669,#10b981);border-radius:12px 12px 0 0;">
+      <span style="font-size:15px;font-weight:700;color:#fff;">&#x21a5; Convertir en sous-phase</span>
+      <button onclick="closeConvertPhaseModal()" style="background:none;border:none;color:rgba(255,255,255,.8);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='none'">&#x2715;</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <p style="margin:0;font-size:13px;color:#555;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 14px;">
+        La phase <strong id="convert-phase-label" style="color:#059669;">&#x2014;</strong>
+        deviendra une sous-phase rattach&#xe9;e &#xe0; la phase ma&#xee;tre choisie.
+      </p>
+      <input type="hidden" id="convert-phase-id">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Phase ma&#xee;tre *</label>
+        <select id="convert-master-select" onchange="_onConvertMasterChange()"
+          style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#fff;cursor:pointer;">
+          <option value="">-- S&#xe9;lectionner --</option>
+        </select>
+      </div>
+      <div id="convert-new-master-wrap" style="display:none;background:#f9fafb;border:1px dashed #d1d5db;border-radius:8px;padding:14px;">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Nom de la nouvelle phase ma&#xee;tre *</label>
+        <input id="convert-new-master-label" type="text" placeholder="Ex : Bloc A &#x2014; &#xc9;tude"
+          style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;" />
+      </div>
+    </div>
+    <div style="padding:12px 20px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f3f4f6;">
+      <button onclick="closeConvertPhaseModal()"
+        style="padding:8px 18px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:500;">Annuler</button>
+      <button onclick="executeConvertPhaseToSubphase()"
+        style="padding:8px 20px;border:none;border-radius:8px;background:#059669;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">&#x21a5; Convertir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Modal : Regrouper des phases en sous-phases ═══ -->
+<div id="group-phases-modal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:3200;align-items:center;justify-content:center;">
+  <div class="modal-box" style="max-width:560px;width:95%;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;display:flex;flex-direction:column;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:linear-gradient(135deg,#059669,#10b981);border-radius:12px 12px 0 0;flex-shrink:0;">
+      <span style="font-size:15px;font-weight:700;color:#fff;">&#x2295; Regrouper des phases</span>
+      <button onclick="closeGroupPhasesModal()" style="background:none;border:none;color:rgba(255,255,255,.8);font-size:18px;cursor:pointer;padding:2px 6px;border-radius:4px;"
+        onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='none'">&#x2715;</button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:20px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;">
+
+      <!-- Phase maître -->
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">
+          1&#xb7; Phase ma&#xee;tre (qui contiendra les sous-phases) *
+        </label>
+        <select id="gp-master-select" onchange="_onGpMasterChange()"
+          style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;background:#fff;">
+          <option value="">-- S&#xe9;lectionner ou cr&#xe9;er --</option>
+        </select>
+        <div id="gp-new-master-wrap" style="display:none;margin-top:8px;background:#f0fdf4;border:1px dashed #6ee7b7;border-radius:8px;padding:12px;">
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px;">Nom de la nouvelle phase ma&#xee;tre *</label>
+          <input id="gp-new-master-label" type="text" placeholder="Ex : Bloc A &#x2014; D&#xe9;ploiement"
+            style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;box-sizing:border-box;" />
+        </div>
+      </div>
+
+      <!-- Phases à regrouper -->
+      <div>
+        <label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px;">
+          2&#xb7; Phases &#xe0; convertir en sous-phases *
+        </label>
+        <div style="font-size:11px;color:#6b7280;margin-bottom:8px;">Cochez les phases qui deviendront des sous-phases de la phase ma&#xee;tre.</div>
+        <div id="gp-phases-list"
+          style="border:1px solid #e5e7eb;border-radius:8px;max-height:260px;overflow-y:auto;background:#fafafa;">
+          <!-- rempli dynamiquement -->
+        </div>
+        <div id="gp-select-all-wrap" style="margin-top:6px;display:flex;gap:8px;">
+          <button onclick="_gpSelectAll(true)"  style="font-size:11px;color:#059669;background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;" onmouseover="this.style.background='#d1fae5'" onmouseout="this.style.background='none'">&#x2611; Tout s&#xe9;lectionner</button>
+          <button onclick="_gpSelectAll(false)" style="font-size:11px;color:#6b7280;background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='none'">&#x2610; Tout d&#xe9;s&#xe9;lectionner</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:12px 20px;display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #f3f4f6;flex-shrink:0;">
+      <button onclick="closeGroupPhasesModal()"
+        style="padding:8px 18px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:13px;cursor:pointer;font-weight:500;">Annuler</button>
+      <button onclick="executeGroupPhases()"
+        style="padding:8px 22px;border:none;border-radius:8px;background:#059669;color:#fff;font-size:13px;font-weight:700;cursor:pointer;"
+        onmouseover="this.style.background='#047857'" onmouseout="this.style.background='#059669'">&#x2295; Regrouper</button>
+    </div>
+
   </div>
 </div>
 
