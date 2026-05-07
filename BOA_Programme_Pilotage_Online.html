@@ -1634,15 +1634,12 @@ ORDER BY table_name;</div>
           <option>Anomalie</option>
           <option>Exclusion</option>
         </select>
-        <label>Décision :</label>
+        <label style="display:flex;align-items:center;gap:4px;">Décision :
+          <button onclick="openGapDecisionsSettings()" title="Configurer les statuts de décision"
+            style="background:none;border:1px solid #d1d5db;border-radius:4px;padding:1px 5px;cursor:pointer;font-size:11px;color:#64748b;line-height:1.4;" class="perm-edit">⚙️</button>
+        </label>
         <select id="gaps-filter-dec" onchange="renderGaps()">
           <option value="">Toutes</option>
-          <option>En attente</option>
-          <option>En analyse</option>
-          <option>Validé V4 Standard</option>
-          <option>Validé Spécifique</option>
-          <option>Reporté Phase II</option>
-          <option>Exclu périmètre</option>
         </select>
         <input type="text" id="gaps-search" placeholder="Rechercher..." oninput="renderGaps()" style="width:140px;">
         <button class="btn-reset" onclick="resetGapsFilters()">✕ Effacer</button>
@@ -2444,6 +2441,41 @@ ORDER BY table_name;</div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;border-top:1px solid #f0f0f0;padding-top:14px;">
       <button onclick="closeArbDecisionsSettings()" class="btn btn-cancel">Annuler</button>
       <button onclick="saveArbDecisionsSettings()" class="btn btn-primary">💾 Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL : Paramétrage Décisions GAP ════════════════════════════ -->
+<div id="gap-dec-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:12px;padding:28px 28px 22px;width:680px;max-width:97vw;box-shadow:0 10px 40px rgba(0,0,0,.25);max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;border-bottom:3px solid #2E7D52;padding-bottom:10px;">
+      <h3 style="margin:0;font-size:15px;font-weight:800;color:#2E7D52;">⚙️ Paramétrer les Décisions BOA (GAP)</h3>
+      <button onclick="closeGapDecisionsSettings()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888;line-height:1;">✕</button>
+    </div>
+    <p style="font-size:11px;color:#64748b;margin:6px 0 16px;">Configurez les statuts affichés dans la colonne <strong>Décision BOA</strong>. Le statut marqué <strong>Défaut</strong> (●) est attribué aux GAPs non encore traités et compte dans la barre de progression.</p>
+
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+          <th style="padding:6px 8px;text-align:center;font-weight:700;color:#64748b;width:52px;">Défaut</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#64748b;width:56px;">Icône</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#64748b;">Libellé</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:700;color:#64748b;width:52px;">Texte</th>
+          <th style="padding:6px 8px;text-align:center;font-weight:700;color:#64748b;width:52px;">Fond</th>
+          <th style="padding:6px 8px;text-align:left;font-weight:700;color:#64748b;">Aperçu</th>
+          <th style="padding:6px 8px;width:38px;"></th>
+        </tr>
+      </thead>
+      <tbody id="gap-dec-settings-list"></tbody>
+    </table>
+
+    <div style="margin-top:12px;">
+      <button onclick="addGapDecisionRow()" style="background:#f0fff4;color:#2E7D52;border:1px dashed #2E7D52;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;">+ Ajouter un statut</button>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;border-top:1px solid #f0f0f0;padding-top:14px;">
+      <button onclick="closeGapDecisionsSettings()" class="btn btn-cancel">Annuler</button>
+      <button onclick="saveGapDecisionsSettings()" class="btn btn-primary">💾 Enregistrer</button>
     </div>
   </div>
 </div>

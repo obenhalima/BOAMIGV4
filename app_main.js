@@ -53,6 +53,35 @@ function _applyArbDecSelectStyle(sel) {
 }
 
 
+// ─── Décisions GAP (Décision BOA) — valeurs par défaut ──────────────────────────
+const GAP_DECISIONS_DEFAULT = [
+  { key: 'En attente',         label: 'En attente',         icon: '⏳', color: '#54565A', bg: '#F5F5F5', isDefault: true },
+  { key: 'En analyse',         label: 'En analyse',         icon: '🔍', color: '#E8702A', bg: '#FEF3E2' },
+  { key: 'Validé V4 Standard', label: 'Validé V4 Standard', icon: '✅', color: '#2E7D52', bg: '#E8F5ED' },
+  { key: 'Validé Spécifique',  label: 'Validé Spécifique',  icon: '🔵', color: '#3949AB', bg: '#EEF0F8' },
+  { key: 'Reporté Phase II',   label: 'Reporté Phase II',   icon: '📅', color: '#E8702A', bg: '#FEF3E2' },
+  { key: 'Exclu périmètre',    label: 'Exclu périmètre',    icon: '🚫', color: '#E63329', bg: '#FDEEEC', isExclusion: true },
+];
+function _getGapDecisions() {
+  return (state.gapDecisions && state.gapDecisions.length > 0) ? state.gapDecisions : GAP_DECISIONS_DEFAULT;
+}
+function _getGapDefaultKey() {
+  const decs = _getGapDecisions();
+  const def = decs.find(d => d.isDefault);
+  return def ? def.key : (decs[0] ? decs[0].key : '');
+}
+function _gapDecByKey(key) {
+  return _getGapDecisions().find(d => d.key === key)
+    || { key: key, label: key, icon: '', color: '#54565A', bg: '#F5F5F5' };
+}
+function _applyGapDecSelectStyle(sel) {
+  if (!sel) return;
+  const d = _gapDecByKey(sel.value);
+  sel.style.background  = d.bg;
+  sel.style.color       = d.color;
+  sel.style.borderColor = d.color;
+}
+
 // ─── ACTIONS — chargées depuis Supabase (app_defaults) au démarrage ────────────
 let actions = []; // Ancien référentiel app_defaults.actions, conservé hors Plan d'action projet
 
@@ -171,6 +200,7 @@ let state = {
   customArbitrages:  [],  // arbitrages créés manuellement [{id,label,domain,prio,resp,deadline,_custom}]
   arbitragesHidden:  [],  // IDs d'arbitrages statiques masqués (suppression réversible)
   arbDecisions:      [],  // décisions paramétrables [{key,label,icon,color,bg,isDefault}] — vide = defaults
+  gapDecisions:      [],  // décisions GAP paramétrables [{key,label,icon,color,bg,isDefault,isExclusion}] — vide = defaults
   actions:       {},  // {id: {rag, pct, commentaire, source}}
   gantt:         {},  // {id: {start, end}}
   gaps:          {},  // {ref: {decision, note, prio, phase, bm}}
@@ -211,7 +241,7 @@ let state = {
 
 // Champs d'état appartenant à un projet (pas au programme)
 const _PROJECT_STATE_KEYS = [
-  'arbitrages','customArbitrages','arbitragesHidden','arbDecisions',
+  'arbitrages','customArbitrages','arbitragesHidden','arbDecisions','gapDecisions',
   'actions','gantt','gaps','ganttCustom','ganttHidden',
   'customActions','customGaps','ganttChain','ganttCollapsed',
   'ganttSubsCollapsed','ganttSubtasks','ganttZoom',
@@ -230,7 +260,7 @@ function _extractProjectData(src) {
 // Etat par défaut d'un nouveau projet vierge
 function _defaultProjectState() {
   return {
-    arbitrages:{}, customArbitrages:[], arbitragesHidden:[], arbDecisions:[],
+    arbitrages:{}, customArbitrages:[], arbitragesHidden:[], arbDecisions:[], gapDecisions:[],
     actions:{}, gantt:{}, gaps:{}, ganttCustom:[], ganttHidden:[],
     customActions:[], customGaps:[], ganttChain:false, ganttCollapsed:{},
     ganttSubsCollapsed:{}, ganttSubtasks:{}, ganttZoom:'month',
@@ -248,6 +278,7 @@ function applyParsedState(parsed) {
     customArbitrages:  parsed.customArbitrages  || [],
     arbitragesHidden:  parsed.arbitragesHidden  || [],
     arbDecisions:      parsed.arbDecisions      || [],
+    gapDecisions:      parsed.gapDecisions      || [],
     actions:        parsed.actions        || {},
     gantt:          parsed.gantt          || {},
     gaps:           parsed.gaps           || {},
@@ -3739,6 +3770,101 @@ function saveArbDecisionsSettings() {
   renderArbitrages();
 }
 
+// ─── GAP Decisions Settings ───────────────────────────────────────────────────
+let _gapDecWIP = []; // copie de travail pendant l'édition
+
+function openGapDecisionsSettings() {
+  if (!canEdit()) return;
+  _gapDecWIP = JSON.parse(JSON.stringify(_getGapDecisions()));
+  _renderGapDecSettingsList();
+  document.getElementById('gap-dec-settings-modal').style.display = 'flex';
+}
+function closeGapDecisionsSettings() {
+  document.getElementById('gap-dec-settings-modal').style.display = 'none';
+  _gapDecWIP = [];
+}
+function _renderGapDecSettingsList() {
+  const wrap = document.getElementById('gap-dec-settings-list');
+  if (!wrap) return;
+  wrap.innerHTML = _gapDecWIP.map((d, i) => `
+    <tr data-idx="${i}">
+      <td style="text-align:center;padding:4px;">
+        <label title="Statut par défaut (GAPs non encore traités)">
+          <input type="radio" name="gap-dec-default" value="${i}" ${d.isDefault?'checked':''}
+            onchange="_gapDecSetDefault(${i})" style="cursor:pointer;">
+        </label>
+      </td>
+      <td style="padding:4px;"><input type="text" value="${escHtml(d.icon)}" maxlength="4" placeholder="🔵"
+        oninput="_gapDecWIP[${i}].icon=this.value;_gapDecUpdatePreview(${i})"
+        style="width:44px;text-align:center;padding:4px;border:1px solid #ddd;border-radius:4px;font-size:15px;"></td>
+      <td style="padding:4px;"><input type="text" value="${escHtml(d.label)}" placeholder="Libellé…"
+        oninput="_gapDecWIP[${i}].label=this.value;_gapDecUpdatePreview(${i})"
+        style="width:180px;padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;box-sizing:border-box;"></td>
+      <td style="padding:4px;">
+        <input type="color" value="${d.color}" title="Couleur texte / bordure"
+          oninput="_gapDecWIP[${i}].color=this.value;_gapDecUpdatePreview(${i})"
+          style="width:36px;height:30px;padding:2px;border:1px solid #ddd;border-radius:4px;cursor:pointer;">
+      </td>
+      <td style="padding:4px;">
+        <input type="color" value="${d.bg}" title="Couleur de fond"
+          oninput="_gapDecWIP[${i}].bg=this.value;_gapDecUpdatePreview(${i})"
+          style="width:36px;height:30px;padding:2px;border:1px solid #ddd;border-radius:4px;cursor:pointer;">
+      </td>
+      <td style="padding:4px;text-align:center;">
+        <span id="gap-dec-preview-${i}" style="display:inline-block;padding:2px 9px;border-radius:4px;font-size:11px;font-weight:700;border:1px solid ${d.color};background:${d.bg};color:${d.color};">${d.icon} ${escHtml(d.label)}</span>
+      </td>
+      <td style="padding:4px;text-align:center;">
+        ${_gapDecWIP.length > 1 ? `<button onclick="_gapDecDeleteRow(${i})" title="Supprimer" style="background:none;border:1px solid #fca5a5;border-radius:4px;color:#e63329;cursor:pointer;padding:3px 7px;font-size:12px;">✕</button>` : '<span style="color:#ccc;font-size:11px;">—</span>'}
+      </td>
+    </tr>`).join('');
+}
+function _gapDecUpdatePreview(i) {
+  const d = _gapDecWIP[i];
+  const prev = document.getElementById('gap-dec-preview-' + i);
+  if (prev) {
+    prev.style.borderColor = d.color;
+    prev.style.background  = d.bg;
+    prev.style.color       = d.color;
+    prev.textContent       = d.icon + ' ' + d.label;
+  }
+}
+function _gapDecSetDefault(i) {
+  _gapDecWIP.forEach((d, idx) => { d.isDefault = (idx === i); });
+}
+function _gapDecDeleteRow(i) {
+  if (_gapDecWIP.length <= 1) return;
+  if (!confirm('Supprimer ce statut ? Les GAPs ayant ce statut seront affichés avec le statut par défaut.')) return;
+  _gapDecWIP.splice(i, 1);
+  if (!_gapDecWIP.find(d => d.isDefault)) _gapDecWIP[0].isDefault = true;
+  _renderGapDecSettingsList();
+}
+function addGapDecisionRow() {
+  const key = 'gapdec_' + Date.now();
+  _gapDecWIP.push({ key, label: 'Nouveau statut', icon: '🔘', color: '#64748b', bg: '#f1f5f9', isDefault: false });
+  _renderGapDecSettingsList();
+}
+function saveGapDecisionsSettings() {
+  const rows = document.querySelectorAll('#gap-dec-settings-list tr[data-idx]');
+  rows.forEach(tr => {
+    const i = parseInt(tr.dataset.idx);
+    const inputs = tr.querySelectorAll('input[type=text]');
+    if (inputs[0]) _gapDecWIP[i].icon  = inputs[0].value.trim();
+    if (inputs[1]) _gapDecWIP[i].label = inputs[1].value.trim() || 'Statut ' + (i+1);
+    // Sync key to label for new entries so stored decision values match the label
+    if (_gapDecWIP[i].key && _gapDecWIP[i].key.startsWith('gapdec_')) {
+      _gapDecWIP[i].key = _gapDecWIP[i].label;
+    }
+    const colors = tr.querySelectorAll('input[type=color]');
+    if (colors[0]) _gapDecWIP[i].color = colors[0].value;
+    if (colors[1]) _gapDecWIP[i].bg    = colors[1].value;
+  });
+  if (!_gapDecWIP.find(d => d.isDefault)) _gapDecWIP[0].isDefault = true;
+  state.gapDecisions = JSON.parse(JSON.stringify(_gapDecWIP));
+  saveState('Décisions GAP mises à jour', _gapDecWIP.length + ' statuts');
+  closeGapDecisionsSettings();
+  renderGaps();
+}
+
 function closeArbModal() {
   document.getElementById('arb-modal').style.display = 'none';
   _arbEditId = null;
@@ -5021,7 +5147,17 @@ function resetActFilters() {
 // GAPS
 // ════════════════════════════════════════════════════════════════════════
 
+function _rebuildGapDecFilter() {
+  const sel = document.getElementById('gaps-filter-dec');
+  if (!sel) return;
+  const cur = sel.value;
+  const decs = _getGapDecisions();
+  sel.innerHTML = '<option value="">Toutes</option>' +
+    decs.map(d => `<option value="${d.key}" ${d.key===cur?'selected':''}>${d.icon ? d.icon+' ' : ''}${escHtml(d.label)}</option>`).join('');
+}
+
 function renderGaps() {
+  _rebuildGapDecFilter();
   const domF   = document.getElementById('gaps-filter-domain').value;
   const prioF  = document.getElementById('gaps-filter-prio').value;
   const changedF = document.getElementById('gaps-filter-changed').value;
@@ -5129,21 +5265,24 @@ function renderGaps() {
     const saved = state.gaps[g.ref] || {};
     const dec = saved.decision || '';
     const note = saved.note || '';
-    const decOptions = ['','En attente','En analyse','Validé V4 Standard','Validé Spécifique','Reporté Phase II','Exclu périmètre'];
-    const decColors = {'Validé V4 Standard':'#2E7D52','Validé Spécifique':'#3949AB','Reporté Phase II':'#E8702A','Exclu périmètre':'#E63329','En analyse':'#E8702A','En attente':'#54565A','':'#54565A'};
-    const decBg = {'Validé V4 Standard':'#E8F5ED','Validé Spécifique':'#EEF0F8','Reporté Phase II':'#FEF3E2','Exclu périmètre':'#FDEEEC','En analyse':'#FEF3E2','En attente':'#F5F5F5','':'#F5F5F5'};
+    const _gapDecs = _getGapDecisions();
+    const _decObj = dec ? _gapDecByKey(dec) : { color: '#54565A', bg: '#F5F5F5' };
     const decCell = `<select onchange="setGapDecision('${g.ref}','decision',this.value)"
       style="font-size:10px;padding:2px 4px;border-radius:3px;width:130px;
-      background:${decBg[dec]||'#F5F5F5'};color:${decColors[dec]||'#54565A'};
-      border:1px solid ${decColors[dec]||'#ccc'};font-weight:${dec?'700':'400'};">
-      ${decOptions.map(o => `<option value="${o}" ${o===dec?'selected':''}>${o||'— choisir —'}</option>`).join('')}
+      background:${_decObj.bg};color:${_decObj.color};
+      border:1px solid ${_decObj.color};font-weight:${dec?'700':'400'};">
+      <option value="">— choisir —</option>
+      ${_gapDecs.map(o => `<option value="${o.key}" ${o.key===dec?'selected':''}>${o.icon ? o.icon+' ' : ''}${escHtml(o.label)}</option>`).join('')}
     </select>`;
     const noteCell = `<textarea onchange="setGapDecision('${g.ref}','note',this.value)"
       placeholder="Note / commentaire..."
       style="font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;width:100%;box-sizing:border-box;min-height:38px;resize:vertical;font-family:inherit;">${note}</textarea>`;
 
-    const traite = dec !== '' && dec !== 'En attente' && dec !== 'En analyse';
-    const rowBg = dec === 'Exclu périmètre' ? 'opacity:0.45;' :
+    const _defaultDecKey = _getGapDefaultKey();
+    const _decConfig = dec ? _gapDecByKey(dec) : null;
+    const _isExclusionDec = _decConfig && !!_decConfig.isExclusion;
+    const traite = dec !== '' && dec !== _defaultDecKey && !_isExclusionDec;
+    const rowBg = _isExclusionDec ? 'opacity:0.45;' :
                   traite ? 'background:#f7fff9;' : '';
 
     return `<tr style="${rowBg}">
@@ -5174,27 +5313,44 @@ function renderGaps() {
 }
 
 function updateGapsSummary() {
-  const counts = {'Validé V4 Standard':0,'Validé Spécifique':0,'En analyse':0,'En attente':0,'Reporté Phase II':0,'Exclu périmètre':0,'total':gaps.length};
-  gaps.forEach(g => {
-    const d = (state.gaps[g.ref]||{}).decision||'En attente';
-    if (counts[d] !== undefined) counts[d]++;
-    else counts['En attente']++;
-  });
   const el = document.getElementById('gaps-summary-bar');
   if (!el) return;
-  const traites = counts.total - counts['En attente'] - counts['En analyse'];
-  const pct = Math.round(traites / counts.total * 100);
+  const allGaps = _projUsesCBS() ? [...gaps, ...state.customGaps] : [...state.customGaps];
+  const total = allGaps.length;
+  if (total === 0) { el.innerHTML = ''; return; }
+
+  const decs = _getGapDecisions();
+  const defaultKey = _getGapDefaultKey();
+  // Count per decision key
+  const counts = {};
+  decs.forEach(d => { counts[d.key] = 0; });
+  counts['_other'] = 0;
+  allGaps.forEach(g => {
+    const d = (state.gaps[g.ref]||{}).decision || defaultKey;
+    if (counts[d] !== undefined) counts[d]++;
+    else counts['_other']++;
+  });
+  // Traités = any decision that is not the default and not empty
+  const defaultCount = (counts[defaultKey] || 0) + (counts[''] || 0);
+  const traites = total - defaultCount;
+  const pct = total > 0 ? Math.round(traites / total * 100) : 0;
+
+  // Build badges: show each non-default decision that has count>0 (show max 4 badges + progress bar)
+  const badges = decs
+    .filter(d => !d.isDefault && counts[d.key] > 0)
+    .map(d => `<div style="background:${d.bg};color:${d.color};border:1px solid ${d.color};border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;">${counts[d.key]} ${escHtml(d.label)}</div>`)
+    .join('');
+  const defaultBadge = `<div style="background:${decs.find(d=>d.isDefault)?.bg||'#F5F5F5'};color:${decs.find(d=>d.isDefault)?.color||'#54565A'};border:1px solid ${decs.find(d=>d.isDefault)?.color||'#ccc'};border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;">${defaultCount} ${escHtml(decs.find(d=>d.isDefault)?.label||'En attente')}</div>`;
+  const traitesBadge = `<div style="background:#E8F5ED;color:#2E7D52;border:1px solid #2E7D52;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;">✅ ${traites} Traités</div>`;
+
   el.innerHTML = `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <div style="background:#E8F5ED;color:#2E7D52;border:1px solid #2E7D52;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${traites} Traités</div>
-      <div style="background:#FEF3E2;color:#E8702A;border:1px solid #E8702A;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['En analyse']} En analyse</div>
-      <div style="background:#F5F5F5;color:#54565A;border:1px solid #ccc;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['En attente']} En attente</div>
-      <div style="background:#FDEEEC;color:#E63329;border:1px solid #E63329;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:700;">${counts['Exclu périmètre']} Exclus</div>
+      ${traitesBadge}${badges}${defaultBadge}
       <div style="flex:1;min-width:200px;">
         <div style="background:#eee;border-radius:4px;height:8px;overflow:hidden;">
           <div style="background:#2E7D52;width:${pct}%;height:100%;border-radius:4px;transition:width .3s;"></div>
         </div>
-        <div style="font-size:10px;color:var(--gray);margin-top:2px;">${pct}% validés (${traites}/${counts.total})</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:2px;">${pct}% traités (${traites}/${total})</div>
       </div>
     </div>`;
 }
