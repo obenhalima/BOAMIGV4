@@ -1160,6 +1160,10 @@ function _confirmImportData() {
       const _importedSubphaseIds = new Set(
         importedTasks.filter(t => t.type === 'phase' && t.phaseRef).map(t => t.id)
       );
+      // Ensemble des IDs de phases maîtres (phaseRef vide) — pour éviter héritage incorrect
+      const _importedMasterPhaseIds = new Set(
+        importedTasks.filter(t => t.type === 'phase' && !t.phaseRef).map(t => t.id)
+      );
 
       importedTasks.forEach(t => {
         const resolvedResp  = _resolveOwnerName(t.resp);
@@ -1221,10 +1225,15 @@ function _confirmImportData() {
 
         // Détecter la sous-phase effective pour cette tâche :
         // 1. Si sa phaseRef est une sous-phase déclarée → utiliser cette sous-phase
-        // 2. Sinon → hériter de currentSubphaseId (tâche sous la sous-phase active)
-        const effectiveSubphaseId = (t.phaseRef && _importedSubphaseIds.has(t.phaseRef))
+        // 2. Si sa phaseRef pointe sur une phase maître → pas de sous-phase (null)
+        // 3. Sinon → hériter de currentSubphaseId (héritage positionnel)
+        const _phaseRefIsSubphase = t.phaseRef && _importedSubphaseIds.has(t.phaseRef);
+        const _phaseRefIsMaster   = t.phaseRef && _importedMasterPhaseIds.has(t.phaseRef);
+        const effectiveSubphaseId = _phaseRefIsSubphase
           ? t.phaseRef
-          : (currentSubphaseId || null);
+          : _phaseRefIsMaster
+            ? null  // rattaché directement à une phase maître → aucune sous-phase
+            : (currentSubphaseId || null);
 
         const ganttEntry = {
           id: t.id, type: t.type, label: t.label,

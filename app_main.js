@@ -2189,9 +2189,69 @@ function resetGanttFilters() {
   renderGantt();
 }
 
+// ── Répare automatiquement ganttSubphases si vide alors que des tâches ont subphaseId ──
+// Appelé au début de renderGantt(). Ne fait rien si ganttSubphases est déjà peuplé.
+function _repairMissingSubphases() {
+  const tasks = state.ganttCustom || [];
+  if ((state.ganttSubphases || []).length > 0) return; // déjà OK
+  // Vérifier si des tâches ont des subphaseId orphelins
+  const orphanIds = new Set();
+  tasks.forEach(function(t) { if (t.subphaseId) orphanIds.add(t.subphaseId); });
+  if (orphanIds.size === 0) return; // aucun orphelin → rien à faire
+
+  // Libellés connus pour les ID standard (importés via reorganize_v2 / app_import)
+  const _KNOWN_LABELS = {
+    'SP_INFRA':   'ENVIRONNEMENTS & INFRASTRUCTURE',
+    'SP_PARAM':   'PARAMÉTRAGE STANDARD',
+    'SP_REPORTS': 'LIVRAISON REPORTS V2',
+    'SP_EVOL':    'ÉVOLUTIONS V2 → V4',
+    'SP_TU_STD':  'TESTS UNITAIRES STANDARD',
+    'SP_TU_EVOL': 'TU ÉVOLUTIONS V2 → V4',
+    'SP_TNR':     'TESTS DE NON-RÉGRESSION (TNR)',
+  };
+
+  // Inférer phaseId de chaque sous-phase à partir de l'ordre phase→tâche dans ganttCustom
+  const spPhaseMap = {};     // subphaseId → phaseId
+  const spOrderMap = {};     // subphaseId → order of first encounter (pour trier)
+  let currentPhaseId = null;
+  let spCounter = 0;
+  tasks.forEach(function(t) {
+    if (t.type === 'phase' && !t.subphaseId) {
+      currentPhaseId = t.id;
+    } else if (t.subphaseId && currentPhaseId) {
+      if (!(t.subphaseId in spPhaseMap)) {
+        spPhaseMap[t.subphaseId] = currentPhaseId;
+        spOrderMap[t.subphaseId] = spCounter++;
+      }
+    }
+  });
+
+  // Construire les entrées de sous-phases dans l'ordre de première apparition
+  const rebuilt = [];
+  Array.from(orphanIds)
+    .sort(function(a, b) { return (spOrderMap[a] || 0) - (spOrderMap[b] || 0); })
+    .forEach(function(spId) {
+      const label = _KNOWN_LABELS[spId]
+        || spId.replace(/^SP_/, '').replace(/_/g, ' ');  // fallback lisible
+      rebuilt.push({
+        id:      spId,
+        label:   label,
+        phaseId: spPhaseMap[spId] || '',
+        type:    'subphase',
+      });
+    });
+
+  if (rebuilt.length === 0) return;
+  state.ganttSubphases = rebuilt;
+  saveState('Auto-réparation sous-phases', rebuilt.length + ' sous-phases restaurées');
+  console.info('[GANTT] _repairMissingSubphases → restauré', rebuilt.length, 'sous-phases :', rebuilt.map(function(s){return s.id;}).join(', '));
+}
+
 function renderGantt() {
   // Bifurcation Vue Master / Vue Détaillée
   if (_ganttViewMode === 'master') { renderGanttMaster(); return; }
+  // Réparer les sous-phases manquantes (si ganttSubphases vide mais tâches ont subphaseId)
+  _repairMissingSubphases();
   // console.log('[GANTT-DBG v3] renderGantt called — CBS=' + _projUsesCBS() + ' ...');
   // Recalculer la plage pour inclure les tâches importées hors plage de base
   _refreshGanttRange();
