@@ -8602,7 +8602,7 @@ function _canUseAI() {
 
 function toggleChatbot() {
   if (!_canUseAI()) {
-    alert('⛔ Accès à l\'Assistant AI non autorisé pour votre compte.\n\nContactez un administrateur pour activer cette fonctionnalité.');
+    alert('⛔ Accès à PILOT non autorisé pour votre compte.\n\nContactez un administrateur pour activer cette fonctionnalité.');
     return;
   }
   const panel = document.getElementById('chatbot-panel');
@@ -8635,7 +8635,7 @@ function _chatWelcome() {
     .find(p => p.id === state.currentProjectId);
   const name = proj ? proj.name : 'votre projet';
   _appendChatMsg('ai',
-    `👋 Bonjour ! Je suis votre **Assistant BOA**.\n\nJe connais l'état actuel de **${name}** : tâches, actions, retards, phases et KPIs.\n\nQue voulez-vous savoir ?`
+    `👋 Bonjour ! Je suis **PILOT**, votre assistant de pilotage de projet.\n\nJe connais l'état actuel de **${name}** : tâches, actions, retards, phases et KPIs.\n\nQue voulez-vous savoir ?`
   );
 }
 
@@ -8825,7 +8825,7 @@ async function sendChatMessage() {
   const ctx = _buildProjectContext();
 
   // Système prompt
-  const systemPrompt = `Tu es l'Assistant BOA, un expert en pilotage de projet de transformation bancaire.
+  const systemPrompt = `Tu es PILOT, l'assistant expert en pilotage de projet de transformation bancaire.
 Tu aides le chef de projet et son équipe à piloter le projet, anticiper les risques et prendre de bonnes décisions.
 Tu réponds en français, de façon concise, structurée et actionnable.
 Tu utilises le contexte du projet fourni pour répondre avec précision.
