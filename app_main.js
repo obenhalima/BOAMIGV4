@@ -2267,6 +2267,11 @@ function _repairMissingSubphases() {
 function renderGantt() {
   // Bifurcation Vue Master / Vue Détaillée
   if (_ganttViewMode === 'master') { renderGanttMaster(); return; }
+  // ── Préserver la position de scroll avant le re-render ─────────────────
+  const _prevScroll = (() => {
+    const sc = document.querySelector('.gantt-table-scroll');
+    return sc ? { top: sc.scrollTop, left: sc.scrollLeft } : null;
+  })();
   // Réparer les sous-phases manquantes (si ganttSubphases vide mais tâches ont subphaseId)
   _repairMissingSubphases();
   // console.log('[GANTT-DBG v3] renderGantt called — CBS=' + _projUsesCBS() + ' ...');
@@ -2906,6 +2911,11 @@ function renderGantt() {
   ganttRender.style.position = 'relative';
   ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:70vh;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);">'
     + header + '<tbody>' + rows + '</tbody></table></div>';
+  // ── Restaurer la position de scroll après le re-render ────────────────────
+  if (_prevScroll) {
+    const _newSc = ganttRender.querySelector('.gantt-table-scroll');
+    if (_newSc) { _newSc.scrollTop = _prevScroll.top; _newSc.scrollLeft = _prevScroll.left; }
+  }
   // ── Sticky top : en-têtes ──────────────────────────────────────────────────
   ganttRender.querySelectorAll('thead th').forEach(th => {
     th.style.position = 'sticky';
@@ -13486,6 +13496,11 @@ function toggleGanttView(mode) {
 }
 
 function renderGanttMaster() {
+  // ── Préserver la position de scroll avant le re-render ─────────────────
+  const _prevScrollM = (() => {
+    const sc = document.querySelector('.gantt-table-scroll');
+    return sc ? { top: sc.scrollTop, left: sc.scrollLeft } : null;
+  })();
   _refreshGanttRange();
   const todayPct = ganttPct(TODAY.toISOString().split('T')[0]);
   const curZoom = state.ganttZoom || 'month';
@@ -13648,6 +13663,11 @@ function renderGanttMaster() {
   const ganttRender = document.getElementById('gantt-render');
   ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:70vh;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);">'
     + header + '<tbody>' + rows + '</tbody></table></div>';
+  // ── Restaurer la position de scroll après le re-render ────────────────────
+  if (_prevScrollM) {
+    const _newScM = ganttRender.querySelector('.gantt-table-scroll');
+    if (_newScM) { _newScM.scrollTop = _prevScrollM.top; _newScM.scrollLeft = _prevScrollM.left; }
+  }
   ganttRender.querySelectorAll('thead th').forEach(function(th) {
     th.style.position = 'sticky'; th.style.top = '0'; th.style.zIndex = '4';
     th.style.background = '#f5f6f8'; th.style.boxShadow = 'inset 0 -1px 0 #d1d5db';
