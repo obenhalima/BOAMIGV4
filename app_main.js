@@ -14235,103 +14235,178 @@ async function exportGanttPlanning() {
     });
   });
 
-  // ── 4. Générer le classeur ExcelJS ────────────────────────────────────────
+  // ── 4. Préparer les données pour le format "Export CBS" ──────────────────
+  // Convertir avancement en "50%" et capitaliser les types
+  var _TYPE_LABEL = { phase: 'Phase', tâche: 'Tâche', jalon: 'Jalon', 'sous-tâche': 'Sous-tâche' };
+  var exportRows = rows.map(function(r) {
+    return {
+      'ID':             r.id,
+      'Type':           _TYPE_LABEL[r.type] || r.type,
+      'Libellé':        r.libelle,
+      'Phase':          r.phase,
+      'Début':          r.debut,
+      'Fin':            r.fin,
+      'Durée (j)':      r.duree_j || '',
+      'Resp.':          r.responsable,
+      '% Avancement':  (r.avancement != null ? r.avancement : 0) + '%',
+      'Prédécesseurs':  r.predecesseurs,
+      // Colonnes extra — préservées pour le re-import
+      'Participants':   r.participants,
+      'RAG':            r.rag,
+      'Commentaire':    r.commentaire,
+      'Domaine':        r.domaine,
+      'Entité':         r.entite
+    };
+  });
+
+  // ── 5. Générer le classeur ExcelJS ────────────────────────────────────────
   var wb = new ExcelJS.Workbook();
   wb.creator = 'BOA Programme Pilotage';
   wb.created = new Date();
 
-  var ws = wb.addWorksheet('Planning');
+  var ws = wb.addWorksheet('Export CBS');
 
+  // ── Bannière (3 lignes + 1 vide) — même structure que le fichier d'import ──
+  var proj = ((state.programme.projects || []).find(function(p){ return p.id === state.currentProjectId; }) || {});
+  var pname = proj.name || 'BOA';
+  var pnameFile = pname.replace(/[^a-zA-Z0-9_\-]/g, '_');
+  var exportDate = new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+  var ts   = new Date().toISOString().slice(0, 10);
+
+  var _CBSblue  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } };
+  var _navyFont = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 12 };
+
+  // Ligne 1 : CBS — Capital Banking Solutions
+  ws.addRow(['CBS  —  Capital Banking Solutions']);
+  ws.mergeCells('A1:O1');
+  var r1 = ws.getRow(1); r1.height = 22;
+  r1.getCell(1).fill = _CBSblue; r1.getCell(1).font = _navyFont;
+  r1.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Ligne 2 : Nom du projet
+  ws.addRow([pname + '  —  Pilotage Programme']);
+  ws.mergeCells('A2:O2');
+  var r2 = ws.getRow(2); r2.height = 20;
+  r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E4A7A' } };
+  r2.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 11 };
+  r2.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Ligne 3 : Retroplanning Gantt | date | confidentiel
+  ws.addRow(['Retroplanning Gantt — ' + pname + '     |     Exporté le : ' + exportDate + '     |     Document Confidentiel']);
+  ws.mergeCells('A3:O3');
+  var r3 = ws.getRow(3); r3.height = 16;
+  r3.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3A5C9C' } };
+  r3.getCell(1).font = { color: { argb: 'FFD0DCF0' }, name: 'Arial', size: 9, italic: true };
+  r3.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+  // Ligne 4 : vide
+  ws.addRow([]);
+  ws.getRow(4).height = 6;
+
+  // ── En-têtes des colonnes (ligne 5) ────────────────────────────────────────
   ws.columns = [
-    { header: 'id',            key: 'id',            width: 20 },
-    { header: 'type',          key: 'type',          width: 12 },
-    { header: 'libelle',       key: 'libelle',       width: 42 },
-    { header: 'phase',         key: 'phase',         width: 20 },
-    { header: 'debut',         key: 'debut',         width: 14 },
-    { header: 'fin',           key: 'fin',           width: 14 },
-    { header: 'duree_j',       key: 'duree_j',       width: 10 },
-    { header: 'responsable',   key: 'responsable',   width: 24 },
-    { header: 'participants',  key: 'participants',  width: 32 },
-    { header: 'rag',           key: 'rag',           width: 7  },
-    { header: 'commentaire',   key: 'commentaire',   width: 32 },
-    { header: 'avancement',    key: 'avancement',    width: 12 },
-    { header: 'predecesseurs', key: 'predecesseurs', width: 22 },
-    { header: 'domaine',       key: 'domaine',       width: 16 },
-    { header: 'entite',        key: 'entite',        width: 16 }
+    { key: 'ID',            width: 20 },
+    { key: 'Type',          width: 12 },
+    { key: 'Libellé',       width: 44 },
+    { key: 'Phase',         width: 20 },
+    { key: 'Début',         width: 14 },
+    { key: 'Fin',           width: 14 },
+    { key: 'Durée (j)',     width: 10 },
+    { key: 'Resp.',         width: 24 },
+    { key: '% Avancement',  width: 14 },
+    { key: 'Prédécesseurs', width: 22 },
+    { key: 'Participants',  width: 28 },
+    { key: 'RAG',           width: 7  },
+    { key: 'Commentaire',   width: 30 },
+    { key: 'Domaine',       width: 16 },
+    { key: 'Entité',        width: 16 }
   ];
-
-  // Style en-tête
-  var hdrRow = ws.getRow(1);
+  var hdrRow = ws.addRow(['ID','Type','Libellé','Phase','Début','Fin','Durée (j)','Resp.','% Avancement','Prédécesseurs','Participants','RAG','Commentaire','Domaine','Entité']);
+  hdrRow.height    = 22;
   hdrRow.font      = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 11 };
   hdrRow.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3864' } };
   hdrRow.alignment = { vertical: 'middle', horizontal: 'center' };
-  hdrRow.height    = 22;
 
-  // Gel de la première ligne
-  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  // Gel : lignes 1-5 (bannière + en-tête)
+  ws.views = [{ state: 'frozen', ySplit: 5 }];
 
-  // Lignes de données
-  rows.forEach(function(r, i) {
-    var row = ws.addRow(r);
+  // ── Lignes de données (à partir de la ligne 6) ─────────────────────────────
+  var _FILL_PHASE  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1565C0' } };
+  var _FILL_SUBPH  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBBDEFB' } };
+  var _FILL_JALON  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } };
+  var _FILL_ALT    = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } };
+  var _FILL_SUBST  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0FF' } };
+
+  var dataCount = 0;
+  exportRows.forEach(function(r, i) {
+    var rowArr = [r['ID'], r['Type'], r['Libellé'], r['Phase'], r['Début'], r['Fin'],
+                  r['Durée (j)'], r['Resp.'], r['% Avancement'], r['Prédécesseurs'],
+                  r['Participants'], r['RAG'], r['Commentaire'], r['Domaine'], r['Entité']];
+    var row = ws.addRow(rowArr);
     row.alignment = { vertical: 'middle' };
+    dataCount++;
 
-    // Couleur selon type
-    if (r.type === 'phase') {
-      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBFDBF7' } };
-      row.font = { bold: true, name: 'Arial', size: 10 };
+    var type = (r['Type'] || '').toLowerCase();
+    if (type === 'phase') {
+      // Sous-phase (a une Phase parente non vide) vs Phase maître
+      var hasParent = !!(r['Phase'] && r['Phase'].trim());
+      row.fill = hasParent ? _FILL_SUBPH : _FILL_PHASE;
+      row.font = hasParent
+        ? { bold: true, color: { argb: 'FF0D3B6E' }, name: 'Arial', size: 10 }
+        : { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
       row.height = 20;
-    } else if (r.type === 'jalon') {
-      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C4' } };
-      row.font = { name: 'Arial', size: 10 };
-    } else if (r.type === 'sous-tâche') {
-      var libCell = row.getCell('libelle');
-      libCell.font      = { italic: true, color: { argb: 'FF3949AB' }, name: 'Arial', size: 10 };
-      libCell.alignment = { indent: 2 };
-      if (i % 2 === 1) row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F0FF' } };
+    } else if (type === 'jalon') {
+      row.fill = _FILL_JALON;
+      row.font = { bold: true, name: 'Arial', size: 10 };
+    } else if (type === 'sous-tâche') {
+      if (i % 2 === 1) row.fill = _FILL_SUBST;
+      row.font = { italic: true, color: { argb: 'FF3949AB' }, name: 'Arial', size: 10 };
+      row.getCell(3).alignment = { indent: 2 };
     } else {
-      // tâche normale
-      if (i % 2 === 1) row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F9FF' } };
+      if (i % 2 === 1) row.fill = _FILL_ALT;
       row.font = { name: 'Arial', size: 10 };
     }
   });
 
-  // Validation dropdown type (col B)
-  ws.dataValidations.add('B2:B2000', {
+  // ── Ligne footer ────────────────────────────────────────────────────────────
+  var footerText = dataCount + ' enregistrements  —  Retroplanning Gantt — ' + pname;
+  var footerRow = ws.addRow([footerText]);
+  ws.mergeCells('A' + (5 + dataCount + 1) + ':O' + (5 + dataCount + 1));
+  footerRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+  footerRow.getCell(1).font = { italic: true, color: { argb: 'FF64748B' }, name: 'Arial', size: 9 };
+  footerRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+  footerRow.height = 14;
+
+  // ── Validations ────────────────────────────────────────────────────────────
+  ws.dataValidations.add('B6:B2000', {
     type: 'list', allowBlank: true,
-    formulae: ['"phase,tâche,sous-tâche,jalon"'],
+    formulae: ['"Phase,Tâche,Sous-tâche,Jalon"'],
     showErrorMessage: true, errorTitle: 'Type invalide',
-    error: 'Valeurs acceptées : phase, tâche, sous-tâche, jalon'
+    error: 'Valeurs acceptées : Phase, Tâche, Sous-tâche, Jalon'
   });
-  // Validation dropdown rag (col J)
-  ws.dataValidations.add('J2:J2000', {
-    type: 'list', allowBlank: true,
-    formulae: ['"R,O,G"'],
-    showErrorMessage: true, errorTitle: 'RAG invalide',
-    error: 'Valeurs acceptées : R, O, G'
+  ws.dataValidations.add('L6:L2000', {
+    type: 'list', allowBlank: true, formulae: ['"R,O,G"'],
+    showErrorMessage: true, errorTitle: 'RAG invalide', error: 'R, O ou G'
   });
-  // Validation dropdown entite (col O)
-  ws.dataValidations.add('O2:O2000', {
+  ws.dataValidations.add('O6:O2000', {
     type: 'list', allowBlank: true,
     formulae: ['"BOA,CBS,CBS + BOA,Externe"'],
     showErrorMessage: true, errorTitle: 'Entité invalide',
-    error: 'Valeurs acceptées : BOA, CBS, CBS + BOA, Externe'
+    error: 'BOA, CBS, CBS + BOA ou Externe'
   });
 
-  // ── 5. Téléchargement ──────────────────────────────────────────────────────
+  // ── 6. Téléchargement ──────────────────────────────────────────────────────
   try {
     var buf  = await wb.xlsx.writeBuffer();
     var blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
-    var proj = ((state.programme.projects || []).find(function(p){ return p.id === state.currentProjectId; }) || {});
-    var pname = (proj.name || 'Planning').replace(/[^a-zA-Z0-9_\-]/g, '_');
-    var ts   = new Date().toISOString().slice(0, 10);
     a.href     = url;
-    a.download = 'Planning_' + pname + '_' + ts + '.xlsx';
+    a.download = pnameFile + '_gantt_' + ts + '.xlsx';
     document.body.appendChild(a);
     a.click();
     setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1500);
-    showToast('✅ Planning exporté — ' + rows.length + ' ligne(s). Re-importable via 📥 Importer.', 3000);
+    showToast('✅ Planning exporté — ' + dataCount + ' lignes. Re-importable via 📥 Importer.', 3000);
   } catch(e) {
     console.error('[exportGanttPlanning]', e);
     showToast('❌ Erreur export : ' + e.message, 3500);
