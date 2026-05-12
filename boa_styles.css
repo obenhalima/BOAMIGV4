@@ -542,6 +542,26 @@ body {
    Zéro changement de structure HTML/JS — uniquement CSS
 ════════════════════════════════════════════════════════════════ */
 
+/* ── Gantt : plein écran — tab mode ET sidebar mode ──────────── */
+/* Supprime le max-width 1400px et les marges du conteneur générique */
+#tab-gantt {
+  max-width: none !important;
+  padding: 0 !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+#tab-gantt > .section-card {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+/* Hauteur dynamique : viewport − (header 60 + tabs 48 + toolbar 130 + filtres 52 + légende 52 + marges 18) */
+.gantt-table-scroll {
+  max-height: calc(100vh - 360px) !important;
+  min-height: 280px;
+}
+
 /* ── Wrapper & table skeleton ─────────────────────────────────── */
 .gantt-container { overflow-x: auto; }
 .gantt-table {

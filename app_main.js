@@ -656,6 +656,9 @@ function toggleLayout() {
   try { localStorage.setItem('boa_layout', isSidebar ? 'sidebar' : 'tabs'); } catch(e) {}
   const btn = document.getElementById('btn-layout-toggle');
   if (btn) btn.textContent = isSidebar ? '▤ Onglets' : '☰ Menu latéral';
+  // Si le Gantt est actif, re-render pour s'adapter à la nouvelle largeur disponible
+  const ganttTab = document.getElementById('tab-gantt');
+  if (ganttTab && ganttTab.classList.contains('active')) renderGantt();
 }
 
 function toggleDarkMode() {
@@ -2909,7 +2912,7 @@ function renderGantt() {
 
   const ganttRender = document.getElementById('gantt-render');
   ganttRender.style.position = 'relative';
-  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:70vh;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);">'
+  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;border-radius:0;background:#fff;">'
     + header + '<tbody>' + rows + '</tbody></table></div>';
   // ── Restaurer la position de scroll après le re-render ────────────────────
   if (_prevScroll) {
@@ -13688,7 +13691,7 @@ function renderGanttMaster() {
     + cols.headerHtml + todayLineHtml
     + '</div></th></tr></thead>';
   const ganttRender = document.getElementById('gantt-render');
-  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;max-height:70vh;border-radius:0 0 10px 10px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);">'
+  ganttRender.innerHTML = '<div class="gantt-table-scroll" style="overflow:auto;border-radius:0;background:#fff;">'
     + header + '<tbody>' + rows + '</tbody></table></div>';
   // ── Restaurer la position de scroll après le re-render ────────────────────
   if (_prevScrollM) {
