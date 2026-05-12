@@ -3255,6 +3255,33 @@ function resetGanttDates() {
   }
 }
 
+// ── Vider entièrement le Gantt ────────────────────────────────────────────
+function clearGantt() {
+  const total = (state.ganttCustom || []).length;
+  if (total === 0) {
+    alert('Le Gantt est déjà vide.');
+    return;
+  }
+  const phases  = (state.ganttCustom || []).filter(function(t){ return t.type === 'phase'; }).length;
+  const tasks   = total - phases;
+  const subph   = (state.ganttSubphases || []).length;
+  const msg = 'Vider entièrement le Gantt ?\n\n'
+    + '  • ' + phases + ' phase(s)\n'
+    + (subph > 0 ? '  • ' + subph + ' sous-phase(s)\n' : '')
+    + '  • ' + tasks  + ' tâche(s) / jalon(s)\n\n'
+    + 'Cette action est irréversible.';
+  if (!confirm(msg)) return;
+
+  state.ganttCustom    = [];
+  state.ganttSubphases = [];
+  state.ganttHidden    = [];
+  state.ganttCollapsed = {};
+  state.gantt          = {};
+  state.ganttRefPlan   = null;
+  saveState('Gantt vidé', 'Toutes les lignes supprimées');
+  renderGantt();
+}
+
 // ════════════════════════════════════════════════════════════════════════
 // PÉRIMÈTRE MODULES — helpers + render
 // ════════════════════════════════════════════════════════════════════════
