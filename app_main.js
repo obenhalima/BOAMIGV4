@@ -1891,15 +1891,20 @@ function _resolveTaskRef(token) {
 }
 
 /**
- * Trouve la dernière tâche rendue dans une phase, en suivant la chaîne des ancres.
- * @param {string} phaseId   - ID de la phase dans laquelle chercher
- * @param {string} [excludeId] - ID d'une tâche à exclure du parcours (ex: la tâche en cours d'édition)
- * Retourne l'ID de la dernière tâche, ou null si la phase n'a aucun enfant.
+ * Trouve la dernière tâche/jalon appartenant à une phase, en suivant la chaîne des ancres.
+ * IMPORTANT : s'arrête dès qu'une tâche de type 'phase' est rencontrée dans la chaîne,
+ * car dans un planning importé les phases sont chainées bout-à-bout (P1→T1→T2→P2→T3…).
+ * Sans ce garde-fou, la traversée dépasse la fin de la phase cible.
+ *
+ * @param {string} phaseId     - ID de la phase dans laquelle chercher
+ * @param {string} [excludeId] - ID à exclure du parcours (tâche en cours d'édition)
+ * @returns {string|null}      - ID de la dernière tâche de la phase, ou null si vide
  */
 function _findLastTaskInPhase(phaseId, excludeId) {
   const customs = (state.ganttCustom || []).filter(function(t){ return t.id !== excludeId; });
   const _allIds = new Set(customs.map(function(t){ return t.id; }));
-  // Construire la map ancre → enfants (même logique que renderGantt)
+
+  // Construire la map ancre → enfants directs
   const customAfter = {};
   customs.forEach(function(ct) {
     const anchor = ct.insertAfterId || null;
@@ -1908,12 +1913,17 @@ function _findLastTaskInPhase(phaseId, excludeId) {
       customAfter[anchor].push(ct);
     }
   });
-  // Parcourir récursivement depuis phaseId pour atteindre le dernier descendant
+
+  // Traversée récursive en s'arrêtant dès qu'un enfant est une phase/sous-phase
+  // (signe que l'on sort du bloc courant)
   function _lastInChain(id) {
-    const children = customAfter[id] || [];
+    const children = (customAfter[id] || []).filter(function(c) {
+      return c.type !== 'phase' && c.type !== 'subphase';
+    });
     if (children.length === 0) return id;
     return _lastInChain(children[children.length - 1].id);
   }
+
   const lastId = _lastInChain(phaseId);
   return (lastId === phaseId) ? null : lastId;
 }
