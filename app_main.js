@@ -14110,17 +14110,35 @@ async function exportGanttPlanning() {
     return;
   }
 
-  // ── 1b. Injecter les sous-phases après leur phase maître ──────────────────
-  // Même logique que renderGantt step 1d — sous-phases viennent de ganttSubphases
+  // ── 1b. Réorganiser : sous-phases intercalées avec leurs tâches ──────────
+  // Même algorithme que renderGantt step 1d (pas une simple injection en bloc)
   var _spList = state.ganttSubphases || [];
   if (_spList.length > 0) {
+    // Pré-calculer : subphaseId → [tâches] (dans l'ordre de ganttCustom)
+    var _tasksBySubphase = {};
+    var _placedBySubphase = new Set();
+    orderedTasks.forEach(function(t) {
+      if (t.type === 'phase') return;
+      var spId = t.subphaseId
+        || (state.gantt && state.gantt[t.id] && state.gantt[t.id]._subphaseId)
+        || null;
+      if (spId) {
+        if (!_tasksBySubphase[spId]) _tasksBySubphase[spId] = [];
+        _tasksBySubphase[spId].push(t);
+        _placedBySubphase.add(t.id);
+      }
+    });
+
+    // Reconstruire la liste : phase → [sous-phase → ses tâches] → tâches sans sous-phase
     var _withSP = [];
     orderedTasks.forEach(function(t) {
+      if (_placedBySubphase.has(t.id)) return; // sera placé sous sa sous-phase
       _withSP.push(t);
       if (t.type === 'phase') {
-        // Injecter les sous-phases de cette phase maître (marquées _isSubphaseRow)
+        // Injecter chaque sous-phase + ses tâches immédiatement après
         _spList.filter(function(sp){ return sp.phaseId === t.id; }).forEach(function(sp) {
           _withSP.push({ _isSubphaseRow: true, id: sp.id, label: sp.label, phaseId: sp.phaseId });
+          (_tasksBySubphase[sp.id] || []).forEach(function(task) { _withSP.push(task); });
         });
       }
     });
