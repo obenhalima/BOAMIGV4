@@ -1509,7 +1509,9 @@ function renderDashboard() {
 // ════════════════════════════════════════════════════════════════════════
 
 function getTaskDates(task) {
-  const s        = state.gantt[task.id];
+  // Pour les tâches custom (_custom:true), les dates vivent UNIQUEMENT sur l'objet tâche.
+  // state.gantt[id] est réservé aux overrides des tâches statiques (template CBS).
+  const s = task._custom ? null : state.gantt[task.id];
   const rawStart = (s && s.start) || task.start || '';
   const rawEnd   = (s && s.end)   || task.end   || '';
   // Normaliser en YYYY-MM-DD : Supabase peut retourner '2026-03-31T00:00:00'
@@ -1914,7 +1916,8 @@ async function submitAddTask() {
     // ── Édition ──
     const ct = (state.ganttCustom || []).find(t => t.id === editId);
     if (ct) {
-      // Tâche custom : mise à jour directe de l'objet
+      // Tâche custom : mise à jour UNIQUEMENT sur l'objet dans ganttCustom.
+      // Ne pas écrire dans state.gantt[id] pour éviter les conflits de priorité.
       ct.type  = type;  ct.label = label; ct.phase = phase;
       ct.owner = resp || '—'; ct.resp = resp || '—';
       ct.side  = side || '';
@@ -1923,9 +1926,8 @@ async function submitAddTask() {
       ct.participants = participants;
       ct.rag = rag || null;
       ct.commentaire = commentaire;
-      if (!state.gantt[editId]) state.gantt[editId] = {};
-      state.gantt[editId].start = start;
-      state.gantt[editId].end   = end;
+      // Supprimer tout override résiduel dans state.gantt pour cette tâche
+      if (state.gantt[editId]) delete state.gantt[editId];
     } else {
       // Tâche statique : stocker les overrides dans state.gantt[id]
       if (!state.gantt[editId]) state.gantt[editId] = {};

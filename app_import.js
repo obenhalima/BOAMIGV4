@@ -181,15 +181,15 @@ function _openImportDataModal() {
           <!-- Mode : remplacer ou compléter -->
           <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:8px;">🔄 Mode d'import</div>
           <div style="display:flex;gap:8px;">
-            <label id="imp-mode-merge-lbl" style="display:flex;align-items:center;gap:7px;font-size:12px;color:#374151;background:#f0fdf4;border:2px solid #16a34a;border-radius:6px;padding:8px 12px;cursor:pointer;user-select:none;flex:1;">
-              <input type="radio" name="imp-mode" value="merge" id="imp-mode-merge" checked style="width:14px;height:14px;accent-color:#16a34a;">
+            <label id="imp-mode-merge-lbl" style="display:flex;align-items:center;gap:7px;font-size:12px;color:#374151;background:#f8fafc;border:2px solid #e2e8f0;border-radius:6px;padding:8px 12px;cursor:pointer;user-select:none;flex:1;">
+              <input type="radio" name="imp-mode" value="merge" id="imp-mode-merge" style="width:14px;height:14px;accent-color:#16a34a;">
               <div>
                 <div style="font-weight:700;color:#15803d;">➕ Compléter</div>
                 <div style="color:#4b5563;font-size:11px;margin-top:1px;">Ajoute les nouvelles lignes sans toucher à l'existant</div>
               </div>
             </label>
-            <label id="imp-mode-replace-lbl" style="display:flex;align-items:center;gap:7px;font-size:12px;color:#374151;background:#f8fafc;border:2px solid #e2e8f0;border-radius:6px;padding:8px 12px;cursor:pointer;user-select:none;flex:1;">
-              <input type="radio" name="imp-mode" value="replace" id="imp-mode-replace" style="width:14px;height:14px;accent-color:#dc2626;">
+            <label id="imp-mode-replace-lbl" style="display:flex;align-items:center;gap:7px;font-size:12px;color:#374151;background:#fff3f3;border:2px solid #dc2626;border-radius:6px;padding:8px 12px;cursor:pointer;user-select:none;flex:1;">
+              <input type="radio" name="imp-mode" value="replace" id="imp-mode-replace" checked style="width:14px;height:14px;accent-color:#dc2626;">
               <div>
                 <div style="font-weight:700;color:#b91c1c;">🗑️ Remplacer</div>
                 <div style="color:#4b5563;font-size:11px;margin-top:1px;">Supprime les données existantes avant d'importer</div>
@@ -1165,10 +1165,13 @@ function _confirmImportData() {
           endCalc = d.toISOString().split('T')[0];
         }
         const id = _cellStr(r['id']||r['ID']||'').trim() || ('gi_' + Date.now() + '_' + Math.random().toString(36).slice(2,5));
-        if (existingIds.has(id)) return;
-        existingIds.add(id);
+        // En mode merge, si la tâche existe déjà → on la marque pour mise à jour
+        // (on ne skip plus, pour que les nouvelles dates/prédécesseurs du fichier soient appliqués)
+        const _alreadyExists = existingIds.has(id);
+        if (!_alreadyExists) existingIds.add(id);
         importedTasks.push({ id, type, label, phaseRef, phaseCssHint, start: start||null, end: endCalc||null,
-          dur: dur||null, resp, participants: participantsArr, rag: rag||null, commentaire, pct, pred, domaine, side });
+          dur: dur||null, resp, participants: participantsArr, rag: rag||null, commentaire, pct, pred, domaine, side,
+          _alreadyExists });
       });
 
       // ── Passe 2 : construire la map phaseId → clé CSS (p0–p5) ──────────────
@@ -1316,7 +1319,34 @@ function _confirmImportData() {
           ganttEntry.subphaseId = effectiveSubphaseId;
         }
 
-        state.ganttCustom.push(ganttEntry);
+        if (t._alreadyExists) {
+          // ── Mode merge, tâche existante → mettre à jour les champs du fichier ──
+          // On écrase : label, dates, pred, pct, resp, rag, commentaire, domaine, side
+          // On préserve : insertAfterId, _custom (structure interne)
+          const existing = state.ganttCustom.find(e => e.id === t.id);
+          if (existing) {
+            existing.label        = ganttEntry.label;
+            existing.type         = ganttEntry.type;
+            existing.start        = ganttEntry.start;
+            existing.end          = ganttEntry.end;
+            existing.dur          = ganttEntry.dur;
+            existing.pred         = ganttEntry.pred;
+            existing.pct          = ganttEntry.pct;
+            existing.owner        = ganttEntry.owner;
+            existing.resp         = ganttEntry.resp;
+            existing.side         = ganttEntry.side;
+            existing.participants = ganttEntry.participants;
+            existing.rag          = ganttEntry.rag;
+            existing.commentaire  = ganttEntry.commentaire;
+            existing.domains      = ganttEntry.domains;
+            if (effectiveSubphaseId && t.type !== 'phase') existing.subphaseId = effectiveSubphaseId;
+            // Supprimer tout override résiduel dans state.gantt (dates custom ne doivent pas y être)
+            if (state.gantt && state.gantt[t.id]) delete state.gantt[t.id];
+          }
+        } else {
+          // ── Nouvelle tâche : ajouter ──────────────────────────────────────────
+          state.ganttCustom.push(ganttEntry);
+        }
         importedGantt++;
         prevId = t.id;
         if (t.type === 'task' || t.type === 'jalon') lastTaskId = t.id;
