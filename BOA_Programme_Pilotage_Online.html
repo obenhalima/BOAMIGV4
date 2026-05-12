@@ -2272,7 +2272,7 @@ ORDER BY table_name;</div>
       <div style="display:grid;grid-template-columns:120px 1fr;gap:10px;">
         <div>
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Type</label>
-          <select id="new-task-type" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+          <select id="new-task-type" onchange="_ganttTypeChange()" style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
             <option value="task">Tâche</option>
             <option value="phase">Phase</option>
             <option value="jalon">Jalon</option>
@@ -2318,19 +2318,19 @@ ORDER BY table_name;</div>
         </select>
       </div>
 
-      <!-- Ligne 3 : Début + Fin + Durée (liés dynamiquement) -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:10px;align-items:end;">
+      <!-- Ligne 3 : Début + Fin + Durée (liés dynamiquement ; Fin et Durée masquées pour les jalons) -->
+      <div id="gantt-dates-row" style="display:grid;grid-template-columns:1fr 1fr 90px;gap:10px;align-items:end;">
         <div>
-          <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Début *</label>
+          <label id="gantt-start-label" style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Début *</label>
           <input id="new-task-start" type="date" oninput="ganttModalDateChange('dates')"
             style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
         </div>
-        <div>
+        <div id="gantt-end-col">
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Fin <span style="font-weight:400;color:var(--gray);">(auto si durée)</span></label>
           <input id="new-task-end" type="date" oninput="ganttModalDateChange('dates')"
             style="width:100%;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
         </div>
-        <div>
+        <div id="gantt-dur-col">
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Durée (j)</label>
           <input id="new-task-dur" type="number" min="0" max="400" placeholder="—"
             oninput="ganttModalDateChange('dur')"

@@ -1547,8 +1547,16 @@ function _populateGanttPhaseSelect(selectedValue) {
   if (!sel) return;
 
   const hiddenSet = new Set(state.ganttHidden || []);
-  const phases = [...ganttTasks, ...(state.ganttCustom || [])]
-    .filter(t => t.type === 'phase' && !hiddenSet.has(t.id));
+  // Phases personnalisées (importées ou créées manuellement) — toujours prioritaires
+  const _customPhases = (state.ganttCustom || []).filter(function(t){
+    return t.type === 'phase' && !hiddenSet.has(t.id);
+  });
+  // Phases statiques du template (ganttTasks) : uniquement si CBS actif ET aucune phase custom
+  // → évite d'afficher des phases du template Supabase quand l'utilisateur a importé son propre planning
+  const _staticPhases = (_projUsesCBS() && _customPhases.length === 0)
+    ? ganttTasks.filter(function(t){ return t.type === 'phase' && !hiddenSet.has(t.id); })
+    : [];
+  const phases = [..._staticPhases, ..._customPhases];
 
   sel.innerHTML = '';
 
@@ -1588,11 +1596,37 @@ function _populateGanttPhaseSelect(selectedValue) {
   }
 }
 
+/**
+ * Adapte l'affichage du modal selon le type sélectionné.
+ * Jalon → une seule date (début = date de l'événement), fin et durée masquées.
+ */
+function _updateGanttModalForType(type) {
+  const isJalon = (type === 'jalon');
+  const endCol     = document.getElementById('gantt-end-col');
+  const durCol     = document.getElementById('gantt-dur-col');
+  const startLabel = document.getElementById('gantt-start-label');
+  const datesRow   = document.getElementById('gantt-dates-row');
+  if (endCol)     endCol.style.display   = isJalon ? 'none' : '';
+  if (durCol)     durCol.style.display   = isJalon ? 'none' : '';
+  if (startLabel) startLabel.textContent = isJalon ? 'Date *' : 'Début *';
+  if (datesRow)   datesRow.style.gridTemplateColumns = isJalon ? '1fr' : '1fr 1fr 90px';
+}
+
+function _ganttTypeChange() {
+  _updateGanttModalForType(document.getElementById('new-task-type').value);
+}
+
 function _resetGanttModal() {
   document.getElementById('new-task-edit-id').value       = '';
   document.getElementById('new-task-insert-after-id').value = '';
-  document.getElementById('new-task-type').value          = 'task';
+  const _typeSelect = document.getElementById('new-task-type');
+  if (_typeSelect) {
+    _typeSelect.value    = 'task';
+    // Attacher l'écouteur programmatiquement (indépendant du cache HTML)
+    _typeSelect.onchange = function() { _updateGanttModalForType(this.value); };
+  }
   document.getElementById('new-task-label').value         = '';
+  _updateGanttModalForType('task'); // réinitialiser l'affichage des champs de date
   _populateGanttPhaseSelect();  // peuple dynamiquement depuis les phases du Gantt
   document.getElementById('new-task-resp').value          = '';
   document.getElementById('new-task-side').value          = '';
@@ -1808,6 +1842,7 @@ function openEditGanttTask(id) {
   document.getElementById('gantt-modal-btn').textContent     = 'Enregistrer';
   document.getElementById('new-task-edit-id').value          = id;
   document.getElementById('new-task-type').value             = task.type  || 'task';
+  _updateGanttModalForType(task.type || 'task'); // adapter les champs date au type
   document.getElementById('new-task-label').value            = label;
   _populateGanttPhaseSelect(task.phase || '');  // sélectionne la phase actuelle de la tâche
   document.getElementById('new-task-resp').value             = owner;
@@ -1855,6 +1890,34 @@ function _resolveTaskRef(token) {
   return token; // déjà un ID
 }
 
+/**
+ * Trouve la dernière tâche rendue dans une phase, en suivant la chaîne des ancres.
+ * @param {string} phaseId   - ID de la phase dans laquelle chercher
+ * @param {string} [excludeId] - ID d'une tâche à exclure du parcours (ex: la tâche en cours d'édition)
+ * Retourne l'ID de la dernière tâche, ou null si la phase n'a aucun enfant.
+ */
+function _findLastTaskInPhase(phaseId, excludeId) {
+  const customs = (state.ganttCustom || []).filter(function(t){ return t.id !== excludeId; });
+  const _allIds = new Set(customs.map(function(t){ return t.id; }));
+  // Construire la map ancre → enfants (même logique que renderGantt)
+  const customAfter = {};
+  customs.forEach(function(ct) {
+    const anchor = ct.insertAfterId || null;
+    if (anchor && (anchor === phaseId || _allIds.has(anchor))) {
+      if (!customAfter[anchor]) customAfter[anchor] = [];
+      customAfter[anchor].push(ct);
+    }
+  });
+  // Parcourir récursivement depuis phaseId pour atteindre le dernier descendant
+  function _lastInChain(id) {
+    const children = customAfter[id] || [];
+    if (children.length === 0) return id;
+    return _lastInChain(children[children.length - 1].id);
+  }
+  const lastId = _lastInChain(phaseId);
+  return (lastId === phaseId) ? null : lastId;
+}
+
 async function submitAddTask() {
   if (!state.currentProjectId) {
     showToast('⚠️ Ouvrez un projet avant de créer une tâche Gantt.', 2500);
@@ -1884,6 +1947,8 @@ async function submitAddTask() {
 
   if (!label) { alert('Veuillez renseigner le libellé.'); return; }
   if (!start) { alert('Veuillez renseigner la date de début.'); return; }
+  // Pour les jalons : date de fin = date de début (un jalon est ponctuel)
+  if (type === 'jalon') end = start;
   if (!end) end = start;
 
   // Convertir tokens (N° ou IDs) en IDs internes
@@ -1926,6 +1991,16 @@ async function submitAddTask() {
       ct.participants = participants;
       ct.rag = rag || null;
       ct.commentaire = commentaire;
+      // Détecter si la phase a changé → repositionner à la FIN de la nouvelle phase
+      const _phaseChanged = _phaseAnchorId && (
+        (ct._phaseId !== undefined && ct._phaseId !== _phaseAnchorId) ||
+        (ct._phaseId === undefined && ct.phase !== phase)
+      );
+      if (_phaseChanged) {
+        ct._phaseId = _phaseAnchorId;
+        const _lastInNewPhase = _findLastTaskInPhase(_phaseAnchorId, editId);
+        ct.insertAfterId = _lastInNewPhase || _phaseAnchorId;
+      }
       // Supprimer tout override résiduel dans state.gantt pour cette tâche
       if (state.gantt[editId]) delete state.gantt[editId];
     } else {
@@ -1951,7 +2026,8 @@ async function submitAddTask() {
       id, type, label, phase, domains, start, end, pred, pct,
       owner: resp || '—', resp: resp || '—', side: side || '',
       participants, rag: rag || null, commentaire,
-      insertAfterId: insertAfterId || _phaseAnchorId || null,
+      _phaseId: _phaseAnchorId || null,
+      insertAfterId: insertAfterId || (_phaseAnchorId ? (_findLastTaskInPhase(_phaseAnchorId) || _phaseAnchorId) : null),
       _custom: true
     });
 
