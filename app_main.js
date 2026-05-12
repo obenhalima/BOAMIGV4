@@ -8580,23 +8580,69 @@ Projets disponibles : ${(state.programme && state.programme.projects || []).map(
   );
   const allProjTasks  = [...templateWithOverrides, ...customTasks];
 
-  const phases    = allProjTasks.filter(t => t.type === 'phase');
+  // ── Helper : calcule les dates effectives d'une phase depuis ses tâches enfants
+  //   (les lignes de phase dans les fichiers importés ont souvent debut/fin vides)
+  function _phaseEffectiveDates(phase, allTasks) {
+    let { start, end } = getTaskDates(phase);
+    if (start && end) return { start, end }; // dates déjà renseignées → OK
+
+    // Chercher min(start) et max(end) parmi toutes les tâches de la même phase
+    // Pour les tâches custom, elles partagent la même clé CSS (phase.phase)
+    // OU elles ont la même position hiérarchique (subphaseId ou predecesseurs)
+    // On se base sur l'ID de la phase comme phaseRef OU sur la clé CSS partagée
+    const children = allTasks.filter(t => {
+      if (t.type === 'phase') return false;
+      // Appartient à cette phase si : même clé CSS, ou subphaseId pointe vers une
+      // sous-phase qui appartient à ce parent, ou insertAfterId dans la phase
+      const sameCSS = phase.phase && t.phase === phase.phase;
+      const subphases = (state.ganttSubphases || []).filter(sp => sp.phaseId === phase.id);
+      const inSubphase = subphases.some(sp => t.subphaseId === sp.id);
+      return sameCSS || inSubphase;
+    });
+
+    if (children.length === 0) return { start: start || '—', end: end || '—' };
+
+    let minS = null, maxE = null;
+    children.forEach(t => {
+      const { start: cs, end: ce } = getTaskDates(t);
+      if (cs && (!minS || cs < minS)) minS = cs;
+      if (ce && (!maxE || ce > maxE)) maxE = ce;
+    });
+    return { start: minS || start || '—', end: maxE || end || '—' };
+  }
+
+  const phases    = allProjTasks.filter(t => t.type === 'phase' && !(state.ganttSubphases||[]).some(sp => sp.id === t.id));
   const phasesCtx = phases.length > 0 ? phases.map(p => {
-    const {start, end} = getTaskDates(p);
+    const { start, end } = _phaseEffectiveDates(p, allProjTasks);
     const ov    = state.gantt[p.id] || {};
     const label = ov._label || p.label || '';
-    const subT  = allProjTasks.filter(s => s.phase === p.phase && s.type === 'task');
+    // Tâches enfants pour calcul % avancement
+    const subT  = allProjTasks.filter(s => {
+      if (s.type === 'phase') return false;
+      const sameCSS = p.phase && s.phase === p.phase;
+      const subphases = (state.ganttSubphases || []).filter(sp => sp.phaseId === p.id);
+      return sameCSS || subphases.some(sp => s.subphaseId === sp.id);
+    });
     const pct   = subT.length > 0
       ? Math.round(subT.reduce((acc, s) => {
           const o = state.gantt[s.id] || {};
-          return acc + (o._pct != null ? o._pct : Math.round((s.pct||0)*100));
+          const taskPct = o._pct != null ? o._pct : (o.pct != null ? Math.round(o.pct * 100) : Math.round((s.pct||0)*100));
+          return acc + taskPct;
         }, 0) / subT.length)
       : (ov._pct != null ? ov._pct : Math.round((p.pct||0)*100));
-    const isLate = end && end < todayISO && pct < 100;
+    const endReal = (end && end !== '—') ? end : '';
+    const isLate = endReal && endReal < todayISO && pct < 100;
     const isDone = pct >= 100;
-    const status = isDone ? '✅ TERMINÉE' : isLate ? '⚠️ EN RETARD' : (start <= todayISO ? '▶️ EN COURS' : '⏳ À VENIR');
-    return `  - ${label} | ${start} → ${end} | ${pct}% | ${status}`;
-  }).join('\n') : '  (aucune phase avec données dans ce projet — Gantt vide ou non configuré)';
+    const status = isDone ? '✅ TERMINÉE' : isLate ? '⚠️ EN RETARD' : (start && start <= todayISO ? '▶️ EN COURS' : '⏳ À VENIR');
+    // Détail tâches (top 8 pour ne pas saturer le contexte)
+    const taskLines = subT.slice(0, 8).map(t => {
+      const { start: ts, end: te } = getTaskDates(t);
+      const to = state.gantt[t.id] || {};
+      const tp = to._pct != null ? to._pct : (to.pct != null ? Math.round(to.pct*100) : Math.round((t.pct||0)*100));
+      return `      • ${t.label||t.id} | ${ts||'—'} → ${te||'—'} | ${tp}%`;
+    }).join('\n');
+    return `  - ${label} | ${start} → ${end} | ${pct}% | ${status}\n${taskLines ? taskLines + '\n' : ''}`;
+  }).join('') : '  (aucune phase avec données dans ce projet — Gantt vide ou non configuré)';
 
   // ── Actions — uniquement les actions du projet courant ───────────────
   const allActs = (state.customActions || []);
