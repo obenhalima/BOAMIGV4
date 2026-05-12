@@ -283,21 +283,41 @@ async function _processImportFile(file) {
       const wb = new ExcelJS.Workbook();
       await wb.xlsx.load(buf);
       const allSheets = {};
+      // Mots-clés qui signalent une ligne d'en-têtes (planning ou autres onglets)
+      const _HDR_KEYWORDS = ['id','type','libelle','libellé','début','debut','fin','label',
+                             'action','resp','ref','desc','arbitrage','gap'];
       wb.eachSheet(ws => {
         const headers = [];
+        let headerRowIdx = -1;
         const rows = [];
+
+        // ── Détection intelligente de la ligne d'en-têtes (jusqu'à la ligne 15) ──
+        // Utile pour les exports "Export CBS" qui ont 4 lignes de titre avant les headers
         ws.eachRow((row, ri) => {
-          if (ri === 1) { row.values.slice(1).forEach(v => headers.push(_excelCellToStr(v).trim())); }
-          else {
-            const obj = {};
-            // _excelCellToStr gère richText, formules, dates, nombres — pas de String() brut
-            headers.forEach((h, i) => {
-              const raw = row.values[i+1];
-              // Pour les dates ExcelJS (cellules de type date), conserver l'objet Date JS
-              obj[h] = (raw instanceof Date) ? raw : _excelCellToStr(raw);
-            });
-            if (Object.values(obj).some(v => v instanceof Date || String(v).trim())) rows.push(obj);
+          if (ri > 15 || headerRowIdx !== -1) return;
+          const vals = row.values.slice(1).map(v => _excelCellToStr(v).toLowerCase().trim()).filter(Boolean);
+          const score = vals.filter(v => _HDR_KEYWORDS.some(k => v.includes(k))).length;
+          if (score >= 2) {
+            row.values.slice(1).forEach(v => headers.push(_excelCellToStr(v).trim()));
+            headerRowIdx = ri;
           }
+        });
+        // Fallback : ligne 1 si aucune ligne d'en-têtes détectée
+        if (headerRowIdx === -1) {
+          ws.getRow(1).values.slice(1).forEach(v => headers.push(_excelCellToStr(v).trim()));
+          headerRowIdx = 1;
+        }
+
+        ws.eachRow((row, ri) => {
+          if (ri <= headerRowIdx) return; // ignorer les lignes de titre + la ligne d'en-têtes
+          const obj = {};
+          // _excelCellToStr gère richText, formules, dates, nombres — pas de String() brut
+          headers.forEach((h, i) => {
+            const raw = row.values[i+1];
+            // Pour les dates ExcelJS (cellules de type date), conserver l'objet Date JS
+            obj[h] = (raw instanceof Date) ? raw : _excelCellToStr(raw);
+          });
+          if (Object.values(obj).some(v => v instanceof Date || String(v).trim())) rows.push(obj);
         });
         allSheets[ws.name] = { headers, rows };
       });
@@ -344,11 +364,20 @@ function _validateImportOwners() {
   if (old) old.remove();
 
   // Récupérer les lignes de la feuille Planning
+  // Reconnaît : "Planning", "Gantt", "Export CBS", et tout onglet avec colonnes libellé+fin
   let planRows = [];
   if (d.sheets) {
-    const planKey = Object.keys(d.sheets).find(k =>
-      k.toLowerCase().includes('plan') || k.toLowerCase().includes('gantt')
-    );
+    const _hasPlanHeaders = (rows) => {
+      if (!rows || rows.length === 0) return false;
+      const h = Object.keys(rows[0]).map(k => k.toLowerCase());
+      return (h.some(k => k.includes('libel') || k.includes('début') || k.includes('debut') || k === 'id'))
+          && h.some(k => k.includes('fin') || k.includes('end'));
+    };
+    const planKey = Object.keys(d.sheets).find(k => {
+      const kl = k.toLowerCase();
+      return kl.includes('plan') || kl.includes('gantt') || kl.includes('export') || kl.includes('cbs')
+             || _hasPlanHeaders(d.sheets[k].rows);
+    });
     if (planKey) planRows = d.sheets[planKey].rows || [];
   } else if (d.rows) {
     planRows = d.rows;
@@ -1072,9 +1101,11 @@ function _confirmImportData() {
     const hint = (sheetNameHints||'').toLowerCase();
 
     // ── Planning / Gantt ────────────────────────────────────────────────────
-    const hasPlanCols = h.some(k => k.includes('libelle') || k.includes('début') || k.includes('debut'))
-                     && h.some(k => k.includes('fin') || k.includes('end'));
-    if ((hint.includes('planning') || hint.includes('gantt') || hint.includes('plan') || hasPlanCols) && impPlanning) {
+    // Reconnaît : "Planning", "Gantt", "Export CBS", "Export", et tout onglet avec colonnes libellé+fin
+    const hasPlanCols = (h.some(k => k.includes('libel') || k.includes('début') || k.includes('debut') || k === 'id')
+                      && h.some(k => k === 'fin' || k.includes('fin') || k.includes('end')));
+    if ((hint.includes('planning') || hint.includes('gantt') || hint.includes('plan')
+         || hint.includes('export') || hint.includes('cbs') || hasPlanCols) && impPlanning) {
       if (!state.ganttCustom) state.ganttCustom = [];
       const existingIds = new Set(state.ganttCustom.map(t => t.id));
       // ── Passe 1 : lire toutes les lignes et construire les objets ──────────
@@ -1090,13 +1121,18 @@ function _confirmImportData() {
         const start = _normDate(r['debut']||r['Début']||r['début']||r['start']||r['Start']||r['Date début']||'');
         const end   = _normDate(r['fin']||r['Fin']||r['end']||r['End']||r['Date fin']||'');
         const dur   = parseInt(_cellStr(r['duree_j']||r['Durée']||r['duree']||r['durée']||r['Durée (j)']||'0')) || 0;
-        const phaseRef = _cellStr(r['phase']||r['Phase']||'').trim(); // ID ou libellé de la phase parente
-        const resp  = _cellStr(r['responsable']||r['Responsable']||r['resp']||r['Resp']||'').trim();
+        const _phaseRaw = _cellStr(r['phase']||r['Phase']||'').trim();
+        // Si la colonne Phase contient une clé CSS directe (p0..p9) → indice couleur, pas parent hiérarchique
+        // Ex: format "Export CBS" : Phase=p0 signifie "couleur p0", pas "parent p0"
+        const _isCssKey = /^p[0-9]+$/i.test(_phaseRaw);
+        const phaseRef     = _isCssKey ? '' : _phaseRaw;   // parent hiérarchique (vide = phase maître)
+        const phaseCssHint = _isCssKey ? _phaseRaw.toLowerCase() : ''; // clé CSS directe
+        const resp  = _cellStr(r['responsable']||r['Responsable']||r['resp']||r['Resp']||r['Resp.']||r['RESP']||'').trim();
         const participantsRaw = _cellStr(r['participants']||r['Participants']||'').trim();
         const participantsArr = participantsRaw ? participantsRaw.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : [];
         const rag = (_cellStr(r['rag']||r['RAG']||r['Rag']||'')).trim().toUpperCase();
         const commentaire = _cellStr(r['commentaire']||r['Commentaire']||r['comment']||'').trim();
-        const rawPct = parseInt(_cellStr(r['avancement']||r['Avancement']||r['%']||'0')) || 0;
+        const rawPct = parseInt(_cellStr(r['avancement']||r['Avancement']||r['% Avancement']||r['% avancement']||r['%']||'0')) || 0;
         const pct   = Math.min(100, Math.max(0, rawPct)) / 100;
         const predRaw = _cellStr(r['predecesseurs']||r['Prédécesseurs']||r['predecesseurs']||r['pred']||'').trim();
         const pred  = predRaw ? predRaw.split(/[,;]+/).map(s => s.trim()).filter(Boolean) : [];
@@ -1111,7 +1147,7 @@ function _confirmImportData() {
         const id = _cellStr(r['id']||r['ID']||'').trim() || ('gi_' + Date.now() + '_' + Math.random().toString(36).slice(2,5));
         if (existingIds.has(id)) return;
         existingIds.add(id);
-        importedTasks.push({ id, type, label, phaseRef, start: start||null, end: endCalc||null,
+        importedTasks.push({ id, type, label, phaseRef, phaseCssHint, start: start||null, end: endCalc||null,
           dur: dur||null, resp, participants: participantsArr, rag: rag||null, commentaire, pct, pred, domaine, side });
       });
 
@@ -1209,8 +1245,12 @@ function _confirmImportData() {
         }
 
         // ── Tâche / Phase maître / Jalon : va dans ganttCustom ───────────────
+        // phaseCssHint : clé CSS directe (p0..p9) issue du format "Export CBS"
         let phaseCssKey = null;
-        if (t.type === 'phase') {
+        if (t.phaseCssHint) {
+          // Format "Export CBS" : la colonne Phase contenait directement la clé CSS
+          phaseCssKey = t.phaseCssHint;
+        } else if (t.type === 'phase') {
           phaseCssKey = phaseIdToCssKey[t.id] || 'p0';
         } else if (t.phaseRef) {
           // phaseRef peut pointer sur une sous-phase ou une phase maître
