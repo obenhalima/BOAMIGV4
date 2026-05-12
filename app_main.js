@@ -2736,7 +2736,7 @@ function renderGantt() {
 
       // Reference plan delta
       const refDates   = (state.ganttReference && state.ganttReference.isSet && state.ganttReference.dates && state.ganttReference.dates[task.id]) || null;
-      let refStartHtml = '', refEndHtml = '';
+      let refStartHtml = '', refEndHtml = '', refDurHtml = '';
       if (refDates) {
         const deltaS = Math.round((new Date(start) - new Date(refDates.start)) / 86400000);
         const deltaE = Math.round((new Date(end)   - new Date(refDates.end))   / 86400000);
@@ -2750,11 +2750,30 @@ function renderGantt() {
           refEndHtml = '<span class="gantt-ref-date">' + refDates.end + '</span>'
             + '<span class="' + cls + '">' + (deltaE > 0 ? '+' : '') + deltaE + 'j</span>';
         }
+        // Delta durée vs plan de référence
+        const durRef  = Math.max(0, Math.round((new Date(refDates.end) - new Date(refDates.start)) / 86400000));
+        const deltaDur = dur - durRef;
+        if (deltaDur !== 0) {
+          const cls = deltaDur > 0 ? 'gantt-delta-pos' : 'gantt-delta-neg';
+          refDurHtml = '<span class="gantt-ref-date">' + durRef + 'j</span>'
+            + '<span class="' + cls + '">' + (deltaDur > 0 ? '+' : '') + deltaDur + 'j</span>';
+        }
+      }
+
+      // ── Retard : tâche non terminée dont la date de fin est dépassée ──────
+      let retardHtml = '';
+      const _todayStr = TODAY.toISOString().split('T')[0];
+      if (dispPct < 100 && end && end < _todayStr) {
+        const retardDays = Math.round((new Date(_todayStr) - new Date(end)) / 86400000);
+        if (retardDays > 0) {
+          retardHtml = '<span title="Retard : ' + retardDays + ' jour' + (retardDays > 1 ? 's' : '') + ' dépassé' + (retardDays > 1 ? 's' : '') + '"'
+            + ' style="display:inline-block;margin-left:3px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;border-radius:4px;font-size:8px;font-weight:800;padding:1px 4px;white-space:nowrap;line-height:1.5;">⚠️ +' + retardDays + 'j</span>';
+        }
       }
 
       datesCells = '<td><input class="date-input" type="date" value="' + start + '" onchange="updateGanttDate(\'' + task.id + '\',\'start\',this.value)">' + refStartHtml + '</td>'
         + '<td><input class="date-input" type="date" value="' + end + '" onchange="updateGanttDate(\'' + task.id + '\',\'end\',this.value)">' + refEndHtml + '</td>'
-        + '<td class="center"><input type="number" min="0" max="400" value="' + dur + '" onchange="updateGanttDuration(\'' + task.id + '\',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span></td>';
+        + '<td class="center" style="white-space:nowrap;"><input type="number" min="0" max="400" value="' + dur + '" onchange="updateGanttDuration(\'' + task.id + '\',this.value)" style="width:40px;font-size:11px;padding:2px;border:1px solid #ddd;border-radius:3px;text-align:center;"><span style="font-size:9px;color:var(--gray);"> j</span>' + retardHtml + refDurHtml + '</td>';
     }
 
     const isCollapsed   = isPhase && !!state.ganttCollapsed[task.id];
