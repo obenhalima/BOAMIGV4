@@ -1718,8 +1718,25 @@ function _renderGanttPredOptions(filterValue) {
 function _syncGanttPredInput() {
   const container = document.getElementById('new-task-pred-options');
   if (!container) return;
-  const checked = [...container.querySelectorAll('input:checked')].map(i => i.value);
-  document.getElementById('new-task-pred').value = checked.join(', ');
+
+  // IDs actuellement VISIBLES dans la liste filtrée (cochés ou non)
+  const visibleIds  = new Set([...container.querySelectorAll('input[type=checkbox]')].map(i => i.value));
+  // IDs COCHÉS parmi les visibles
+  const checkedIds  = new Set([...container.querySelectorAll('input:checked')].map(i => i.value));
+
+  // Partir de la sélection déjà mémorisée dans le champ caché
+  const existing = new Set(
+    (document.getElementById('new-task-pred')?.value || '').split(',').map(s => s.trim()).filter(Boolean)
+  );
+
+  // Pour les IDs visibles : ajouter les cochés, retirer les décochés
+  // Les IDs non visibles (filtrés hors vue) restent intacts dans la sélection
+  visibleIds.forEach(id => {
+    if (checkedIds.has(id)) existing.add(id);
+    else existing.delete(id);
+  });
+
+  document.getElementById('new-task-pred').value = [...existing].join(', ');
   _renderGanttPredSelection();
 }
 
