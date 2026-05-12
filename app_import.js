@@ -243,7 +243,11 @@ function _excelCellToStr(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'string') return v;
   if (typeof v === 'number') return String(v);
-  if (v instanceof Date) return v.toISOString().split('T')[0];
+  if (v instanceof Date) {
+    // ⚠️ ExcelJS génère des Date en UTC midnight → getUTC* pour éviter le décalage fuseau
+    const _y = v.getUTCFullYear(), _m = String(v.getUTCMonth()+1).padStart(2,'0'), _d = String(v.getUTCDate()).padStart(2,'0');
+    return `${_y}-${_m}-${_d}`;
+  }
   if (Array.isArray(v)) return v.map(i => (i && i.text) ? i.text : '').join('');
   if (typeof v === 'object') {
     if (v.richText) return v.richText.map(i => (i && i.text) ? i.text : '').join('');
@@ -1043,7 +1047,15 @@ function _confirmImportData() {
 
   // ── Mode "remplacer" : vider les données concernées ────────────────────────
   if (replaceMode) {
-    if (impPlanning) state.ganttCustom = [];
+    if (impPlanning) {
+      state.ganttCustom    = [];
+      state.ganttSubphases = [];
+      state.ganttHidden    = [];
+      state.ganttCollapsed = {};
+      // ⚠️ Vider aussi les surcharges de dates (state.gantt) pour que getTaskDates()
+      //    utilise les dates du fichier importé et non les anciennes modifications manuelles
+      state.gantt          = {};
+    }
     if (impActions)  state.customActions = [];
     if (impArb)      state.customArbitrages = [];
     if (impGaps)     state.customGaps = [];
@@ -1057,7 +1069,11 @@ function _confirmImportData() {
     if (v === null || v === undefined) return '';
     if (typeof v === 'string') return v;
     if (typeof v === 'number') return String(v);
-    if (v instanceof Date) return v.toISOString().split('T')[0];
+    if (v instanceof Date) {
+      // Utiliser les méthodes UTC pour éviter le décalage de fuseau horaire
+      const _y = v.getUTCFullYear(), _m = String(v.getUTCMonth()+1).padStart(2,'0'), _d = String(v.getUTCDate()).padStart(2,'0');
+      return `${_y}-${_m}-${_d}`;
+    }
     if (Array.isArray(v)) return v.map(i => (i && i.text) ? i.text : '').join('');
     if (typeof v === 'object') {
       if (v.richText) return v.richText.map(i => (i && i.text) ? i.text : '').join('');
@@ -1072,7 +1088,11 @@ function _confirmImportData() {
   function _normDate(v) {
     if (!v) return '';
     // Gérer d'abord les objets ExcelJS avant String()
-    if (v instanceof Date) return v.toISOString().split('T')[0];
+    // ⚠️ ExcelJS génère des Date en UTC midnight → utiliser getUTC* pour éviter le décalage de fuseau
+    if (v instanceof Date) {
+      const _y = v.getUTCFullYear(), _m = String(v.getUTCMonth()+1).padStart(2,'0'), _d = String(v.getUTCDate()).padStart(2,'0');
+      return `${_y}-${_m}-${_d}`;
+    }
     if (typeof v === 'object') {
       // richText, formula result, etc.
       const extracted = _cellStr(v);
