@@ -1268,6 +1268,12 @@ ORDER BY table_name;</div>
           onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
           ↺ Réinitialiser
         </button>
+        <button onclick="resetGanttColWidths()"
+          style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;"
+          onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'"
+          title="Remettre les colonnes à leur largeur par défaut">
+          ⇔ Colonnes
+        </button>
         <button onclick="clearGantt()"
           style="display:inline-flex;align-items:center;gap:5px;background:rgba(220,38,38,.25);color:#fecaca;border:1px solid rgba(220,38,38,.5);border-radius:7px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;"
           onmouseover="this.style.background='rgba(220,38,38,.45)'" onmouseout="this.style.background='rgba(220,38,38,.25)'"

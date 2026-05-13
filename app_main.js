@@ -2355,6 +2355,120 @@ function _repairMissingSubphases() {
   console.info('[GANTT] _repairMissingSubphases → restauré', rebuilt.length, 'sous-phases :', rebuilt.map(function(s){return s.id;}).join(', '));
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// REDIMENSIONNEMENT DES COLONNES GANTT
+// ═══════════════════════════════════════════════════════════════════════
+
+// Largeurs par défaut (px) pour les 11 colonnes de données (index 0-10)
+// Index 11 = colonne barre Gantt → width:auto, pas de poignée
+const _GANTT_COL_DEF_W = [30, 52, 56, 200, 112, 90, 80, 96, 96, 54, 90];
+let _ganttColWidths = null; // null = pas encore chargé
+
+function _loadGanttColWidths() {
+  if (_ganttColWidths !== null) return;
+  try {
+    const s = localStorage.getItem('boa_gantt_col_widths');
+    _ganttColWidths = s ? JSON.parse(s) : {};
+  } catch(e) { _ganttColWidths = {}; }
+}
+
+function _saveGanttColWidths() {
+  try { localStorage.setItem('boa_gantt_col_widths', JSON.stringify(_ganttColWidths || {})); } catch(e) {}
+}
+
+function _getGanttColW(idx) {
+  _loadGanttColWidths();
+  return (_ganttColWidths[idx] !== undefined) ? _ganttColWidths[idx] : (_GANTT_COL_DEF_W[idx] || 80);
+}
+
+/** Remet toutes les colonnes à leurs largeurs par défaut */
+function resetGanttColWidths() {
+  _ganttColWidths = {};
+  _saveGanttColWidths();
+  renderGantt();
+  showToast('↺ Largeurs de colonnes réinitialisées', 1800);
+}
+
+/** Recalcule les offsets left des colonnes figées (sticky) après redimensionnement */
+function _ganttRecomputeFrozenOffsets(table) {
+  const headers = Array.from(table.querySelectorAll('thead th'));
+  const frozen = [0, 1, 2, 3];
+  const offsets = [];
+  let cumLeft = 0;
+  frozen.forEach(function(ci) {
+    offsets.push(cumLeft);
+    cumLeft += (headers[ci] ? headers[ci].offsetWidth : 0);
+  });
+  table.querySelectorAll('tr').forEach(function(tr) {
+    const cells = tr.querySelectorAll('td, th');
+    frozen.forEach(function(ci, fi) {
+      const cell = cells[ci];
+      if (!cell) return;
+      cell.style.left = offsets[fi] + 'px';
+    });
+  });
+}
+
+/** Injecte le colgroup et les poignées de redimensionnement dans la table Gantt */
+function _initGanttColResize() {
+  const table = document.querySelector('#gantt-render .gantt-table');
+  if (!table) return;
+  _loadGanttColWidths();
+
+  // ── colgroup : contrôle centralisé des largeurs (table-layout:fixed) ────────
+  let cg = table.querySelector('colgroup');
+  if (!cg) { cg = document.createElement('colgroup'); table.insertBefore(cg, table.firstChild); }
+  cg.innerHTML = '';
+  _GANTT_COL_DEF_W.forEach(function(_, idx) {
+    const col = document.createElement('col');
+    col.style.width = _getGanttColW(idx) + 'px';
+    cg.appendChild(col);
+  });
+  // Colonne barre Gantt (dernière) — prend l'espace restant
+  const barCol = document.createElement('col');
+  barCol.style.minWidth = '300px';
+  cg.appendChild(barCol);
+
+  // ── Poignées de drag sur chaque th sauf la barre ─────────────────────────
+  const headers = Array.from(table.querySelectorAll('thead th'));
+  headers.forEach(function(th, idx) {
+    if (idx >= _GANTT_COL_DEF_W.length) return; // pas de poignée sur la barre
+
+    const handle = document.createElement('div');
+    handle.className = 'gantt-resize-handle';
+    handle.title = 'Redimensionner';
+
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      handle.classList.add('active');
+
+      const cols  = cg.querySelectorAll('col');
+      const col   = cols[idx];
+      const startX = e.clientX;
+      const startW = parseInt(col.style.width) || _getGanttColW(idx);
+
+      function onMove(ev) {
+        const newW = Math.max(30, startW + ev.clientX - startX);
+        col.style.width = newW + 'px';
+        _ganttColWidths[idx] = newW;
+        if (idx <= 3) _ganttRecomputeFrozenOffsets(table);
+      }
+
+      function onUp() {
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        _saveGanttColWidths();
+      }
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    th.appendChild(handle);
+  });
+}
+
 function renderGantt() {
   // Bifurcation Vue Master / Vue Détaillée
   if (_ganttViewMode === 'master') { renderGanttMaster(); return; }
@@ -3016,10 +3130,14 @@ function renderGantt() {
     th.style.boxShadow = 'inset 0 -1px 0 #d1d5db';
   });
 
+  // ── Colonne resize : injecter colgroup + poignées ──────────────────────────
+  _initGanttColResize();
+
   // ── Sticky left : 4 premières colonnes figées (N°, Boutons, Type, Libellé) ──
-  // Décalages cumulatifs calés sur les largeurs des th (28 + 48 + 52 + auto)
+  // Décalages calculés dynamiquement depuis les largeurs stockées
   const _FROZEN_IDX = [0, 1, 2, 3];
-  const _FROZEN_LEFT = [0, 28, 76, 128];
+  const _cw0 = _getGanttColW(0), _cw1 = _getGanttColW(1), _cw2 = _getGanttColW(2);
+  const _FROZEN_LEFT = [0, _cw0, _cw0 + _cw1, _cw0 + _cw1 + _cw2];
   ganttRender.querySelectorAll('tr').forEach(tr => {
     const cells  = tr.querySelectorAll('td, th');
     const isHead = !!tr.closest('thead');
@@ -3058,6 +3176,8 @@ function renderGantt() {
   // Mise à jour du statut planning de référence
   updateRefPlanStatus();
 }
+
+
 
 // ── Flèches de dépendance (SVG overlay sur la colonne barre) ─────────────
 function drawDependencyArrows(allTasksRendered) {

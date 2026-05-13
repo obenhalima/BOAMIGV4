@@ -567,11 +567,33 @@ body {
 .gantt-table {
   border-collapse: collapse; width: 100%; min-width: 1050px;
   border-spacing: 0;
+  table-layout: fixed;
 }
-.gantt-table .col-name  { width: 200px; min-width: 200px; }
+.gantt-table .col-name  { width: 200px; min-width: 120px; }
 .gantt-table .col-start,
-.gantt-table .col-end   { width: 96px;  min-width: 96px;  }
-.gantt-table .col-bar   { width: 100%;  min-width: 300px; }
+.gantt-table .col-end   { width: 96px;  min-width: 72px;  }
+.gantt-table .col-bar   { width: auto;  min-width: 300px; }
+/* Overflow caché sur les cellules pour respecter les largeurs fixes */
+.gantt-table td, .gantt-table th { overflow: hidden; }
+.gantt-table td:last-child,
+.gantt-table th:last-child       { overflow: visible; } /* bar : laissé visible */
+
+/* ── Poignée de redimensionnement des colonnes ──────────────────── */
+.gantt-resize-handle {
+  position: absolute;
+  right: -2px; top: 0; bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  user-select: none;
+  z-index: 20;
+  transition: background .15s;
+}
+.gantt-resize-handle:hover,
+.gantt-resize-handle.active {
+  background: rgba(255,255,255,.45);
+  border-right: 2px solid rgba(255,255,255,.75);
+}
 
 /* ── Header ───────────────────────────────────────────────────── */
 .gantt-table th {
