@@ -5618,9 +5618,17 @@ function renderGaps() {
       <option value="">— choisir —</option>
       ${_gapDecs.map(o => `<option value="${o.key}" ${o.key===dec?'selected':''}>${o.icon ? o.icon+' ' : ''}${escHtml(o.label)}</option>`).join('')}
     </select>`;
-    const noteCell = `<textarea onchange="setGapDecision('${g.ref}','note',this.value)"
-      placeholder="Note / commentaire..."
-      style="font-size:10px;padding:3px 6px;border:1px solid #ddd;border-radius:3px;width:100%;box-sizing:border-box;min-height:38px;resize:vertical;font-family:inherit;">${note}</textarea>`;
+    const noteCell = `<textarea oninput="setGapDecision('${g.ref}','note',this.value)"
+      placeholder="Saisir une note…"
+      rows="3"
+      style="font-size:11px;line-height:1.45;padding:5px 7px;border:1px solid #d1d5db;border-radius:4px;
+             width:100%;min-width:160px;box-sizing:border-box;
+             min-height:64px;max-height:160px;resize:vertical;
+             font-family:inherit;color:#1e293b;background:#fafafa;
+             transition:border-color .15s,background .15s;"
+      onfocus="this.style.borderColor='#1565C0';this.style.background='#fff'"
+      onblur="this.style.borderColor='#d1d5db';this.style.background='#fafafa'"
+      >${escHtml(note)}</textarea>`;
 
     const _defaultDecKey = _getGapDefaultKey();
     const _decConfig = dec ? _gapDecByKey(dec) : null;
@@ -5721,6 +5729,7 @@ function openAddGapModal() {
   document.getElementById('gap-modal-phase').value    = 'II';
   document.getElementById('gap-modal-bm').value       = 'BM UEMOA';
   document.getElementById('gap-modal-resp').value     = '';
+  document.getElementById('gap-modal-note').value     = '';
   document.getElementById('gap-modal-isEdit').value   = '';
   _renderItemDomainChips('gap-modal-domains-chips', null);
   document.getElementById('gap-modal').style.display  = 'flex';
@@ -5740,6 +5749,7 @@ function openEditGapModal(ref) {
   document.getElementById('gap-modal-phase').value    = sv.phase || g.phase;
   document.getElementById('gap-modal-bm').value       = sv.bm   || g.bm;
   document.getElementById('gap-modal-resp').value     = g.resp || '';
+  document.getElementById('gap-modal-note').value     = sv.note || '';
   document.getElementById('gap-modal-isEdit').value   = ref;
   _renderItemDomainChips('gap-modal-domains-chips', Array.isArray(g.domains) ? g.domains : null);
   document.getElementById('gap-modal').style.display  = 'flex';
@@ -5756,9 +5766,10 @@ function saveGapModal() {
   const phase     = document.getElementById('gap-modal-phase').value;
   const bm        = document.getElementById('gap-modal-bm').value;
   const resp      = document.getElementById('gap-modal-resp').value.trim();
+  const note      = (document.getElementById('gap-modal-note').value || '').trim();
   if (!desc || !ref) { alert('Référence et description sont requis.'); return; }
 
-  const _GAP_FIELDS = { ref:'Référence', domain:'Domaine', desc:'Description', prio:'Priorité', phase:'Phase', resp:'Responsable', processus:'Processus', bm:'BM' };
+  const _GAP_FIELDS = { ref:'Référence', domain:'Domaine', desc:'Description', prio:'Priorité', phase:'Phase', resp:'Responsable', processus:'Processus', bm:'BM', note:'Note' };
   if (isEdit) {
     const idx = state.customGaps.findIndex(g => g.ref === isEdit);
     if (idx >= 0) {
@@ -5769,7 +5780,7 @@ function saveGapModal() {
       state.customGaps[idx] = { ...state.customGaps[idx], ...newFields };
     }
     if (!state.gaps[ref]) state.gaps[ref] = {};
-    Object.assign(state.gaps[ref], { prio, phase, bm });
+    Object.assign(state.gaps[ref], { prio, phase, bm, note });
   } else {
     const n = gaps.length + state.customGaps.length + 1;
     const newGap = { n, ref, domain, domains, processus, desc, prio, prio_cbs: prio, phase, phase_cbs: phase, bm, resp, _custom: true, changed: false, _history: [] };
