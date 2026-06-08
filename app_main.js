@@ -4350,7 +4350,11 @@ function _actionDateRange(a, allActions) {
 function _isActionOverdue(a, allActions) {
   const saved = state.actions[a.id] || {};
   const status = saved.status || 'todo';
+  // Exclure les actions terminées ou annulées
   if (status === 'done' || status === 'cancelled') return false;
+  // Exclure les actions à 100% d'avancement (effectivement terminées même si statut non mis à jour)
+  const pct = saved.pct !== undefined ? Number(saved.pct) : 0;
+  if (pct >= 100) return false;
   const range = _actionDateRange(a, allActions);
   if (!range.end) return false;
   const end = new Date(range.end + 'T00:00:00');
@@ -11681,7 +11685,8 @@ function _actionMatchesPeriodFilter(action, allActions, period) {
   const weekEnd = new Date(today);
   weekEnd.setDate(weekEnd.getDate() + (6 - ((weekEnd.getDay() + 6) % 7)));
   const inSameMonth = end.getFullYear() === today.getFullYear() && end.getMonth() === today.getMonth();
-  if (p === 'overdue') return end < today;
+  // Utiliser _isActionOverdue pour respecter le statut et le % avancement
+  if (p === 'overdue') return _isActionOverdue(action, allActions);
   if (p === 'today') return end.getTime() === today.getTime();
   if (p === 'this_week') return end >= today && end <= weekEnd;
   if (p === 'next_7_days') {
