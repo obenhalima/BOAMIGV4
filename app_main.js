@@ -4313,6 +4313,8 @@ const _ACT_SIDES = ['BOA', 'CBS', 'CBS + BOA', 'Externe'];
 let _selectedActionIds = new Set();
 let _lastRenderedActionIds = [];
 let _actCalendarCursor = null;
+// ── Tri des colonnes du plan d'action ──────────────────────────────────────
+let _actSortState = { col: null, dir: 'asc' }; // null = tri par défaut (retard + date)
 
 /** Calculate action end date considering dependencies (recursive, cycle-safe) */
 function _calcActionEndDate(actId, allActions, visited) {
@@ -4574,6 +4576,62 @@ function bulkSetActionStatus() {
   showToast('✅ ' + ids.length + ' action(s) passées au statut "' + label + '"', 2500);
 }
 
+/** Bascule le tri sur une colonne (asc → desc → annuler) */
+function _setActSort(col) {
+  if (_actSortState.col === col) {
+    if (_actSortState.dir === 'asc') {
+      _actSortState.dir = 'desc';
+    } else {
+      _actSortState.col = null; // 3e clic : retour tri par défaut
+      _actSortState.dir = 'asc';
+    }
+  } else {
+    _actSortState.col = col;
+    _actSortState.dir = 'asc';
+  }
+  renderActions();
+}
+
+/** Applique le tri courant sur un tableau d'actions */
+function _applyActSort(items, allActions) {
+  if (!_actSortState.col) return items;
+  const dir = _actSortState.dir === 'asc' ? 1 : -1;
+  return [...items].sort(function(a, b) {
+    const sa = state.actions[a.id] || {};
+    const sb = state.actions[b.id] || {};
+    const ra = _actionDateRange(a, allActions);
+    const rb = _actionDateRange(b, allActions);
+    let va, vb;
+    switch (_actSortState.col) {
+      case 'ref':    va = a.id || '';              vb = b.id || '';             break;
+      case 'action': va = (a.action || '').toLowerCase(); vb = (b.action || '').toLowerCase(); break;
+      case 'resp':   va = (a.resp || '').toLowerCase();   vb = (b.resp || '').toLowerCase();   break;
+      case 'side':   va = (a.side || sa.side || '').toLowerCase(); vb = (b.side || sb.side || '').toLowerCase(); break;
+      case 'start':  va = ra.start || '';          vb = rb.start || '';         break;
+      case 'end':    va = ra.end   || '';          vb = rb.end   || '';         break;
+      case 'status': va = sa.status || 'todo';     vb = sb.status || 'todo';    break;
+      case 'pct':    va = Number(sa.pct || 0);     vb = Number(sb.pct || 0);    break;
+      default: return 0;
+    }
+    if (typeof va === 'number') return dir * (va - vb);
+    return dir * va.localeCompare(vb, 'fr');
+  });
+}
+
+/** Génère un <th> cliquable avec icône de tri */
+function _actSortTh(col, label, style) {
+  const isActive = _actSortState.col === col;
+  const icon = isActive
+    ? (_actSortState.dir === 'asc' ? ' ↑' : ' ↓')
+    : ' <span style="opacity:.28;font-size:9px;">⇅</span>';
+  return `<th onclick="_setActSort('${col}')"
+    title="Trier par ${label}"
+    style="cursor:pointer;user-select:none;white-space:nowrap;
+           ${isActive ? 'color:#1565C0;background:#e8f0fe;' : ''}
+           ${style || ''}">
+    ${label}${icon}</th>`;
+}
+
 function renderActions() {
   const catF    = (document.getElementById('act-filter-cat')    || {}).value || '';
   const domF    = (document.getElementById('act-filter-domain') || {}).value || '';
@@ -4758,19 +4816,19 @@ function renderActions() {
         <table class="data-table" style="margin-bottom:4px;">
           <thead><tr>
             <th style="width:34px;text-align:center;">✓</th>
-            <th style="width:45px;">Réf.</th>
-            <th>Action / Décision</th>
-            <th style="width:90px;text-align:center;">Responsable</th>
-            <th style="width:75px;text-align:center;">Côté</th>
-            <th style="width:75px;text-align:center;">Date début</th>
-            <th style="width:90px;text-align:center;">Date fin</th>
+            ${_actSortTh('ref',    'Réf.',        'width:45px;')}
+            ${_actSortTh('action','Action / Décision', '')}
+            ${_actSortTh('resp',  'Responsable', 'width:90px;text-align:center;')}
+            ${_actSortTh('side',  'Côté',        'width:75px;text-align:center;')}
+            ${_actSortTh('start', 'Début',       'width:75px;text-align:center;')}
+            ${_actSortTh('end',   'Échéance',    'width:90px;text-align:center;')}
             <th style="width:80px;text-align:center;">Dépendances</th>
-            <th style="width:110px;text-align:center;">Statut</th>
-            <th style="width:110px;">Avancement</th>
+            ${_actSortTh('status','Statut',      'width:110px;text-align:center;')}
+            ${_actSortTh('pct',  'Avancement',  'width:110px;')}
             <th style="width:160px;">Commentaire</th>
             <th style="width:70px;text-align:center;">Actions</th>
           </tr></thead>
-          <tbody>${items.map(_renderActRow).join('')}</tbody>
+          <tbody>${_applyActSort(items, allActions).map(_renderActRow).join('')}</tbody>
         </table>
       </div>
     </div>`;

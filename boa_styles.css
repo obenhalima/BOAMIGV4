@@ -221,6 +221,8 @@ body {
   letter-spacing: .3px;
 }
 .data-table th.center, .data-table td.center { text-align: center; }
+.data-table th[onclick] { transition: background .15s, color .15s; }
+.data-table th[onclick]:hover { background: #1a3a6e; color: #93c5fd; }
 .data-table td {
   padding: 8px 10px;
   border-bottom: 1px solid #EEEFF2;
