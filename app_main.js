@@ -5382,11 +5382,15 @@ function openEditActionModal(id) {
   const _rawDD = saved.dateDebut || a.dateDebut || '';
   document.getElementById('action-modal-dateDebut').value  = _rawDD ? String(_rawDD).slice(0, 10) : '';
   document.getElementById('action-modal-duree').value      = saved.duree != null ? saved.duree : (a.duree || '');
-  // dateFin : calculée depuis dateDebut+duree si non stockée explicitement
-  const _allActsEdit = state.customActions || [];
-  const _calcFin = _calcActionEndDate(id, _allActsEdit);
-  const _rawFin  = _calcFin || saved.dateFin || a.dateFin || '';
-  document.getElementById('action-modal-dateFin').value    = _rawFin ? String(_rawFin).slice(0, 10) : '';
+  // dateFin : utiliser la valeur stockée explicitement; si absente, calculer depuis dateDebut+duree
+  const _rawFin = saved.dateFin || a.dateFin || '';
+  if (_rawFin) {
+    document.getElementById('action-modal-dateFin').value = String(_rawFin).slice(0, 10);
+  } else {
+    const _allActsEdit = state.customActions || [];
+    const _calcFin = _calcActionEndDate(id, _allActsEdit);
+    document.getElementById('action-modal-dateFin').value = _calcFin ? String(_calcFin).slice(0, 10) : '';
+  }
   document.getElementById('action-modal-status').value     = saved.status    || 'todo';
   document.getElementById('action-modal-participant-input').value = '';
   _setActionParticipants(_actionParticipants(a));
@@ -5401,6 +5405,38 @@ function openEditActionModal(id) {
   _renderOwnerQuickPick('action-quickpick', '_actionQuickPick', 'action-modal-participants');
   document.getElementById('action-modal').style.display = 'flex';
   _loadSystemUsersDatalist();
+}
+
+function _actDateSync(changed) {
+  const debutEl = document.getElementById('action-modal-dateDebut');
+  const finEl   = document.getElementById('action-modal-dateFin');
+  const dureeEl = document.getElementById('action-modal-duree');
+  if (!debutEl || !finEl || !dureeEl) return;
+  const debut = debutEl.value;
+  const fin   = finEl.value;
+  const duree = parseInt(dureeEl.value);
+  if (changed === 'debut') {
+    // Date début changée : si date fin existe, recalculer durée; sinon recalculer date fin
+    if (fin && debut) {
+      const d0 = new Date(debut + 'T00:00:00'), d1 = new Date(fin + 'T00:00:00');
+      if (!isNaN(d0) && !isNaN(d1)) dureeEl.value = Math.max(0, Math.round((d1 - d0) / 86400000));
+    } else if (debut && !isNaN(duree) && duree >= 0) {
+      const d0 = new Date(debut + 'T00:00:00'); d0.setDate(d0.getDate() + duree);
+      finEl.value = d0.toISOString().split('T')[0];
+    }
+  } else if (changed === 'fin') {
+    // Date fin changée : recalculer durée
+    if (debut && fin) {
+      const d0 = new Date(debut + 'T00:00:00'), d1 = new Date(fin + 'T00:00:00');
+      if (!isNaN(d0) && !isNaN(d1)) dureeEl.value = Math.max(0, Math.round((d1 - d0) / 86400000));
+    }
+  } else if (changed === 'duree') {
+    // Durée changée : recalculer date fin = date début + durée
+    if (debut && !isNaN(duree) && duree >= 0) {
+      const d0 = new Date(debut + 'T00:00:00'); d0.setDate(d0.getDate() + duree);
+      finEl.value = d0.toISOString().split('T')[0];
+    }
+  }
 }
 
 function _toggleActTechArea() {

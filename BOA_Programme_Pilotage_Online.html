@@ -2690,17 +2690,17 @@ ORDER BY table_name;</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
         <div>
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Date de début</label>
-          <input id="action-modal-dateDebut" type="date" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+          <input id="action-modal-dateDebut" type="date" onchange="_actDateSync('debut')" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
         </div>
         <div>
           <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Durée (jours) <span style="color:#aaa;font-weight:400">optionnel</span></label>
-          <input id="action-modal-duree" type="number" min="0" placeholder="ex: 30" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+          <input id="action-modal-duree" type="number" min="0" placeholder="ex: 30" onchange="_actDateSync('duree')" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
         </div>
       </div>
 
       <div>
         <label style="font-size:11px;font-weight:700;display:block;margin-bottom:4px;">Date fin</label>
-        <input id="action-modal-dateFin" type="date" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <input id="action-modal-dateFin" type="date" onchange="_actDateSync('fin')" style="width:100%;padding:7px 10px;border:1px solid #ccc;border-radius:4px;font-size:12px;box-sizing:border-box;">
       </div>
 
       <!-- Row 6: Dépendances (repliable) -->
