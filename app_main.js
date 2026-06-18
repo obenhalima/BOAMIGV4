@@ -4345,7 +4345,9 @@ function _calcActionEndDate(actId, allActions, visited) {
 function _actionDateRange(a, allActions) {
   const saved = state.actions[a.id] || {};
   const start = saved.dateDebut || a.dateDebut || '';
-  const end = _calcActionEndDate(a.id, allActions) || saved.dateFin || a.dateFin || '';
+  // Priorité : dateFin stockée explicitement; sinon calculée depuis dateDebut+duree+dépendances
+  const storedFin = saved.dateFin || a.dateFin || '';
+  const end = storedFin || _calcActionEndDate(a.id, allActions) || '';
   return { start, end };
 }
 
@@ -5524,10 +5526,15 @@ async function saveActionModal() {
   const resp     = document.getElementById('action-modal-resp').value.trim();
   const side     = document.getElementById('action-modal-side').value;
   const dateDebut= document.getElementById('action-modal-dateDebut').value;
-  const duree    = parseInt(document.getElementById('action-modal-duree').value)||0;
+  const dateFin  = document.getElementById('action-modal-dateFin').value;
+  // Recalculer duree depuis dateDebut+dateFin pour garantir la cohérence (priorité à dateFin)
+  let duree = parseInt(document.getElementById('action-modal-duree').value) || 0;
+  if (dateDebut && dateFin) {
+    const _d0 = new Date(dateDebut + 'T00:00:00'), _d1 = new Date(dateFin + 'T00:00:00');
+    if (!isNaN(_d0) && !isNaN(_d1)) duree = Math.max(0, Math.round((_d1 - _d0) / 86400000));
+  }
   const source   = '';
   const status   = document.getElementById('action-modal-status').value;
-  const dateFin  = document.getElementById('action-modal-dateFin').value;
   const participants = _normalizeActionMultiValueInput(document.getElementById('action-modal-participants').value, /[,;\n]/);
   const commentaire = (_actionModalComments.length ? _actionModalComments[_actionModalComments.length - 1].text : document.getElementById('action-modal-comment').value.trim());
   const documents = _normalizeActionMultiValueInput(document.getElementById('action-modal-documents').value, /\r?\n/);
