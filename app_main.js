@@ -5417,28 +5417,32 @@ function _actDateSync(changed) {
   const debut = debutEl.value;
   const fin   = finEl.value;
   const duree = parseInt(dureeEl.value);
+  // Helper : formatage local YYYY-MM-DD sans décalage UTC
+  function _toLocalDateStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
   if (changed === 'debut') {
-    // Date début changée : si date fin existe, recalculer durée; sinon recalculer date fin
-    if (fin && debut) {
-      const d0 = new Date(debut + 'T00:00:00'), d1 = new Date(fin + 'T00:00:00');
-      if (!isNaN(d0) && !isNaN(d1)) dureeEl.value = Math.max(0, Math.round((d1 - d0) / 86400000));
-    } else if (debut && !isNaN(duree) && duree >= 0) {
-      const d0 = new Date(debut + 'T00:00:00'); d0.setDate(d0.getDate() + duree);
-      finEl.value = d0.toISOString().split('T')[0];
-    }
-  } else if (changed === 'fin') {
-    // Date fin changée : recalculer durée
-    if (debut && fin) {
-      const d0 = new Date(debut + 'T00:00:00'), d1 = new Date(fin + 'T00:00:00');
-      if (!isNaN(d0) && !isNaN(d1)) dureeEl.value = Math.max(0, Math.round((d1 - d0) / 86400000));
+    if (debut) {
+      const d0 = new Date(debut + 'T00:00:00');
+      if (fin) {
+        // fin existe : recalculer duree
+        const d1 = new Date(fin + 'T00:00:00');
+        if (!isNaN(d0) && !isNaN(d1)) dureeEl.value = Math.max(0, Math.round((d1 - d0) / 86400000));
+      } else if (!isNaN(duree) && duree > 0) {
+        // fin absente, duree existe : recalculer fin
+        const d1 = new Date(d0); d1.setDate(d1.getDate() + duree);
+        finEl.value = _toLocalDateStr(d1);
+      }
     }
   } else if (changed === 'duree') {
     // Durée changée : recalculer date fin = date début + durée
     if (debut && !isNaN(duree) && duree >= 0) {
-      const d0 = new Date(debut + 'T00:00:00'); d0.setDate(d0.getDate() + duree);
-      finEl.value = d0.toISOString().split('T')[0];
+      const d0 = new Date(debut + 'T00:00:00');
+      const d1 = new Date(d0); d1.setDate(d1.getDate() + duree);
+      finEl.value = _toLocalDateStr(d1);
     }
   }
+  // 'fin' changée : on ne touche PAS à duree ici — saveActionModal le recalcule au save
 }
 
 function _toggleActTechArea() {
