@@ -6753,15 +6753,43 @@ function _cbsGetActionsData() {
 
 /* ── GAPs ───────────────────────────────────────────────────────────── */
 function _cbsGetGapsData() {
-  const headers = ['N°','GAP ID','Domaine','Processus','Description','Priorité CBS','Priorité BOA','Phase BOA','Bank Model','Responsable','Statut CBS','Décision BOA','Notes','Commentaire'];
-  const rows = gaps.map(g => {
+  const allGaps = _projUsesCBS() ? [...gaps, ...(state.customGaps||[])] : [...(state.customGaps||[])];
+  const decLabels = {}; _getGapDecisions().forEach(d => { decLabels[d.key] = (d.icon ? d.icon + ' ' : '') + d.label; });
+  const headers = [
+    'N°', 'GAP ID', 'Domaine', 'Processus', 'Description',
+    'Priorité Réf.', 'Priorité BOA (actuelle)',
+    'Phase Réf.', 'Phase BOA (actuelle)',
+    'Bank Model Réf.', 'Bank Model BOA (actuel)',
+    'Responsable', 'Statut CBS', 'Modifié vs CBS',
+    'Décision BOA', 'Notes / Commentaires', 'Commentaire CBS'
+  ];
+  const rows = allGaps.map((g, i) => {
     const s = state.gaps[g.ref] || {};
-    return [g.n, g.ref, g.domain, g.processus, g.desc,
-      g.prio_cbs, g.prio, g.phase, g.bm, g.resp, g.statut,
-      s.decision || '', s.note || '', g.commentaire || ''];
+    const prioCur  = s.prio  || g.prio  || '';
+    const phaseCur = s.phase || g.phase || '';
+    const bmCur    = s.bm    || g.bm    || '';
+    const decLabel = s.decision ? (decLabels[s.decision] || s.decision) : '';
+    return [
+      g.n || i + 1,
+      g.ref,
+      g.domain   || '',
+      g.processus|| '',
+      g.desc     || '',
+      g.prio     || '',   // Priorité référence CBS
+      prioCur,            // Priorité BOA actuelle
+      g.phase    || '',   // Phase référence CBS
+      phaseCur,           // Phase BOA actuelle
+      g.bm       || '',   // BM référence CBS
+      bmCur,              // BM BOA actuel
+      g.resp     || '',
+      g.statut   || '',
+      g.changed  ? 'Oui' : 'Non',
+      decLabel,
+      s.note     || '',
+      g.commentaire || ''
+    ];
   });
-  const _gapCount = gaps.length + (state.customGaps||[]).length;
-  return { title: 'Matrice des ' + _gapCount + ' GAPs — Arbitrage & Suivi', headers, rows };
+  return { title: 'Matrice des ' + allGaps.length + ' GAPs — Arbitrage & Suivi', headers, rows };
 }
 
 /* ── Risques ────────────────────────────────────────────────────────── */
