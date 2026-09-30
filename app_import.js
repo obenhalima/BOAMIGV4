@@ -2079,6 +2079,9 @@ function _renderProgrammeProjectCards() {
                 onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='none'">✏️ Renommer</button>
               <button onclick="archiveProject('${proj.id}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#E65100;"
                 onmouseover="this.style.background='#fff7ed'" onmouseout="this.style.background='none'">📦 Archiver</button>
+              <div style="height:1px;background:#f1f5f9;margin:2px 0;"></div>
+              <button onclick="saveProjectAsTemplate('${proj.id}')" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;cursor:pointer;font-size:12px;color:#6B21A8;"
+                onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='none'">💾 Sauvegarder comme template</button>
             </div>
           </div>` : ''}
           ${isAdmin && archived ? `<div onclick="event.stopPropagation()" style="position:relative;">
@@ -2917,6 +2920,7 @@ function renderProgrammeAlerts() {
 // ─────────────────────────────────────────────────────────────────────────────
 // ─── État interne du wizard de création ──────────────────────────────────────
 let _npActiveTemplate = 'blank';
+let _npSavedTemplateId = null; // ID du template référence sélectionné
 
 function openNewProjectModal() {
   const isAdmin = !currentSession || currentSession.role === 'admin';
@@ -2928,7 +2932,8 @@ function openNewProjectModal() {
   document.getElementById('np-color').value = '#1565C0';
   document.getElementById('np-start').value = new Date().toISOString().split('T')[0];
   document.getElementById('np-end').value   = '';
-  _npActiveTemplate = 'blank';
+  _npActiveTemplate  = 'blank';
+  _npSavedTemplateId = null;
 
   // Pastilles couleur
   const colorsDiv = document.getElementById('np-colors');
@@ -2941,7 +2946,7 @@ function openNewProjectModal() {
     ).join('');
   }
 
-  // Templates
+  // Templates modules
   const tplDiv = document.getElementById('np-templates');
   if (tplDiv) {
     tplDiv.innerHTML = _PROJ_TEMPLATES.map(t =>
@@ -2958,6 +2963,9 @@ function openNewProjectModal() {
 
   // Modules (applique le template par défaut)
   _npRenderModules(_PROJ_TEMPLATES[0].modules);
+
+  // Charger les templates de référence depuis Supabase
+  _npLoadSavedTemplates();
 
   document.getElementById('new-project-modal').classList.remove('hidden');
   setTimeout(() => document.getElementById('np-name').focus(), 100);
@@ -3069,9 +3077,28 @@ function confirmCreateProject() {
   state.programme.projects.unshift(newProj); // Insérer en premier
 
   if (!state.projectData) state.projectData = {};
-  state.projectData[id] = _defaultProjectState();
+  // Appliquer les données du template de référence si sélectionné
+  const baseData = _defaultProjectState();
+  if (_npSavedTemplateId) {
+    const tplData = _npGetSavedTemplateData(_npSavedTemplateId);
+    if (tplData) {
+      if (tplData.ganttCustom)    baseData.ganttCustom    = JSON.parse(JSON.stringify(tplData.ganttCustom));
+      if (tplData.ganttSubphases) baseData.ganttSubphases = JSON.parse(JSON.stringify(tplData.ganttSubphases));
+      if (tplData.customActions)  baseData.customActions  = JSON.parse(JSON.stringify(
+        tplData.customActions.map(a => ({ ...a, statut:'en_cours', rag:'A', pct:0, comment:'' }))
+      ));
+      if (tplData.customGaps)     baseData.customGaps     = JSON.parse(JSON.stringify(
+        tplData.customGaps.map(g => ({ ...g, decision:'', note:'' }))
+      ));
+      if (tplData.customArbitrages) baseData.customArbitrages = JSON.parse(JSON.stringify(
+        tplData.customArbitrages.map(a => ({ ...a, decision:'en_cours', commentaire:'' }))
+      ));
+    }
+  }
+  state.projectData[id] = baseData;
 
   document.getElementById('new-project-modal').classList.add('hidden');
+  _npSavedTemplateId = null;
   _saveProgrammeData('Création projet', name);
   if (typeof DB !== 'undefined' && typeof DB.saveProject === 'function') {
     DB.saveProject(newProj).catch(e => console.warn('[projects] création SQL:', e.message || e));
@@ -3084,6 +3111,218 @@ function confirmCreateProject() {
       enterProject(id);
     }
   }, 200);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEMPLATES DE RÉFÉRENCE (Environnements de référence réutilisables)
+// Stockés dans la table Supabase `project_templates`
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _npSavedTemplatesList = []; // cache en mémoire pour la session
+
+/** Extrait la structure d'un projet (sans les données de suivi) */
+function _extractTemplateData(projId) {
+  const pd = (state.projectData || {})[projId] || {};
+  const proj = (state.programme.projects || []).find(p => p.id === projId) || {};
+  return {
+    enabledModules:    proj.enabledModules  || null,
+    ganttCustom:       JSON.parse(JSON.stringify(pd.ganttCustom    || [])),
+    ganttSubphases:    JSON.parse(JSON.stringify(pd.ganttSubphases || [])),
+    customActions:     JSON.parse(JSON.stringify(pd.customActions  || [])),
+    customGaps:        JSON.parse(JSON.stringify(pd.customGaps     || [])),
+    customArbitrages:  JSON.parse(JSON.stringify(pd.customArbitrages || [])),
+  };
+}
+
+/** Retourne les données d'un template depuis le cache */
+function _npGetSavedTemplateData(tplId) {
+  const t = _npSavedTemplatesList.find(t => t.id === tplId);
+  return t ? t.template_data : null;
+}
+
+/** Sauvegarde le projet courant comme template de référence dans Supabase */
+async function saveProjectAsTemplate(projId) {
+  const isAdmin = !currentSession || currentSession.role === 'admin';
+  if (!isAdmin) { showToast('⛔ Seul un administrateur peut créer un template.', 3000); return; }
+
+  const proj = (state.programme.projects || []).find(p => p.id === (projId || state.currentProjectId));
+  if (!proj) { showToast('⚠️ Projet introuvable.', 2000); return; }
+
+  const name = prompt('Nom du template de référence :', proj.name + ' — Template');
+  if (!name || !name.trim()) return;
+
+  const desc = prompt('Description (optionnel) :', proj.description || '') || '';
+  const icon = prompt('Icône (emoji, optionnel) :', '📋') || '📋';
+
+  const templateData = _extractTemplateData(proj.id);
+
+  const tplCount = {
+    phases:    templateData.ganttCustom.length,
+    actions:   templateData.customActions.length,
+    gaps:      templateData.customGaps.length,
+    arbs:      templateData.customArbitrages.length,
+    subphases: templateData.ganttSubphases.length,
+  };
+
+  if (!confirm(
+    'Sauvegarder comme template de référence ?\n\n' +
+    '📋 ' + name.trim() + '\n\n' +
+    'Contenu capturé :\n' +
+    '• ' + tplCount.phases    + ' tâche(s) Gantt\n' +
+    '• ' + tplCount.subphases + ' sous-phase(s)\n' +
+    '• ' + tplCount.actions   + ' action(s)\n' +
+    '• ' + tplCount.gaps      + ' GAP(s)\n' +
+    '• ' + tplCount.arbs      + ' arbitrage(s)\n\n' +
+    'Les données de suivi (statuts, décisions, notes, risques) ne sont pas incluses.'
+  )) return;
+
+  // Sauvegarder en Supabase si disponible, sinon localStorage
+  const row = {
+    name:          name.trim(),
+    description:   desc.trim(),
+    icon:          icon.trim() || '📋',
+    created_by:    currentSession ? (currentSession.displayName || currentSession.username) : 'Utilisateur',
+    template_data: templateData,
+  };
+
+  let saved = false;
+  if (API) {
+    try {
+      const { data, error } = await API.from('project_templates').insert(row).select('id').single();
+      if (!error && data) {
+        row.id = data.id;
+        saved = true;
+      } else {
+        console.warn('[templates] save error:', error?.message);
+      }
+    } catch(e) { console.warn('[templates] save exception:', e.message); }
+  }
+
+  // Fallback localStorage
+  if (!saved) {
+    row.id = 'tpl_' + Date.now();
+    row.created_at = new Date().toISOString();
+    const local = _ptGetLocal();
+    local.push(row);
+    _ptSetLocal(local);
+  }
+
+  // Mettre à jour le cache
+  if (!row.created_at) row.created_at = new Date().toISOString();
+  _npSavedTemplatesList.unshift(row);
+
+  showToast('✅ Template "' + row.name + '" sauvegardé.', 3500);
+  logAudit('Template créé', row.name);
+}
+
+/** Charge les templates depuis Supabase (ou localStorage en fallback) */
+async function _npLoadSavedTemplates() {
+  const container = document.getElementById('np-saved-templates');
+  if (!container) return;
+
+  container.innerHTML = '<div style="font-size:11px;color:#94a3b8;padding:8px;">Chargement…</div>';
+
+  let templates = [];
+  if (API) {
+    try {
+      const { data, error } = await API.from('project_templates')
+        .select('*').order('created_at', { ascending: false });
+      if (!error && data) templates = data;
+    } catch(e) { console.warn('[templates] load:', e.message); }
+  }
+
+  // Compléter avec localStorage (templates offline)
+  const local = _ptGetLocal();
+  local.forEach(lt => {
+    if (!templates.find(t => t.id === lt.id)) templates.push(lt);
+  });
+
+  _npSavedTemplatesList = templates;
+  _npRenderSavedTemplates(templates);
+}
+
+function _npRenderSavedTemplates(templates) {
+  const container = document.getElementById('np-saved-templates');
+  if (!container) return;
+
+  if (templates.length === 0) {
+    container.innerHTML = `<div style="text-align:center;padding:16px 10px;background:#f8fafc;border:2px dashed #e2e8f0;border-radius:10px;">
+      <div style="font-size:22px;margin-bottom:6px;">📂</div>
+      <div style="font-size:12px;color:#64748b;">Aucun template enregistré.<br>
+      Depuis une carte projet, utilisez ⋯ → <b>💾 Sauvegarder comme template</b>.</div>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML = templates.map(t => {
+    const td = t.template_data || {};
+    const n  = (td.ganttCustom||[]).length + (td.customActions||[]).length + (td.customGaps||[]).length;
+    const dt = t.created_at ? new Date(t.created_at).toLocaleDateString('fr-FR') : '';
+    const sel = t.id === _npSavedTemplateId;
+    return `<div id="nptpl-${t.id}" onclick="_npSelectSavedTemplate('${t.id}')"
+      style="border:2px solid ${sel?'#6B21A8':'#e2e8f0'};border-radius:10px;padding:10px 12px;
+        cursor:pointer;background:${sel?'#f3e8ff':'white'};transition:all .15s;position:relative;">
+      <div style="display:flex;align-items:flex-start;gap:8px;">
+        <span style="font-size:20px;flex-shrink:0;">${_esc(t.icon||'📋')}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(t.name)}</div>
+          ${t.description ? `<div style="font-size:10px;color:#64748b;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${_esc(t.description)}</div>` : ''}
+          <div style="font-size:10px;color:#94a3b8;margin-top:4px;">${n} élément${n>1?'s':''} · ${dt}</div>
+        </div>
+        <button onclick="event.stopPropagation();deleteProjectTemplate('${t.id}')"
+          title="Supprimer ce template"
+          style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:14px;padding:0;line-height:1;flex-shrink:0;"
+          onmouseover="this.style.color='#E63329'" onmouseout="this.style.color='#94a3b8'">✕</button>
+      </div>
+      ${sel ? '<div style="position:absolute;bottom:6px;right:8px;font-size:10px;color:#6B21A8;font-weight:700;">✓ Sélectionné</div>' : ''}
+    </div>`;
+  }).join('');
+}
+
+function _npSelectSavedTemplate(tplId) {
+  if (_npSavedTemplateId === tplId) {
+    // Désélectionner si re-clic
+    _npSavedTemplateId = null;
+  } else {
+    _npSavedTemplateId = tplId;
+    // Appliquer les modules du template si disponibles
+    const td = _npGetSavedTemplateData(tplId);
+    if (td && td.enabledModules) {
+      _npRenderModules(td.enabledModules);
+      _npActiveTemplate = 'custom';
+    }
+  }
+  _npRenderSavedTemplates(_npSavedTemplatesList);
+}
+
+/** Supprime un template de référence */
+async function deleteProjectTemplate(tplId) {
+  const t = _npSavedTemplatesList.find(t => t.id === tplId);
+  if (!t) return;
+  if (!confirm('Supprimer le template "' + t.name + '" ?\nCette action est irréversible.')) return;
+
+  if (API && !tplId.startsWith('tpl_')) {
+    try {
+      await API.from('project_templates').delete().eq('id', tplId);
+    } catch(e) { console.warn('[templates] delete:', e.message); }
+  }
+
+  // localStorage fallback
+  const local = _ptGetLocal().filter(lt => lt.id !== tplId);
+  _ptSetLocal(local);
+
+  _npSavedTemplatesList = _npSavedTemplatesList.filter(t => t.id !== tplId);
+  if (_npSavedTemplateId === tplId) _npSavedTemplateId = null;
+  _npRenderSavedTemplates(_npSavedTemplatesList);
+  showToast('🗑️ Template supprimé.', 2500);
+}
+
+/** Helpers localStorage pour templates offline */
+function _ptGetLocal() {
+  try { return JSON.parse(localStorage.getItem('boa_project_templates') || '[]'); } catch(e) { return []; }
+}
+function _ptSetLocal(arr) {
+  try { localStorage.setItem('boa_project_templates', JSON.stringify(arr)); } catch(e) {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
